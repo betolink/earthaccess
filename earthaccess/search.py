@@ -7,7 +7,7 @@ from cmr import CollectionQuery, GranuleQuery  # type: ignore
 from requests import exceptions, session
 
 from .auth import Auth
-from .daac import find_provider
+from .daac import find_provider, find_provider_by_shortname
 from .results import DataCollection, DataGranule
 
 
@@ -429,7 +429,12 @@ class DataGranules(GranuleQuery):
         if not isinstance(cloud_hosted, bool):
             raise TypeError("cloud_hosted must be of type bool")
 
-        self.params["cloud_hosted"] = cloud_hosted
+        if "short_name" in self.params:
+            provider = find_provider_by_shortname(
+                self.params["short_name"], cloud_hosted
+            )
+            if provider is not None:
+                self.params["provider"] = provider
         return self
 
     def granule_name(self, granule_name: str) -> Type[CollectionQuery]:
@@ -551,7 +556,6 @@ class DataGranules(GranuleQuery):
         results: List = []
         page = 1
         headers: Dict[str, str] = {}
-
         while len(results) < limit:
             params = {"page_size": page_size}
             # TODO: should be in a logger
