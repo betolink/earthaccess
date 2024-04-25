@@ -33,12 +33,12 @@ classifiers = [
 # `ci/environment-mindeps.yaml` conda environment. When updating minimum dependencies
 # here, make sure to also update `ci/environment-mindeps.yaml`.
 [tool.poetry.dependencies]
-python = ">=3.8,<4.0"
+python = ">=3.9,<4.0"
 python-cmr = ">=0.9.0"
 pqdm = ">=0.1"
 requests = ">=2.26"
-s3fs = ">=2022.11"
-fsspec = ">=2022.11"
+# s3fs = ">=2023.11"
+fsspec = {extras=["s3fs"], git = "https://github.com/fsspec/filesystem_spec.git"}
 tinynetrc = "^1.3.1"
 multimethod = ">=1.8"
 python-dateutil = ">=2.8.2"
@@ -77,14 +77,21 @@ widgetsnbextension = ">=3.6.0"
 xarray = ">=2023.01"
 matplotlib = ">=3.3"
 h5netcdf = ">=0.11"
-dask = ">=2022.1"
+dask = {extras=["complete"], version = ">=2022.1"}
+dask-labextension = ">=0.7.0"
+geoviews = ">=1.10.1"
+bokeh = ">=3.3"
 pyproj = ">=3.5.0"
 bump-my-version = ">=0.10.0"
 vcrpy = ">=6.0.1"
 
+[tool.poetry.group.dev.dependencies]
+distributed = "^2024.4.2"
+graphviz = "^0.20.3"
+
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["poetry-core>=1.0.0", "poetry-dynamic-versioning>=1.0.0,<2.0.0"]
+build-backend = "poetry_dynamic_versioning.backend"
 
 [tool.pytest]
 filterwarnings = ["error::UserWarning"]
@@ -133,6 +140,9 @@ combine-as-imports = true
 current_version = "0.9.0"
 commit = false
 tag = false
+
+[tool.poetry-dynamic-versioning]
+enable = true
 
 [[tool.bumpversion.files]]
 filename = "pyproject.toml"

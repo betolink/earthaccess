@@ -8,6 +8,8 @@ from pickle import dumps, loads
 from typing import Any, Dict, List, Mapping, Optional, Tuple, Union
 from uuid import uuid4
 
+import logging
+
 import fsspec
 import requests
 import s3fs
@@ -20,6 +22,8 @@ from .auth import Auth
 from .daac import DAAC_TEST_URLS, find_provider
 from .results import DataGranule
 from .search import DataCollections
+
+logger = logging.getLogger(__name__)
 
 
 class EarthAccessFile(fsspec.spec.AbstractBufferedFile):
@@ -39,19 +43,66 @@ class EarthAccessFile(fsspec.spec.AbstractBufferedFile):
         )
 
     def __repr__(self) -> str:
-        return str(self.f)
+        return f"""File: {self.f}
+        Cache:{self.f.cache}
+        """
+
+
+def align_cache_settings(data: tuple) -> Dict[str, Any]:
+    """
+    First pass at aligning the cache to be format aware. With more information about internal chunking (via dmr++) we 
+    could use KnownPartsOfAFile to cache more intelligently.
+    """
+    url, granule = data
+    if any(url.endswith(ftype) for ftype in [".h5", ".hdf5", ".nc", ".nc4", ".hdf"]):
+        size_mb = granule.size()
+        chunk_size = 100 * 1024  # 100kb
+        if size_mb >= 4 and size_mb < 10:
+            chunk_size = 1 * 1024 * 1024  # 1MB
+        if size_mb >= 10 and size_mb <= 40:
+            chunk_size = 2 * 1024 * 1024  # 2MB
+        if size_mb > 40:
+            chunk_size = 4 * 1024 * 1024  # 4MB
+
+        fsspec_params = {"cache_type": "blockcache", "block_size": chunk_size}
+        return fsspec_params
+    return {"skip_instance_cache": True}
 
 
 def _open_files(
     url_mapping: Mapping[str, Union[DataGranule, None]],
     fs: fsspec.AbstractFileSystem,
     threads: Optional[int] = 8,
+    fsspec_opts: Optional[Dict[str, Any]] = {},
+    supress_output: Optional[bool] = False
 ) -> List[fsspec.AbstractFileSystem]:
     def multi_thread_open(data: tuple) -> EarthAccessFile:
         urls, granule = data
-        return EarthAccessFile(fs.open(urls), granule)
+        return EarthAccessFile(fs.open(urls, **fsspec_opts), granule)
 
-    fileset = pqdm(url_mapping.items(), multi_thread_open, n_jobs=threads)
+    fileset = pqdm(url_mapping.items(), multi_thread_open, n_jobs=threads, disable=supress_output)
+    return fileset
+
+
+def _smart_open_files(
+    url_mapping: Mapping[str, Union[DataGranule, None]],
+    fs: fsspec.AbstractFileSystem,
+    threads: Optional[int] = 8,
+    fsspec_opts: Optional[Dict[str, Any]] = {},
+    supress_output: Optional[bool] = False
+) -> List[fsspec.AbstractFileSystem]:
+    def multi_thread_open(data: tuple) -> EarthAccessFile:
+        if fsspec_opts:
+            fsspec_params = fsspec_opts
+        else:
+            fsspec_params = align_cache_settings(data)
+
+        urls, granule = data
+        return EarthAccessFile(fs.open(urls, **fsspec_params), granule)
+
+    fileset = pqdm(
+        url_mapping.items(), multi_thread_open, n_jobs=threads, colour="purple", disable=supress_output
+    )
     return fileset
 
 
@@ -68,8 +119,7 @@ def make_instance(
     if (earthaccess.__store__.in_region and cls is not s3fs.S3File) or (
         not earthaccess.__store__.in_region and cls is s3fs.S3File
     ):
-        # NOTE: This uses the first data_link listed in the granule. That's not
-        #       guaranteed to be the right one.
+        # NOTE: clarify how this works with muti-file granules, is ti ever accessed as is?
         return EarthAccessFile(earthaccess.open([granule])[0], granule)
     else:
         return EarthAccessFile(loads(data), granule)
@@ -295,6 +345,10 @@ class Store(object):
         self,
         granules: Union[List[str], List[DataGranule]],
         provider: Optional[str] = None,
+        threads: Optional[int] = 8,
+        smart: Optional[bool] = True,
+        fsspec_opts: Optional[Dict[str, Any]] = {},
+        supress_output: Optional[bool] = False
     ) -> List[Any]:
         """Returns a list of fsspec file-like objects that can be used to access files
         hosted on S3 or HTTPS by third party libraries like xarray.
@@ -303,12 +357,16 @@ class Store(object):
             granules: a list of granules(DataGranule) instances or list of URLs,
                 e.g. s3://some-granule
             provider: an option
-
+            threads: number of threads to use to open the files, default = 8
+            smart_open: if True, it will use block cache to open the files instead of read-ahead see , default = True
+            fsspec_opts: options to pass to the fsspec file system, e.g. `{"anon": True}` for anonymous access and more importantly
+                we can override the default cache settings.
+            supress_output: if True, it will not print the progress bar (useful when we work with many open operations).
         Returns:
             A list of s3fs "file pointers" to s3 files.
         """
         if len(granules):
-            return self._open(granules, provider)
+            return self._open(granules, provider, threads, smart, fsspec_opts, supress_output)
         return []
 
     @singledispatchmethod
@@ -316,6 +374,10 @@ class Store(object):
         self,
         granules: Union[List[str], List[DataGranule]],
         provider: Optional[str] = None,
+        threads: Optional[int] = 8,
+        smart: Optional[bool] = False,
+        fsspec_opts: Optional[Dict[str, Any]] = {},
+        supress_output: Optional[bool] = False
     ) -> List[Any]:
         """Returns a list of fsspec file-like objects that can be used to access files
         hosted on S3 or HTTPS by third party libraries like xarray.
@@ -336,10 +398,18 @@ class Store(object):
         granules: List[DataGranule],
         provider: Optional[str] = None,
         threads: Optional[int] = 8,
+        smart: Optional[bool] = False,
+        fsspec_opts: Optional[Dict[str, Any]] = {},
+        supress_output: Optional[bool] = False
     ) -> List[Any]:
         fileset: List = []
         total_size = round(sum([granule.size() for granule in granules]) / 1024, 2)
-        print(f"Opening {len(granules)} granules, approx size: {total_size} GB")
+        info_open = f"Opening {len(granules)} granules, approx size: {total_size} GB"
+
+        if supress_output:
+            logger.info(info_open)
+        else:
+            print(info_open)
 
         if self.auth is None:
             raise ValueError(
@@ -363,12 +433,17 @@ class Store(object):
                 s3_fs = None
 
             url_mapping = _get_url_granule_mapping(granules, access)
+            open_func = _open_files
+            if smart:
+                open_func = _smart_open_files
             if s3_fs is not None:
                 try:
-                    fileset = _open_files(
+                    fileset = open_func(
                         url_mapping,
                         fs=s3_fs,
                         threads=threads,
+                        fsspec_opts=fsspec_opts,
+                        supress_output=supress_output
                     )
                 except Exception as e:
                     raise RuntimeError(
@@ -377,11 +452,13 @@ class Store(object):
                         f"Exception: {traceback.format_exc()}"
                     ) from e
             else:
-                fileset = self._open_urls_https(url_mapping, threads=threads)
+                fileset = self._open_urls_https(
+                    url_mapping, threads=threads, smart=smart
+                )
             return fileset
         else:
             url_mapping = _get_url_granule_mapping(granules, access="on_prem")
-            fileset = self._open_urls_https(url_mapping, threads=threads)
+            fileset = self._open_urls_https(url_mapping, threads=threads, smart=smart, supress_output=supress_output)
             return fileset
 
     @_open.register
@@ -390,6 +467,9 @@ class Store(object):
         granules: List[str],
         provider: Optional[str] = None,
         threads: Optional[int] = 8,
+        smart: Optional[bool] = False,
+        fsspec_opts: Optional[Dict[str, Any]] = {},
+        supress_output: Optional[bool] = False
     ) -> List[Any]:
         fileset: List = []
 
@@ -412,11 +492,16 @@ class Store(object):
             if provider is not None:
                 s3_fs = self.get_s3fs_session(provider=provider)
                 if s3_fs is not None:
+                    open_func = _open_files
+                    if smart:
+                        open_func = _smart_open_files
                     try:
-                        fileset = _open_files(
+                        fileset = open_func(
                             url_mapping,
                             fs=s3_fs,
                             threads=threads,
+                            fsspec_opts=fsspec_opts,
+                            supress_output=supress_output
                         )
                     except Exception as e:
                         raise RuntimeError(
@@ -436,15 +521,15 @@ class Store(object):
                 raise ValueError(
                     "We cannot open S3 links when we are not in-region, try using HTTPS links"
                 )
-            fileset = self._open_urls_https(url_mapping, threads)
+            fileset = self._open_urls_https(url_mapping, threads, smart=smart, fsspec_opts=fsspec_opts, supress_output=supress_output)
             return fileset
 
     def get(
         self,
         granules: Union[List[DataGranule], List[str]],
-        local_path: Union[Path, str, None] = None,
+        local_path: Optional[Path] = None,
         provider: Optional[str] = None,
-        threads: int = 8,
+        threads: Optional[int] = 8,
     ) -> List[str]:
         """Retrieves data granules from a remote storage system.
 
@@ -468,7 +553,7 @@ class Store(object):
             today = datetime.datetime.today().strftime("%Y-%m-%d")
             uuid = uuid4().hex[:6]
             local_path = Path.cwd() / "data" / f"{today}-{uuid}"
-        elif isinstance(local_path, str):
+        elif type(local_path) == str:
             local_path = Path(local_path)
 
         if len(granules):
@@ -483,7 +568,7 @@ class Store(object):
         granules: Union[List[DataGranule], List[str]],
         local_path: Path,
         provider: Optional[str] = None,
-        threads: int = 8,
+        threads: Optional[int] = 8,
     ) -> List[str]:
         """Retrieves data granules from a remote storage system.
 
@@ -511,7 +596,7 @@ class Store(object):
         granules: List[str],
         local_path: Path,
         provider: Optional[str] = None,
-        threads: int = 8,
+        threads: Optional[int] = 8,
     ) -> List[str]:
         data_links = granules
         downloaded_files: List = []
@@ -541,7 +626,7 @@ class Store(object):
         granules: List[DataGranule],
         local_path: Path,
         provider: Optional[str] = None,
-        threads: int = 8,
+        threads: Optional[int] = 8,
     ) -> List[str]:
         data_links: List = []
         downloaded_files: List = []
@@ -652,11 +737,17 @@ class Store(object):
         self,
         url_mapping: Mapping[str, Union[DataGranule, None]],
         threads: Optional[int] = 8,
+        smart: Optional[bool] = True,
+        fsspec_opts: Optional[Dict[str, Any]] = {},
+        supress_output: Optional[bool] = False
     ) -> List[fsspec.AbstractFileSystem]:
         https_fs = self.get_fsspec_session()
         if https_fs is not None:
+            open_func = _open_files
+            if smart:
+                open_func = _smart_open_files
             try:
-                fileset = _open_files(url_mapping, https_fs, threads)
+                fileset = open_func(url_mapping, https_fs, threads, fsspec_opts, supress_output)
             except Exception:
                 print(
                     "An exception occurred while trying to access remote files via HTTPS: "

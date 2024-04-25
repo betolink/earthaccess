@@ -161,9 +161,9 @@ def login(strategy: str = "all", persist: bool = False) -> Auth:
 
 def download(
     granules: Union[DataGranule, List[DataGranule], str, List[str]],
-    local_path: Optional[str],
+    local_path: Optional[str] = None,
     provider: Optional[str] = None,
-    threads: int = 8,
+    threads: Optional[int] = 8,
 ) -> List[str]:
     """Retrieves data granules from a remote storage system.
 
@@ -200,6 +200,10 @@ def download(
 def open(
     granules: Union[List[str], List[DataGranule]],
     provider: Optional[str] = None,
+    threads: Optional[int] = 8,
+    smart_open: Optional[bool] = True,
+    fsspec_opts: Optional[Dict[str, Any]] = None,
+    supress_output: Optional[bool] = False,
 ) -> List[AbstractFileSystem]:
     """Returns a list of fsspec file-like objects that can be used to access files
     hosted on S3 or HTTPS by third party libraries like xarray.
@@ -207,13 +211,18 @@ def open(
     Parameters:
         granules: a list of granule instances **or** list of URLs, e.g. `s3://some-granule`.
             If a list of URLs is passed, we need to specify the data provider.
-        provider: e.g. POCLOUD, NSIDC_CPRD, etc.
+        provider: e.g. POCLOUD, NSIDC_CPRD, etc. only to be used when we pass URLs and not results from search_data
+        threads: number of threads to use to open the files, default = 8
+        smart_open: if True, it will use block cache to open the files instead of read-ahead see , default = True
+        fsspec_opts: options to pass to the fsspec file system, e.g. `{"anon": True}` for anonymous access and more importantly
+            we can override the default cache settings.
+        supress_output: if True, it will not print the progress bar (useful when we work with many open operations).
 
     Returns:
-        a list of s3fs "file pointers" to s3 files.
+        a list of https or s3fs "file pointers" to files on NASA AWS buckets.
     """
     provider = _normalize_location(provider)
-    results = earthaccess.__store__.open(granules=granules, provider=provider)
+    results = earthaccess.__store__.open(granules=granules, provider=provider, threads=threads, smart=smart_open, fsspec_opts=fsspec_opts, supress_output=supress_output)
     return results
 
 

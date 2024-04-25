@@ -116,6 +116,7 @@ CLOUD_PROVIDERS = [
     "ORNL_CLOUD",
     "LAADS",
     "LARC_CLOUD",
+    "OB_CLOUD",
 ]
 
 # Some testing urls behind EDL
