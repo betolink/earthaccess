@@ -72,13 +72,13 @@ def _open_files(
     fs: fsspec.AbstractFileSystem,
     threads: Optional[int] = 8,
     fsspec_opts: Optional[Dict[str, Any]] = {},
-    supress_output: Optional[bool] = False
+    quiet: Optional[bool] = False
 ) -> List[fsspec.AbstractFileSystem]:
     def multi_thread_open(data: tuple) -> EarthAccessFile:
         url, granule = data
         return EarthAccessFile(fs.open(url, **fsspec_opts), granule)
 
-    fileset = pqdm(url_mapping.items(), multi_thread_open, n_jobs=threads, disable=supress_output)
+    fileset = pqdm(url_mapping.items(), multi_thread_open, n_jobs=threads, disable=quiet)
     return fileset
 
 
@@ -87,7 +87,7 @@ def _smart_open_files(
     fs: fsspec.AbstractFileSystem,
     threads: Optional[int] = 8,
     fsspec_opts: Optional[Dict[str, Any]] = {},
-    supress_output: Optional[bool] = False
+    quiet: Optional[bool] = False
 ) -> List[fsspec.AbstractFileSystem]:
     def multi_thread_open(data: tuple) -> EarthAccessFile:
         url, granule = data
@@ -100,7 +100,7 @@ def _smart_open_files(
         return EarthAccessFile(fs.open(url, **fsspec_params), granule)
 
     fileset = pqdm(
-        url_mapping.items(), multi_thread_open, n_jobs=threads, colour="purple", disable=supress_output
+        url_mapping.items(), multi_thread_open, n_jobs=threads, colour="purple", disable=quiet
     )
     return fileset
 
@@ -347,7 +347,7 @@ class Store(object):
         threads: Optional[int] = 8,
         smart: Optional[bool] = True,
         fsspec_opts: Optional[Dict[str, Any]] = {},
-        supress_output: Optional[bool] = False
+        quiet: Optional[bool] = False
     ) -> List[Any]:
         """Returns a list of fsspec file-like objects that can be used to access files
         hosted on S3 or HTTPS by third party libraries like xarray.
@@ -360,12 +360,12 @@ class Store(object):
             smart_open: if True, it will use block cache to open the files instead of read-ahead see , default = True
             fsspec_opts: options to pass to the fsspec file system, e.g. `{"anon": True}` for anonymous access and more importantly
                 we can override the default cache settings.
-            supress_output: if True, it will not print the progress bar (useful when we work with many open operations).
+            quiet: if True, it will not print the progress bar (useful when we work with many open operations).
         Returns:
             A list of s3fs "file pointers" to s3 files.
         """
         if len(granules):
-            return self._open(granules, provider, threads, smart, fsspec_opts, supress_output)
+            return self._open(granules, provider, threads, smart, fsspec_opts, quiet)
         return []
 
     @singledispatchmethod
@@ -376,7 +376,7 @@ class Store(object):
         threads: Optional[int] = 8,
         smart: Optional[bool] = False,
         fsspec_opts: Optional[Dict[str, Any]] = {},
-        supress_output: Optional[bool] = False
+        quiet: Optional[bool] = False
     ) -> List[Any]:
         """Returns a list of fsspec file-like objects that can be used to access files
         hosted on S3 or HTTPS by third party libraries like xarray.
@@ -399,13 +399,13 @@ class Store(object):
         threads: Optional[int] = 8,
         smart: Optional[bool] = False,
         fsspec_opts: Optional[Dict[str, Any]] = {},
-        supress_output: Optional[bool] = False
+        quiet: Optional[bool] = False
     ) -> List[Any]:
         fileset: List = []
         total_size = round(sum([granule.size() for granule in granules]) / 1024, 2)
         info_open = f"Opening {len(granules)} granules, approx size: {total_size} GB"
 
-        if supress_output:
+        if quiet:
             logger.info(info_open)
         else:
             print(info_open)
@@ -442,7 +442,7 @@ class Store(object):
                         fs=s3_fs,
                         threads=threads,
                         fsspec_opts=fsspec_opts,
-                        supress_output=supress_output
+                        quiet=quiet
                     )
                 except Exception as e:
                     raise RuntimeError(
@@ -457,7 +457,7 @@ class Store(object):
             return fileset
         else:
             url_mapping = _get_url_granule_mapping(granules, access="on_prem")
-            fileset = self._open_urls_https(url_mapping, threads=threads, smart=smart, supress_output=supress_output)
+            fileset = self._open_urls_https(url_mapping, threads=threads, smart=smart, quiet=quiet)
             return fileset
 
     @_open.register
@@ -468,7 +468,7 @@ class Store(object):
         threads: Optional[int] = 8,
         smart: Optional[bool] = False,
         fsspec_opts: Optional[Dict[str, Any]] = {},
-        supress_output: Optional[bool] = False
+        quiet: Optional[bool] = False
     ) -> List[Any]:
         fileset: List = []
 
@@ -500,7 +500,7 @@ class Store(object):
                             fs=s3_fs,
                             threads=threads,
                             fsspec_opts=fsspec_opts,
-                            supress_output=supress_output
+                            quiet=quiet
                         )
                     except Exception as e:
                         raise RuntimeError(
@@ -520,7 +520,7 @@ class Store(object):
                 raise ValueError(
                     "We cannot open S3 links when we are not in-region, try using HTTPS links"
                 )
-            fileset = self._open_urls_https(url_mapping, threads, smart=smart, fsspec_opts=fsspec_opts, supress_output=supress_output)
+            fileset = self._open_urls_https(url_mapping, threads, smart=smart, fsspec_opts=fsspec_opts, quiet=quiet)
             return fileset
 
     def get(
@@ -738,7 +738,7 @@ class Store(object):
         threads: Optional[int] = 8,
         smart: Optional[bool] = True,
         fsspec_opts: Optional[Dict[str, Any]] = {},
-        supress_output: Optional[bool] = False
+        quiet: Optional[bool] = False
     ) -> List[fsspec.AbstractFileSystem]:
         https_fs = self.get_fsspec_session()
         if https_fs is not None:
@@ -746,7 +746,7 @@ class Store(object):
             if smart:
                 open_func = _smart_open_files
             try:
-                fileset = open_func(url_mapping, https_fs, threads, fsspec_opts, supress_output)
+                fileset = open_func(url_mapping, https_fs, threads, fsspec_opts, quiet)
             except Exception:
                 print(
                     "An exception occurred while trying to access remote files via HTTPS: "
