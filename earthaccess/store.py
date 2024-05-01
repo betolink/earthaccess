@@ -44,19 +44,17 @@ class EarthAccessFile(fsspec.spec.AbstractBufferedFile):
 
     def __repr__(self) -> str:
         return f"""File: {self.f}
-        Cache:{self.f.cache}
+        Cache:{str(self.f.cache).strip()}
         """
 
 
-def align_cache_settings(data: tuple) -> Dict[str, Any]:
+def align_cache_settings(url: str, size_mb: float) -> Dict[str, Any]:
     """
     First pass at aligning the cache to be format aware. With more information about internal chunking (via dmr++) we 
     could use KnownPartsOfAFile to cache more intelligently.
     """
-    url, granule = data
     if any(url.endswith(ftype) for ftype in [".h5", ".hdf5", ".nc", ".nc4", ".hdf"]):
-        size_mb = granule.size()
-        chunk_size = 100 * 1024  # 100kb
+        chunk_size = 512 * 1024  # 512kb
         if size_mb >= 4 and size_mb < 10:
             chunk_size = 1 * 1024 * 1024  # 1MB
         if size_mb >= 10 and size_mb <= 40:
@@ -77,8 +75,8 @@ def _open_files(
     supress_output: Optional[bool] = False
 ) -> List[fsspec.AbstractFileSystem]:
     def multi_thread_open(data: tuple) -> EarthAccessFile:
-        urls, granule = data
-        return EarthAccessFile(fs.open(urls, **fsspec_opts), granule)
+        url, granule = data
+        return EarthAccessFile(fs.open(url, **fsspec_opts), granule)
 
     fileset = pqdm(url_mapping.items(), multi_thread_open, n_jobs=threads, disable=supress_output)
     return fileset
@@ -92,13 +90,14 @@ def _smart_open_files(
     supress_output: Optional[bool] = False
 ) -> List[fsspec.AbstractFileSystem]:
     def multi_thread_open(data: tuple) -> EarthAccessFile:
+        url, granule = data
+        granule_size = round(int(fs.info(url)["size"]) / (1024*1024), 2)
         if fsspec_opts:
             fsspec_params = fsspec_opts
         else:
-            fsspec_params = align_cache_settings(data)
-
-        urls, granule = data
-        return EarthAccessFile(fs.open(urls, **fsspec_params), granule)
+            fsspec_params = align_cache_settings(url, granule_size)
+                    
+        return EarthAccessFile(fs.open(url, **fsspec_params), granule)
 
     fileset = pqdm(
         url_mapping.items(), multi_thread_open, n_jobs=threads, colour="purple", disable=supress_output
