@@ -202,7 +202,7 @@ def open(
     provider: Optional[str] = None,
     threads: Optional[int] = 8,
     smart_open: Optional[bool] = True,
-    fsspec_opts: Optional[Dict[str, Any]] = None,
+    fsspec_opts: Optional[Dict[str, Any]] = {},
     quiet: Optional[bool] = False,
 ) -> List[AbstractFileSystem]:
     """Returns a list of fsspec file-like objects that can be used to access files
