@@ -54,12 +54,13 @@ def align_cache_settings(url: str, size_mb: float) -> Dict[str, Any]:
     could use KnownPartsOfAFile to cache more intelligently.
     """
     if any(url.endswith(ftype) for ftype in [".h5", ".hdf5", ".nc", ".nc4", ".hdf"]):
+        # TODO: add max_block_number to cover the whole file
         chunk_size = 512 * 1024  # 512kb
         if size_mb >= 4 and size_mb < 10:
             chunk_size = 1 * 1024 * 1024  # 1MB
         if size_mb >= 10 and size_mb <= 40:
             chunk_size = 2 * 1024 * 1024  # 2MB
-        if size_mb > 40:
+        if size_mb > 40 and size_mb <= 100:
             chunk_size = 4 * 1024 * 1024  # 4MB
 
         fsspec_params = {"cache_type": "blockcache", "block_size": chunk_size}
@@ -89,14 +90,15 @@ def _smart_open_files(
     fsspec_opts: Optional[Dict[str, Any]] = {},
     quiet: Optional[bool] = False
 ) -> List[fsspec.AbstractFileSystem]:
+
     def multi_thread_open(data: tuple) -> EarthAccessFile:
         url, granule = data
         granule_size = round(int(fs.info(url)["size"]) / (1024*1024), 2)
-        if fsspec_opts:
+        if fsspec_opts != {}:
             fsspec_params = fsspec_opts
         else:
             fsspec_params = align_cache_settings(url, granule_size)
-                    
+
         return EarthAccessFile(fs.open(url, **fsspec_params), granule)
 
     fileset = pqdm(
@@ -452,12 +454,12 @@ class Store(object):
                     ) from e
             else:
                 fileset = self._open_urls_https(
-                    url_mapping, threads=threads, smart=smart
+                    url_mapping, threads=threads, smart=smart, fsspec_opts=fsspec_opts, quiet=quiet
                 )
             return fileset
         else:
             url_mapping = _get_url_granule_mapping(granules, access="on_prem")
-            fileset = self._open_urls_https(url_mapping, threads=threads, smart=smart, quiet=quiet)
+            fileset = self._open_urls_https(url_mapping, threads=threads, smart=smart, fsspec_opts=fsspec_opts, quiet=quiet)
             return fileset
 
     @_open.register

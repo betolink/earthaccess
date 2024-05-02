@@ -203,7 +203,7 @@ def open(
     threads: Optional[int] = 8,
     smart_open: Optional[bool] = True,
     fsspec_opts: Optional[Dict[str, Any]] = None,
-    supress_output: Optional[bool] = False,
+    quiet: Optional[bool] = False,
 ) -> List[AbstractFileSystem]:
     """Returns a list of fsspec file-like objects that can be used to access files
     hosted on S3 or HTTPS by third party libraries like xarray.
@@ -216,13 +216,13 @@ def open(
         smart_open: if True, it will use block cache to open the files instead of read-ahead see , default = True
         fsspec_opts: options to pass to the fsspec file system, e.g. `{"anon": True}` for anonymous access and more importantly
             we can override the default cache settings.
-        supress_output: if True, it will not print the progress bar (useful when we work with many open operations).
+        quiet: if True, it will not print the progress bar (useful when we work with many open operations).
 
     Returns:
         a list of https or s3fs "file pointers" to files on NASA AWS buckets.
     """
     provider = _normalize_location(provider)
-    results = earthaccess.__store__.open(granules=granules, provider=provider, threads=threads, smart=smart_open, fsspec_opts=fsspec_opts, supress_output=supress_output)
+    results = earthaccess.__store__.open(granules=granules, provider=provider, threads=threads, smart=smart_open, fsspec_opts=fsspec_opts, quiet=quiet)
     return results
 
 
