@@ -10,6 +10,7 @@ from .results import DataCollection, DataGranule
 from .search import CollectionQuery, DataCollections, DataGranules, GranuleQuery
 from .store import Store
 from .utils import _validation as validate
+from .widgets import SearchWidget
 
 
 def _normalize_location(location: Optional[str]) -> Optional[str]:
@@ -357,6 +358,57 @@ def get_edl_token() -> str:
     """
     token = earthaccess.__auth__.token
     return token
+
+
+def explore(
+    results: List[DataGranule],
+    projection: str = "global",
+    map: Any = None,
+    roi: Dict[str, Any] = {},
+) -> Any:
+    sw = SearchWidget(projection=projection, map=map)
+    return sw.explore(results, roi)
+
+
+def load_geometry(filepath: str = "") -> Dict[str, Any]:
+    try:
+        import geopandas
+        from shapely.geometry import Polygon
+        from shapely.geometry.polygon import orient
+        import fiona
+        fiona.drvsupport.supported_drivers['kml'] = 'rw' # enable KML support which is disabled by default
+        fiona.drvsupport.supported_drivers['KML'] = 'rw' # enable KML support which is disabled by default
+    except ImportError:
+        raise ImportError(
+            "`earthaccess.load_geometry` requires `geopandas` to be be installed"
+        )
+
+    def _orient_polygon(coords: List[Tuple[float, float]]) -> List[Tuple[float, float]]:
+        polygon = orient(Polygon(coords))
+        return list(polygon.exterior.coords)
+
+    def _extract_geometry_info(geometry: Dict[str, Any]) -> Dict[str, Any]:
+        feature = geometry["features"][0]["geometry"]
+        geometry_type = feature["type"]
+        coordinates = feature["coordinates"]
+
+        if geometry_type in ["Polygon"]:
+            coords = _orient_polygon(coordinates[0])
+            coordinates = [(c[0], c[1]) for c in coords]
+            return {"polygon": coordinates}
+        elif geometry_type in ["Point"]:
+            return {"point": coordinates}
+        elif geometry_type in ["LineString"]:
+            return {"line": coordinates}
+        else:
+            print("Unsupported geometry type:", geometry_type)
+            return {}
+
+    original_gdf = geopandas.read_file(filepath)
+    simplified_json = json.loads(original_gdf.simplify(0.01).to_json())
+
+    geom = _extract_geometry_info(simplified_json)
+    return geom
 
 
 def auth_environ() -> Dict[str, str]:

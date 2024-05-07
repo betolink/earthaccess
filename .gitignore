@@ -95,3 +95,7 @@ Temporary Items
 .envrc
 
 # End of https://www.toptal.com/developers/gitignore/api/direnv
+*.h5
+*.nc
+*.hdf
+poetry.lock

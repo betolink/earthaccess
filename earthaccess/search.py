@@ -19,7 +19,7 @@ from typing_extensions import (
 from cmr import CollectionQuery, GranuleQuery
 
 from .auth import Auth
-from .daac import find_provider, find_provider_by_shortname
+from .daac import find_provider
 from .results import DataCollection, DataGranule
 
 FloatLike: TypeAlias = Union[str, SupportsFloat]
@@ -649,12 +649,7 @@ class DataGranules(GranuleQuery):
         if not isinstance(cloud_hosted, bool):
             raise TypeError("cloud_hosted must be of type bool")
 
-        if "short_name" in self.params:
-            provider = find_provider_by_shortname(
-                self.params["short_name"], cloud_hosted
-            )
-            if provider is not None:
-                self.params["provider"] = provider
+        self.params["cloud_hosted"] = cloud_hosted
         return self
 
     def granule_name(self, granule_name: str) -> Self:
@@ -804,7 +799,6 @@ class DataGranules(GranuleQuery):
     def debug(self, debug: bool = True) -> Self:
         """If True, prints the actual query to CMR, notice that the pagination happens
         in the headers.
-
         Parameters:
             debug: If `True`, print the CMR query.
 
