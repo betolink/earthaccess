@@ -125,7 +125,7 @@ def get_virtual_reference(short_name: str = "",
                 id = uuid4()
                 local_path = Path(f".references/{id}")
                 zip_ref.extractall(local_path)
-                ref_loc = [d for d in local_path.iterdir() if d.is_dir()][0]
+                ref_loc = str([d for d in local_path.iterdir() if d.is_dir()][0])
 
     storage_opts = {"fo": ref_loc, 
                     "remote_protocol": "s3", 
