@@ -118,7 +118,7 @@ def get_virtual_reference(short_name: str = "",
     else:
         session = earthaccess.get_fsspec_https_session()
         with session.open(link) as f:
-          ref_json = json.load(f)
+            ref_json = json.load(f)
 
     storage_opts = {"fo": ref_json, 
                     "remote_protocol": "s3", 
