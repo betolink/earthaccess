@@ -8,7 +8,8 @@ import s3fs
 
 # import ipdb
 import earthaccess
-
+import zipfile
+import json
 
 def _get_chunk_metadata(
     granule: earthaccess.DataGranule,
@@ -72,3 +73,55 @@ def consolidate_metadata(
     output = fsspec.utils.stringify_path(outfile)
     mzz.translate(outfile, storage_options=storage_options or {})
     return output
+
+def get_virtual_reference(short_name: str = "",
+                          cloud_hosted: bool=True,
+                          format: str ="parquet") -> Union[fsspec.FSMap, None]:
+    """
+    Returns a virtual reference file for a given collection, this reference has to be created by the DAAC
+    distributing the data. The reference mapper can be used directly in xarray as a Zarr store.
+    """
+
+    file_types = {
+        "parquet": "parq.zip",
+        "json": "json",
+    }
+
+    
+    # Find collection-level metadata (UMM-C) on CMR:
+    collections = earthaccess.search_datasets(short_name=short_name, cloud_hosted=cloud_hosted)
+
+    links = collections[0]["umm"].get("RelatedUrls", [])
+
+    # Look within UMM-C for links to virtual data set reference files:
+    # I think both json or parquet should be under VIRTUAL COLLECTION
+    refs = [e["URL"] for e in links if "Subtype" in e and (("VIRTUAL COLLECTION" in e["Subtype"]) or ("DATA RECIPE" in e["Subtype"]))]
+    
+
+    # Currently it is assumed that link descriptions have the following format:
+    if refs:
+        print("Virtual data set reference file exists for this collection")
+        link = [link for link in refs if link.endswith(file_types[format])][0]
+    else:
+        print(
+            "Virtual data set reference file does not exists in",
+            "There may be a reference file in a different format, or else you will have to",
+            "open this data set using traditional netCDF/HDF methods."
+            )
+        return None
+
+    # this assumes the ref point to s3 links, we'll have to refactor later
+    fs = earthaccess.get_s3_filesystem(provider=collections[0]["meta"]["provider-id"])
+    if link.endswith(file_types[format]):
+        # maybe we just need to use a TempZipFile
+        ref_json = fsspec.get_mapper(f"zip//::{link}")
+    else:
+        session = earthaccess.get_fsspec_https_session()
+        with session.open(link) as f:
+          ref_json = json.load(f)
+
+    storage_opts = {"fo": ref_json, 
+                    "remote_protocol": "s3", 
+                    "remote_options": fs.storage_options}
+    file_ref = fsspec.filesystem('reference', **storage_opts)
+    return file_ref.get_mapper('')
