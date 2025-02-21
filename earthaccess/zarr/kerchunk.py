@@ -8,7 +8,9 @@ import s3fs
 
 # import ipdb
 import earthaccess
+from uuid import uuid4
 import zipfile
+from pathlib import Path
 import json
 
 def _get_chunk_metadata(
@@ -111,16 +113,21 @@ def get_virtual_reference(short_name: str = "",
         return None
 
     # this assumes the ref point to s3 links, we'll have to refactor later
+    http_fs = earthaccess.get_fsspec_https_session()
     fs = earthaccess.get_s3_filesystem(provider=collections[0]["meta"]["provider-id"])
-    if link.endswith(file_types[format]):
-        # maybe we just need to use a TempZipFile
-        ref_json = fsspec.get_mapper(f"zip//::{link}")
+    if link.endswith(".json"):
+        with http_fs.open(link) as f:
+            ref_loc = json.load(f)
     else:
-        session = earthaccess.get_fsspec_https_session()
-        with session.open(link) as f:
-            ref_json = json.load(f)
+        with http_fs.open(link, 'rb') as remote_zip:
+            # Unzip the contents into the temporary directory
+            with zipfile.ZipFile(remote_zip, 'r') as zip_ref:
+                id = uuid4()
+                local_path = Path(f".references/{id}")
+                zip_ref.extractall(local_path)
+                ref_loc = [d for d in local_path.iterdir() if d.is_dir()][0]
 
-    storage_opts = {"fo": ref_json, 
+    storage_opts = {"fo": ref_loc, 
                     "remote_protocol": "s3", 
                     "remote_options": fs.storage_options}
     file_ref = fsspec.filesystem('reference', **storage_opts)
