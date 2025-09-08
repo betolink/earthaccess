@@ -18,7 +18,10 @@ from typing_extensions import (
 
 from cmr import CollectionQuery, GranuleQuery
 
-from .auth import Auth
+from .auth import auth_manager
+from ._core._request import RequestConfig, request
+from ._core._models import PaginatedResponse
+from ._core._validators import require_non_empty, validate_date_range
 from .daac import find_provider, find_provider_by_shortname
 from .results import DataCollection, DataGranule
 from .utils._search import get_results
@@ -41,25 +44,9 @@ class DataCollections(CollectionQuery):
     _fields: Optional[List[str]] = None
     _format = "umm_json"
 
-    def __init__(self, auth: Optional[Auth] = None, *args: Any, **kwargs: Any) -> None:
-        """Builds an instance of DataCollections to query the CMR.
-
-        Parameters:
-            auth: An authenticated `Auth` instance. This is an optional parameter
-                for queries that need authentication, e.g. restricted datasets.
-        """
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        """Builds an instance of DataCollections to query the CMR."""
         super().__init__(*args, **kwargs)
-
-        self.session = (
-            # To search, we need the new bearer tokens from NASA Earthdata
-            auth.get_session(bearer_token=True)
-            if auth and auth.authenticated
-            else requests.session()
-        )
-
-        if auth:
-            self.mode(auth.system.cmr_base_url)
-
         self._debug = False
 
     @override
@@ -76,14 +63,10 @@ class DataCollections(CollectionQuery):
             RuntimeError: The CMR query failed.
         """
         url = self._build_url()
-
-        response = self.session.get(url, headers=self.headers, params={"page_size": 0})
-
-        try:
-            response.raise_for_status()
-        except requests.exceptions.HTTPError as ex:
-            raise RuntimeError(ex.response.text) from ex
-
+        config = RequestConfig(
+            method="GET", url=url, headers=self.headers, params={"page_size": 0}
+        )
+        response = request(config, auth_token=auth_manager.get_token())
         return int(response.headers["CMR-Hits"])
 
     @override
@@ -106,10 +89,23 @@ class DataCollections(CollectionQuery):
         Raises:
             RuntimeError: The CMR query failed.
         """
+        # Use the new core request utility
+        response = self._make_request(limit)
         return [
-            DataCollection(collection, self._fields)
-            for collection in get_results(self.session, self, limit)
+            DataCollection(collection, self._fields) for collection in response.items
         ]
+
+    def _make_request(self, limit: int) -> PaginatedResponse:
+        """Internal method to handle CMR requests using the new core utilities."""
+        url = self._build_url()
+        config = RequestConfig(
+            method="GET",
+            url=url,
+            headers=self.headers,
+            params={"page_size": min(limit, 2000)},
+        )
+        response = request(config, auth_token=auth_manager.get_token())
+        return PaginatedResponse.from_json(response.json())
 
     @override
     def concept_id(self, IDs: Sequence[str]) -> Self:
@@ -424,19 +420,8 @@ class DataGranules(GranuleQuery):
 
     _format = "umm_json"
 
-    def __init__(self, auth: Optional[Auth] = None, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-
-        self.session = (
-            # To search, we need the new bearer tokens from NASA Earthdata
-            auth.get_session(bearer_token=True)
-            if auth and auth.authenticated
-            else requests.session()
-        )
-
-        if auth:
-            self.mode(auth.system.cmr_base_url)
-
         self._debug = False
 
     @override
@@ -453,17 +438,10 @@ class DataGranules(GranuleQuery):
             RuntimeError: The CMR query failed.
         """
         url = self._build_url()
-
-        response = self.session.get(url, headers=self.headers, params={"page_size": 0})
-
-        try:
-            response.raise_for_status()
-        except requests.exceptions.HTTPError as ex:
-            if ex.response is not None:
-                raise RuntimeError(ex.response.text) from ex
-            else:
-                raise RuntimeError(str(ex)) from ex
-
+        config = RequestConfig(
+            method="GET", url=url, headers=self.headers, params={"page_size": 0}
+        )
+        response = request(config, auth_token=auth_manager.get_token())
         return int(response.headers["CMR-Hits"])
 
     @override
@@ -486,10 +464,22 @@ class DataGranules(GranuleQuery):
         Raises:
             RuntimeError: The CMR query failed.
         """
-        response = get_results(self.session, self, limit)
-        cloud = len(response) > 0 and self._is_cloud_hosted(response[0])
+        # Use the new core request utility
+        response = self._make_request(limit)
+        cloud = len(response.items) > 0 and self._is_cloud_hosted(response.items[0])
+        return [DataGranule(granule, cloud_hosted=cloud) for granule in response.items]
 
-        return [DataGranule(granule, cloud_hosted=cloud) for granule in response]
+    def _make_request(self, limit: int) -> PaginatedResponse:
+        """Internal method to handle CMR requests using the new core utilities."""
+        url = self._build_url()
+        config = RequestConfig(
+            method="GET",
+            url=url,
+            headers=self.headers,
+            params={"page_size": min(limit, 2000)},
+        )
+        response = request(config, auth_token=auth_manager.get_token())
+        return PaginatedResponse.from_json(response.json())
 
     @override
     def parameters(self, **kwargs: Any) -> Self:
