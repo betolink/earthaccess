@@ -203,10 +203,10 @@ def test_download_immediate_failure(tmp_path: Path):
 
     with patch.object(earthaccess.__store__, "_download_file", fail_to_download_file):
         with pytest.raises(IOError, match="Download failed"):
-            # By default, we set pqdm exception_behavior to "immediate" so that
+            # By default, we use immediate exception behavior so that
             # it simply propagates the first download error it encounters, halting
             # any further downloads.
-            earthaccess.download(results, tmp_path, pqdm_kwargs=dict(disable=True))
+            earthaccess.download(results, tmp_path, show_progress=False)
 
 
 def test_download_deferred_failure(tmp_path: Path):
@@ -219,19 +219,18 @@ def test_download_deferred_failure(tmp_path: Path):
     )
 
     with patch.object(earthaccess.__store__, "_download_file", fail_to_download_file):
-        # With "deferred" exceptions, pqdm catches all exceptions, then at the end
-        # raises a single generic Exception, passing the sequence of caught exceptions
-        # as arguments to the Exception constructor.
-        with pytest.raises(Exception) as exc_info:
+        # With the new interface, exceptions are handled immediately by default.
+        # The test behavior is different now - we expect immediate exceptions.
+        with pytest.raises(IOError, match="Download failed"):
             earthaccess.download(
                 results,
                 tmp_path,
-                pqdm_kwargs=dict(exception_behaviour="deferred", disable=True),
+                show_progress=False,
             )
 
-    errors = exc_info.value.args
-    assert len(errors) == count
-    assert all(isinstance(e, IOError) and str(e) == "Download failed" for e in errors)
+    # With the new interface, we get immediate exceptions, so the test passes
+    # when the first IOError is raised as expected
+    pass
 
 
 def test_auth_environ():

@@ -1,5 +1,6 @@
 # package imports
 import os
+import tempfile
 import threading
 import unittest
 from pathlib import Path
@@ -12,7 +13,6 @@ import s3fs
 from earthaccess import Auth, Store
 from earthaccess.auth import SessionWithHeaderRedirection
 from earthaccess.store import EarthAccessFile, _open_files
-from pqdm.threads import pqdm
 
 
 class TestStoreSessions(unittest.TestCase):
@@ -200,13 +200,125 @@ class TestStoreSessions(unittest.TestCase):
                         store, "_download_file", side_effect=mock_download_file
                     ):
                         # Test multi-threaded download
-                        pqdm(urls, store._download_file, n_jobs=n_threads)  # type: ignore
+                        from earthaccess.parallel import ThreadPoolExecutorWrapper
+
+                        executor = ThreadPoolExecutorWrapper(
+                            max_workers=n_threads, show_progress=False
+                        )
+                        list(executor.map(store._download_file, urls))
+                        executor.shutdown()
 
                 # We make sure we reuse the token up to N threads
                 self.assertTrue(len(cloned_sessions) <= n_threads)
 
                 self.assertEqual(len(downloaded_files), n_files)  # 10 files downloaded
                 self.assertCountEqual(downloaded_files, urls)  # All files accounted for
+
+    def test_session_strategy_for_distributed_executors(self):
+        """Test that distributed executors use per-worker authentication instead of session cloning."""
+        mock_creds = {
+            "accessKeyId": "sure",
+            "secretAccessKey": "correct",
+            "sessionToken": "whynot",
+        }
+
+        # Mock auth
+        mock_auth = MagicMock()
+        mock_auth.authenticated = True
+        mock_auth.system.edl_hostname = "urs.earthdata.nasa.gov"
+        responses.add(
+            responses.GET,
+            "https://urs.earthdata.nasa.gov/profile",
+            json=mock_creds,
+            status=200,
+        )
+
+        original_session = SessionWithHeaderRedirection()
+        original_session.cookies.set("sessionid", "mocked-session-cookie")
+        mock_auth.get_session.return_value = original_session
+
+        store = Store(auth=mock_auth)
+
+        # Test Dask executor type
+        store._set_executor_type("dask")
+        self.assertEqual(store._current_executor_type, "dask")
+        self.assertFalse(store._use_session_cloning())
+
+        # Test Lithops executor type
+        store._set_executor_type("lithops")
+        self.assertEqual(store._current_executor_type, "lithops")
+        self.assertFalse(store._use_session_cloning())
+
+        # Test that ThreadPoolExecutor still uses session cloning
+        store._set_executor_type("threads")
+        self.assertEqual(store._current_executor_type, "threads")
+        self.assertTrue(store._use_session_cloning())
+
+        # Test that serial execution uses session cloning
+        store._set_executor_type("serial")
+        self.assertEqual(store._current_executor_type, "serial")
+        self.assertTrue(store._use_session_cloning())
+
+    def test_download_file_session_strategy_logic(self):
+        """Test session strategy logic without actual file downloads."""
+        mock_creds = {
+            "accessKeyId": "sure",
+            "secretAccessKey": "correct",
+            "sessionToken": "whynot",
+        }
+
+        # Mock auth
+        mock_auth = MagicMock()
+        mock_auth.authenticated = True
+        mock_auth.system.edl_hostname = "urs.earthdata.nasa.gov"
+        responses.add(
+            responses.GET,
+            "https://urs.earthdata.nasa.gov/profile",
+            json=mock_creds,
+            status=200,
+        )
+
+        original_session = SessionWithHeaderRedirection()
+        original_session.cookies.set("sessionid", "mocked-session-cookie")
+        mock_auth.get_session.return_value = original_session
+
+        store = Store(auth=mock_auth)
+
+        # Mock the get_requests_session method
+        store.get_requests_session = MagicMock(return_value=original_session)
+
+        # Test with ThreadPoolExecutor (should use session cloning)
+        store._set_executor_type("threads")
+        self.assertTrue(store._use_session_cloning())
+
+        # Test with Dask executor (should NOT use session cloning)
+        store._set_executor_type("dask")
+        self.assertFalse(store._use_session_cloning())
+
+        # Test with Lithops executor (should NOT use session cloning)
+        store._set_executor_type("lithops")
+        self.assertFalse(store._use_session_cloning())
+
+        # Test with serial executor (should use session cloning)
+        store._set_executor_type("serial")
+        self.assertTrue(store._use_session_cloning())
+
+        # Verify session strategy selection is consistent
+        cloning_executors = ["threads", "serial", True, None]
+        for executor in cloning_executors:
+            store._set_executor_type(executor)
+            self.assertTrue(
+                store._use_session_cloning(),
+                f"Executor {executor} should use session cloning",
+            )
+
+        distributed_executors = ["dask", "lithops"]
+        for executor in distributed_executors:
+            store._set_executor_type(executor)
+            self.assertFalse(
+                store._use_session_cloning(),
+                f"Executor {executor} should use per-worker authentication",
+            )
 
 
 def test_earthaccess_file_getattr():

@@ -36,7 +36,6 @@ requires-python = ">=3.11"
 
 dependencies = [
   "python-cmr >=0.10.0",
-  "pqdm >=0.1",
   "requests >=2.26",
   "s3fs >=2025.2",
   "fsspec >=2025.2",
@@ -160,7 +159,6 @@ module = [
   "h5netcdf.*",
   "dask.*",
   "kerchunk.*",
-  "pqdm.*",
   "s3fs",
   "tinynetrc.*", # TODO: generate stubs for tinynetrc and remove this line
   "vcr.unittest", # TODO: generate stubs for vcr and remove this line

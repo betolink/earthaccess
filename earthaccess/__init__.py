@@ -27,6 +27,7 @@ from .kerchunk import consolidate_metadata
 from .search import DataCollection, DataCollections, DataGranule, DataGranules
 from .services import DataServices
 from .store import Store
+from .target_filesystem import TargetLocation
 from .system import PROD, UAT
 
 logger = logging.getLogger(__name__)
@@ -59,6 +60,8 @@ __all__ = [
     "Auth",
     # store.py
     "Store",
+    # target_filesystem.py
+    "TargetLocation",
     # kerchunk
     "consolidate_metadata",
     # virtualizarr

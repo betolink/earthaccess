@@ -13,7 +13,7 @@ import fsspec
 import requests
 import s3fs
 from multimethod import multimethod as singledispatchmethod
-from pqdm.threads import pqdm
+
 from tenacity import (
     retry,
     retry_if_exception_type,
@@ -26,8 +26,10 @@ import earthaccess
 
 from .auth import Auth, SessionWithHeaderRedirection
 from .daac import DAAC_TEST_URLS, find_provider
+from .parallel import get_executor
 from .results import DataGranule
 from .search import DataCollections
+from .target_filesystem import TargetLocation
 
 logger = logging.getLogger(__name__)
 
@@ -125,16 +127,18 @@ def _open_files(
     url_mapping: Mapping[str, Union[DataGranule, None]],
     fs: fsspec.AbstractFileSystem,
     *,
-    pqdm_kwargs: Optional[Mapping[str, Any]] = None,
+    max_workers: Optional[int] = None,
+    show_progress: bool = True,
     open_kwargs: Optional[Dict[str, Any]] = None,
-) -> List[fsspec.spec.AbstractBufferedFile]:
+    parallel: Union[str, bool, None] = None,
+) -> List["EarthAccessFile"]:
     def multi_thread_open(data: tuple[str, Optional[DataGranule]]) -> EarthAccessFile:
         url, granule = data
         f_size = fs.info(url)["size"]
         default_cache_type = "background"  # block cache with background fetching
         default_block_size = _optimal_fsspec_block_size(f_size)
 
-        open_kw = (open_kwargs or fsspec.config.conf or {}).copy()
+        open_kw = (open_kwargs or {}).copy()
 
         open_kw.setdefault("cache_type", default_cache_type)
         open_kw.setdefault("block_size", default_block_size)
@@ -142,10 +146,18 @@ def _open_files(
         f = fs.open(url, **open_kw)
         return EarthAccessFile(f, granule)  # type: ignore
 
-    # this {#n_jobs} is for the unittests as this method is not public and pqdm will have values at this point
-    return pqdm(
-        url_mapping.items(), multi_thread_open, **(pqdm_kwargs or {"n_jobs": 8})
+    # Get executor based on parallel parameter
+    executor = get_executor(
+        parallel, max_workers=max_workers, show_progress=show_progress
     )
+
+    # Execute using the executor
+    try:
+        results = list(executor.map(multi_thread_open, url_mapping.items()))
+        return results
+    finally:
+        # Ensure executor is properly shut down
+        executor.shutdown(wait=True)
 
 
 def make_instance(
@@ -207,12 +219,43 @@ class Store(object):
             logger.warning("The current session is not authenticated with NASA")
             self.auth = None
         self.in_region = self._running_in_us_west_2()
+        self._current_executor_type: Optional[str] = None  # Track current executor type
 
     def _derive_concept_provider(self, concept_id: Optional[str] = None) -> str:
         if concept_id is not None:
             provider = concept_id.split("-")[1]
             return provider
         return ""
+
+    def _set_executor_type(self, parallel: Union[str, bool, None]) -> None:
+        """Set the current executor type for session strategy selection."""
+        if parallel is None or parallel is True:
+            self._current_executor_type = "threads"
+        elif parallel is False:
+            self._current_executor_type = "serial"
+        elif isinstance(parallel, str):
+            parallel_lower = parallel.lower()
+            if parallel_lower in ("threads", "thread", "threadpool"):
+                self._current_executor_type = "threads"
+            elif parallel_lower in ("serial", "none", "disabled"):
+                self._current_executor_type = "serial"
+            elif parallel_lower == "dask":
+                self._current_executor_type = "dask"
+            elif parallel_lower == "lithops":
+                self._current_executor_type = "lithops"
+            else:
+                self._current_executor_type = "threads"  # Default fallback
+        else:
+            # Custom executor - assume distributed for safety
+            self._current_executor_type = "distributed"
+
+    def _use_session_cloning(self) -> bool:
+        """Determine if session cloning is appropriate for current executor."""
+        if self._current_executor_type is None:
+            # Default to True for backward compatibility
+            return True
+
+        return self._current_executor_type in ["threads", "threadpool", "serial"]
 
     def _derive_daac_provider(self, daac: str) -> Union[str, None]:
         provider = find_provider(daac, True)
@@ -415,8 +458,9 @@ class Store(object):
         *,
         show_progress: Optional[bool] = None,
         credentials_endpoint: Optional[str] = None,
-        pqdm_kwargs: Optional[Mapping[str, Any]] = None,
+        max_workers: Optional[int] = None,
         open_kwargs: Optional[Dict[str, Any]] = None,
+        parallel: Union[str, bool, None] = None,
     ) -> List[fsspec.spec.AbstractBufferedFile]:
         """Returns a list of file-like objects that can be used to access files
         hosted on S3 or HTTPS by third party libraries like xarray.
@@ -428,8 +472,7 @@ class Store(object):
             show_progress: whether or not to display a progress bar. If not specified, defaults to `True` for interactive sessions
                 (i.e., in a notebook or a python REPL session), otherwise `False`.
             credentials_endpoint: S3 credentials endpoint
-            pqdm_kwargs: Additional keyword arguments to pass to pqdm, a parallel processing library.
-                See pqdm documentation for available options. Default is to use immediate exception behavior.
+            max_workers: Maximum number of worker threads for parallel processing. Default varies by executor.
             open_kwargs: Additional keyword arguments to pass to `fsspec.open`, such as `cache_type` and `block_size`.
                 Defaults to using `blockcache` with a block size determined by the file size (4 to 16MB).
 
@@ -439,19 +482,15 @@ class Store(object):
         if show_progress is None:
             show_progress = _is_interactive()
 
-        pqdm_kwargs = {
-            "exception_behaviour": "immediate",
-            "n_jobs": 8,
-            "disable": not show_progress,
-            **(pqdm_kwargs or {}),
-        }
         if len(granules):
             return self._open(
                 granules,
                 provider,
                 credentials_endpoint=credentials_endpoint,
-                pqdm_kwargs=pqdm_kwargs,
+                max_workers=max_workers,
+                show_progress=show_progress,
                 open_kwargs=open_kwargs,
+                parallel=parallel,
             )
         return []
 
@@ -462,8 +501,10 @@ class Store(object):
         provider: Optional[str] = None,
         *,
         credentials_endpoint: Optional[str] = None,
-        pqdm_kwargs: Optional[Mapping[str, Any]] = None,
+        max_workers: Optional[int] = None,
+        show_progress: bool = True,
         open_kwargs: Optional[Dict[str, Any]] = None,
+        parallel: Union[str, bool, None] = None,
     ) -> List[Any]:
         raise NotImplementedError("granules should be a list of DataGranule or URLs")
 
@@ -474,8 +515,10 @@ class Store(object):
         provider: Optional[str] = None,
         *,
         credentials_endpoint: Optional[str] = None,
-        pqdm_kwargs: Optional[Mapping[str, Any]] = None,
+        max_workers: Optional[int] = None,
+        show_progress: bool = True,
         open_kwargs: Optional[Dict[str, Any]] = None,
+        parallel: Union[str, bool, None] = None,
     ) -> List[Any]:
         fileset: List = []
         total_size = round(sum([granule.size() for granule in granules]) / 1024, 2)
@@ -509,23 +552,25 @@ class Store(object):
                     fileset = _open_files(
                         url_mapping,
                         fs=s3_fs,
-                        pqdm_kwargs=pqdm_kwargs,
+                        max_workers=max_workers,
+                        show_progress=show_progress,
                         open_kwargs=open_kwargs,
+                        parallel=parallel,
                     )
                 except Exception as e:
                     raise RuntimeError(
                         "An exception occurred while trying to access remote files on S3. "
-                        "This may be caused by trying to access the data outside the us-west-2 region."
+                        "This may be caused by trying to access data outside us-west-2 region."
                         f"Exception: {traceback.format_exc()}"
                     ) from e
-            else:
-                fileset = self._open_urls_https(
-                    url_mapping, pqdm_kwargs=pqdm_kwargs, open_kwargs=open_kwargs
-                )
         else:
             url_mapping = _get_url_granule_mapping(granules, access="on_prem")
             fileset = self._open_urls_https(
-                url_mapping, pqdm_kwargs=pqdm_kwargs, open_kwargs=open_kwargs
+                url_mapping,
+                max_workers=max_workers,
+                show_progress=show_progress,
+                open_kwargs=open_kwargs,
+                parallel=parallel,
             )
 
         return fileset
@@ -537,8 +582,10 @@ class Store(object):
         provider: Optional[str] = None,
         *,
         credentials_endpoint: Optional[str] = None,
-        pqdm_kwargs: Optional[Mapping[str, Any]] = None,
+        max_workers: Optional[int] = None,
+        show_progress: bool = True,
         open_kwargs: Optional[Dict[str, Any]] = None,
+        parallel: Union[str, bool, None] = None,
     ) -> List[Any]:
         fileset: List = []
         s3_fs = None
@@ -567,8 +614,10 @@ class Store(object):
                     fileset = _open_files(
                         url_mapping,
                         fs=s3_fs,
-                        pqdm_kwargs=pqdm_kwargs,
+                        max_workers=max_workers,
+                        show_progress=show_progress,
                         open_kwargs=open_kwargs,
+                        parallel=parallel,
                     )
                 except Exception as e:
                     raise RuntimeError(
@@ -588,32 +637,32 @@ class Store(object):
                 raise ValueError(
                     "We cannot open S3 links when we are not in-region, try using HTTPS links"
                 )
-            fileset = self._open_urls_https(url_mapping, pqdm_kwargs=pqdm_kwargs)
+            fileset = self._open_urls_https(
+                url_mapping,
+                max_workers=max_workers,
+                show_progress=show_progress,
+                parallel=parallel,
+            )
             return fileset
 
     def get(
         self,
         granules: Union[List[DataGranule], List[str]],
-        local_path: Optional[Union[Path, str]] = None,
+        path: Optional[Union[Path, str, TargetLocation]] = None,
         provider: Optional[str] = None,
         threads: int = 8,
         *,
         credentials_endpoint: Optional[str] = None,
         show_progress: Optional[bool] = None,
-        pqdm_kwargs: Optional[Mapping[str, Any]] = None,
+        max_workers: Optional[int] = None,
+        parallel: Union[str, bool, None] = None,
     ) -> List[Path]:
         """Retrieves data granules from a remote storage system.
 
-           * If we run this in the cloud,
-             we are moving data from S3 to a cloud compute instance (EC2, AWS Lambda).
-           * If we run it outside the us-west-2 region and the data granules are part of a cloud-based
-             collection, the method will not get any files.
-           * If we request data granules from an on-prem collection,
-             the data will be effectively downloaded to a local directory.
-
         Parameters:
-            granules: A list of granules(DataGranule) instances or a list of granule links (HTTP).
-            local_path: Local directory to store the remote data granules.  If not
+            granules: List of DataGranule instances or URLs
+            path: Target directory to store the remote data granules. Can be a local path,
+                cloud storage URI (s3://, gs://, az://), or TargetLocation object. If not
                 supplied, defaults to a subdirectory of the current working directory
                 of the form `data/YYYY-MM-DD-UUID`, where `YYYY-MM-DD` is the year,
                 month, and day of the current date, and `UUID` is the last 6 digits
@@ -624,9 +673,7 @@ class Store(object):
                 adjust as necessary, default = 8.
             show_progress: whether or not to display a progress bar. If not specified, defaults to `True` for interactive sessions
                 (i.e., in a notebook or a python REPL session), otherwise `False`.
-            pqdm_kwargs: Additional keyword arguments to pass to pqdm, a parallel processing library.
-                See pqdm documentation for available options. Default is to use immediate exception behavior
-                and the number of jobs specified by the `threads` parameter.
+            max_workers: Maximum number of worker threads for parallel processing. If not specified, defaults to the value of `threads`.
 
         Returns:
             List of downloaded files
@@ -634,38 +681,43 @@ class Store(object):
         if not granules:
             raise ValueError("List of URLs or DataGranule instances expected")
 
-        if local_path is None:
+        if path is None:
             today = datetime.datetime.now().strftime("%Y-%m-%d")
             uuid = uuid4().hex[:6]
-            local_path = Path.cwd() / "data" / f"{today}-{uuid}"
+            path = Path.cwd() / "data" / f"{today}-{uuid}"
+
+        # Convert Path or string to TargetLocation if needed
+        if not isinstance(path, TargetLocation):
+            path = TargetLocation(path)
 
         if show_progress is None:
             show_progress = _is_interactive()
 
-        pqdm_kwargs = {
-            "exception_behaviour": "immediate",  # should be overridden by pqdm_kwargs if passed
-            "n_jobs": threads,
-            "disable": not show_progress,
-            **(pqdm_kwargs or {}),
-        }
+        # Use threads as default max_workers if not specified
+        if max_workers is None:
+            max_workers = threads
 
         return self._get(
             granules,
-            Path(local_path),
+            path,
             provider,
             credentials_endpoint=credentials_endpoint,
-            pqdm_kwargs=pqdm_kwargs,
+            max_workers=max_workers,
+            show_progress=show_progress,
+            parallel=parallel,
         )
 
     @singledispatchmethod
     def _get(
         self,
         granules: Union[List[DataGranule], List[str]],
-        local_path: Path,
+        path: Union[Path, TargetLocation],
         provider: Optional[str] = None,
         *,
         credentials_endpoint: Optional[str] = None,
-        pqdm_kwargs: Optional[Mapping[str, Any]] = None,
+        max_workers: Optional[int] = None,
+        show_progress: bool = True,
+        parallel: Union[str, bool, None] = None,
     ) -> List[Path]:
         """Retrieves data granules from a remote storage system.
 
@@ -678,11 +730,11 @@ class Store(object):
 
         Parameters:
             granules: A list of granules (DataGranule) instances or a list of granule links (HTTP).
-            local_path: Local directory to store the remote data granules
+            path: Target directory to store the remote data granules. Can be a local path,
+                cloud storage URI (s3://, gs://, az://), or TargetLocation object.
             provider: a valid cloud provider, each DAAC has a provider code for their cloud distributions
-            pqdm_kwargs: Additional keyword arguments to pass to pqdm, a parallel processing library.
-                See pqdm documentation for available options. Default is to use immediate exception behavior
-                and the number of jobs specified by the `threads` parameter.
+            max_workers: Maximum number of worker threads for parallel processing.
+            show_progress: Whether or not to display a progress bar.
 
         Returns:
             None
@@ -696,25 +748,55 @@ class Store(object):
         retry=retry_if_exception_type(Exception),
     )
     def download_cloud_file(
-        self, s3_fs: fsspec.AbstractFileSystem, file: str, local_path: Path
+        self,
+        s3_fs: fsspec.AbstractFileSystem,
+        file: str,
+        path: Union[Path, TargetLocation],
     ) -> Path:
-        file_name = local_path / Path(file).name
-        if file_name.exists():
-            return file_name  # Skip if already exists
+        # Handle TargetLocation
+        if isinstance(path, TargetLocation):
+            filesystem = path.get_filesystem()
+            file_name = filesystem.basename(file)
+            target_path = filesystem.join(file_name)
 
-        s3_fs.get([file], str(local_path), recursive=False)
-        logger.info(f"Downloading: {file_name}")
-        return file_name
+            if filesystem.exists(target_path):
+                return Path(target_path)  # Skip if already exists
+
+            # Download to temporary location, then copy to target
+            import tempfile
+
+            with tempfile.TemporaryDirectory() as temp_dir:
+                temp_path = Path(temp_dir) / Path(file).name
+                s3_fs.get([file], str(temp_path), recursive=False)
+                logger.info(f"Downloading: {file_name}")
+
+                # Copy to target filesystem
+                with open(temp_path, "rb") as src_file:
+                    with filesystem.open(target_path, "wb") as dst_file:
+                        dst_file.write(src_file.read())
+
+                return Path(target_path)
+        else:
+            # Original Path-based logic
+            file_name = path / Path(file).name
+            if file_name.exists():
+                return file_name  # Skip if already exists
+
+            s3_fs.get([file], str(path), recursive=False)
+            logger.info(f"Downloading: {file_name}")
+            return file_name
 
     @_get.register
     def _get_urls(
         self,
         granules: List[str],
-        local_path: Path,
+        path: Union[Path, TargetLocation],
         provider: Optional[str] = None,
         *,
         credentials_endpoint: Optional[str] = None,
-        pqdm_kwargs: Optional[Mapping[str, Any]] = None,
+        max_workers: Optional[int] = None,
+        show_progress: bool = True,
+        parallel: Union[str, bool, None] = None,
     ) -> List[Path]:
         data_links = granules
         s3_fs = s3fs.S3FileSystem()
@@ -739,26 +821,39 @@ class Store(object):
                 s3_fs = self.get_s3_filesystem(provider=provider)
 
             def _download(file: str) -> Union[Path, None]:
-                return self.download_cloud_file(s3_fs, file, local_path)
+                return self.download_cloud_file(s3_fs, file, path)
 
-            results = pqdm(data_links, _download, **pqdm_kwargs)
-            return [r for r in results if r is not None]
+            # Get executor and execute
+            executor = get_executor(
+                parallel, max_workers=max_workers, show_progress=show_progress
+            )
+            try:
+                results = list(executor.map(_download, data_links))
+                return [r for r in results if r is not None]
+            finally:
+                executor.shutdown(wait=True)
 
         else:
             # if we are not in AWS
             return self._download_onprem_granules(
-                data_links, local_path, pqdm_kwargs=pqdm_kwargs
+                data_links,
+                path,
+                max_workers=max_workers,
+                show_progress=show_progress,
+                parallel=parallel,
             )
 
     @_get.register
     def _get_granules(
         self,
         granules: List[DataGranule],
-        local_path: Path,
+        path: Union[Path, TargetLocation],
         provider: Optional[str] = None,
         *,
         credentials_endpoint: Optional[str] = None,
-        pqdm_kwargs: Optional[Mapping[str, Any]] = None,
+        max_workers: Optional[int] = None,
+        show_progress: bool = True,
+        parallel: Union[str, bool, None] = None,
     ) -> List[Path]:
         data_links: List = []
         provider = granules[0]["meta"]["provider-id"]
@@ -786,19 +881,38 @@ class Store(object):
                 logger.info(f"Accessing cloud dataset using provider: {provider}")
                 s3_fs = self.get_s3_filesystem(provider=provider)
 
-            local_path.mkdir(parents=True, exist_ok=True)
+            # Handle TargetLocation directory creation
+            if isinstance(path, TargetLocation):
+                filesystem = path.get_filesystem()
+                filesystem.mkdir("", exist_ok=True)  # Create base directory
+            else:
+                path.mkdir(parents=True, exist_ok=True)
+
+            # Set executor type for session strategy selection
+            self._set_executor_type(parallel)
 
             def _download(file: str) -> Union[Path, None]:
-                return self.download_cloud_file(s3_fs, file, local_path)
+                return self.download_cloud_file(s3_fs, file, path)
 
-            results = pqdm(data_links, _download, **pqdm_kwargs)
-            return [r for r in results if r is not None]
+            # Get executor and execute
+            executor = get_executor(
+                parallel, max_workers=max_workers, show_progress=show_progress
+            )
+            try:
+                results = list(executor.map(_download, data_links))
+                return [r for r in results if r is not None]
+            finally:
+                executor.shutdown(wait=True)
 
         else:
             # if the data are cloud-based, but we are not in AWS,
             # it will be downloaded as if it was on prem
             return self._download_onprem_granules(
-                data_links, local_path, pqdm_kwargs=pqdm_kwargs
+                data_links,
+                path,
+                max_workers=max_workers,
+                show_progress=show_progress,
+                parallel=parallel,
             )
 
     def _clone_session_in_local_thread(
@@ -828,12 +942,12 @@ class Store(object):
         wait=wait_exponential(multiplier=1, min=1, max=10),
         retry=retry_if_exception_type(Exception),
     )
-    def _download_file(self, url: str, directory: Path) -> Path:
+    def _download_file(self, url: str, directory: Union[Path, TargetLocation]) -> Path:
         """Download a single file using a bearer token.
 
         Parameters:
             url: the granule url
-            directory: local directory
+            directory: local directory or target location
 
         Returns:
             A local filepath or an exception.
@@ -842,39 +956,82 @@ class Store(object):
         if "opendap" in url and url.endswith(".html"):
             url = url.replace(".html", "")
         local_filename = url.split("/")[-1]
-        path = directory / Path(local_filename)
-        if not path.exists():
-            original_session = self.get_requests_session()
-            # This reuses the auth cookie, we make sure we only authenticate N threads instead
-            # of one per file, see #913
-            self._clone_session_in_local_thread(original_session)
-            session = self.thread_locals.local_thread_session
+
+        # Handle TargetLocation
+        if isinstance(directory, TargetLocation):
+            filesystem = directory.get_filesystem()
+            target_path = filesystem.join(local_filename)
+
+            if filesystem.exists(target_path):
+                logger.info(f"File {local_filename} already downloaded")
+                return Path(target_path)
+
+            # Use executor-aware session strategy
+            if self._use_session_cloning():
+                # Efficient session cloning for ThreadPoolExecutor
+                original_session = self.get_requests_session()
+                # This reuses the auth cookie, we make sure we only authenticate N threads instead
+                # of one per file, see #913
+                self._clone_session_in_local_thread(original_session)
+                session = self.thread_locals.local_thread_session
+            else:
+                # Per-worker authentication for distributed executors
+                if not hasattr(self, "worker_session"):
+                    self.worker_session = self.get_requests_session()
+                session = self.worker_session
+
             with session.get(url, stream=True, allow_redirects=True) as r:
                 r.raise_for_status()
-                with open(path, "wb") as f:
+                with filesystem.open(target_path, "wb") as f:
                     # Cap memory usage for large files at 1MB per write to disk per thread
                     # https://docs.python-requests.org/en/latest/user/quickstart/#raw-response-content
                     for chunk in r.iter_content(chunk_size=1024 * 1024):
                         f.write(chunk)
+            return Path(target_path)
         else:
-            logger.info(f"File {local_filename} already downloaded")
-        return path
+            # Original Path-based logic
+            path = directory / Path(local_filename)
+            if not path.exists():
+                # Use executor-aware session strategy
+                if self._use_session_cloning():
+                    # Efficient session cloning for ThreadPoolExecutor
+                    original_session = self.get_requests_session()
+                    # This reuses the auth cookie, we make sure we only authenticate N threads instead
+                    # of one per file, see #913
+                    self._clone_session_in_local_thread(original_session)
+                    session = self.thread_locals.local_thread_session
+                else:
+                    # Per-worker authentication for distributed executors
+                    if not hasattr(self, "worker_session"):
+                        self.worker_session = self.get_requests_session()
+                    session = self.worker_session
+                with session.get(url, stream=True, allow_redirects=True) as r:
+                    r.raise_for_status()
+                    with open(path, "wb") as f:
+                        # Cap memory usage for large files at 1MB per write to disk per thread
+                        # https://docs.python-requests.org/en/latest/user/quickstart/#raw-response-content
+                        for chunk in r.iter_content(chunk_size=1024 * 1024):
+                            f.write(chunk)
+            else:
+                logger.info(f"File {local_filename} already downloaded")
+            return path
 
     def _download_onprem_granules(
         self,
         urls: List[str],
-        directory: Path,
+        directory: Union[Path, TargetLocation],
         *,
-        pqdm_kwargs: Optional[Mapping[str, Any]] = None,
+        max_workers: Optional[int] = None,
+        show_progress: bool = True,
+        parallel: Union[str, bool, None] = None,
     ) -> List[Any]:
         """Downloads a list of URLS into the data directory.
 
         Parameters:
             urls: list of granule URLs from an on-prem collection
             directory: local directory to store the downloaded files
-            pqdm_kwargs: Additional keyword arguments to pass to pqdm, a parallel processing library.
-                See pqdm documentation for available options. Default is to use immediate exception behavior
-                and the number of jobs specified by the `threads` parameter.
+            max_workers: Maximum number of worker threads for parallel download
+            show_progress: Whether to show progress bars during download
 
         Returns:
             A list of local filepaths to which the files were downloaded.
@@ -885,33 +1042,50 @@ class Store(object):
             raise ValueError(
                 "We need to be logged into NASA EDL in order to download data granules"
             )
-        directory.mkdir(parents=True, exist_ok=True)
+        # Handle TargetLocation directory creation
+        if isinstance(directory, TargetLocation):
+            filesystem = directory.get_filesystem()
+            filesystem.mkdir("", exist_ok=True)  # Create base directory
+        else:
+            directory.mkdir(parents=True, exist_ok=True)
+
+        # Set executor type for session strategy selection
+        self._set_executor_type(parallel)
 
         arguments = [(url, directory) for url in urls]
 
-        pqdm_kwargs = {
-            "exception_behaviour": "immediate",
-            "disable": True,
-            **(pqdm_kwargs or {}),
-            # We don't want a user to be able to override the following kwargs,
-            # which is why they appear *after* spreading pqdm_kwargs above.
-            "argument_type": "args",
-        }
-
-        return pqdm(arguments, self._download_file, **pqdm_kwargs)
+        # Get executor and execute
+        executor = get_executor(
+            parallel, max_workers=max_workers, show_progress=show_progress
+        )
+        try:
+            # Map the download function to arguments
+            results = list(
+                executor.map(lambda args: self._download_file(*args), arguments)
+            )
+            return results
+        finally:
+            executor.shutdown(wait=True)
 
     def _open_urls_https(
         self,
         url_mapping: Mapping[str, Union[DataGranule, None]],
         *,
-        pqdm_kwargs: Optional[Mapping[str, Any]] = None,
+        max_workers: Optional[int] = None,
+        show_progress: bool = True,
         open_kwargs: Optional[Dict[str, Any]] = None,
+        parallel: Union[str, bool, None] = None,
     ) -> List[fsspec.AbstractFileSystem]:
         https_fs = self.get_fsspec_session()
 
         try:
             return _open_files(
-                url_mapping, https_fs, pqdm_kwargs=pqdm_kwargs, open_kwargs=open_kwargs
+                url_mapping,
+                https_fs,
+                max_workers=max_workers,
+                show_progress=show_progress,
+                open_kwargs=open_kwargs,
+                parallel=parallel,
             )
         except Exception:
             logger.exception(

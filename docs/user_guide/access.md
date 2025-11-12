@@ -40,10 +40,10 @@ filelist
  PosixPath('/current/working/directory/data/2025-09-12-c58fe9/ATL10-01_20181014000347_02350101_007_01.h5')]
 ```
 
-You can override this behaviour by setting the `local_path` keyword to a local directory.
+You can override this behaviour by setting the `path` keyword to a local directory.
 
 ```python
-filelist = earthaccess.download(results, local_path='/path/to/local/data/directory/')
+filelist = earthaccess.download(results, path='/path/to/local/data/directory/')
 ```
 
 The progress bar is displayed if you are in an interactive session such as a notebook or IPython session.  Otherwise the progress bar is not displayed.  Whether or not the progress bar is displayed is controlled by setting `show_progress=True` or `show_progress=True`.

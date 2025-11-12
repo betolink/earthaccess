@@ -1,6 +1,7 @@
 import json
 import logging
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import requests
 import s3fs
@@ -23,8 +24,16 @@ from .auth import Auth
 from .results import DataCollection, DataGranule
 from .search import CollectionQuery, DataCollections, DataGranules, GranuleQuery
 from .store import Store
+from .target_filesystem import TargetLocation
 from .system import PROD, System
 from .utils import _validation as validate
+
+if TYPE_CHECKING:
+    # Type checking stubs to help the type checker understand __getattr__ behavior
+    from typing import Any as _Any
+
+    _auth: Auth
+    _store: Optional[Store]
 
 logger = logging.getLogger(__name__)
 
@@ -179,8 +188,9 @@ def search_datasets(count: int = -1, **kwargs: Any) -> List[DataCollection]:
             "A valid set of parameters is needed to search for datasets on CMR"
         )
         return []
-    if earthaccess.__auth__.authenticated:
-        query = DataCollections(auth=earthaccess.__auth__).parameters(**kwargs)
+    auth = earthaccess.__auth__
+    if auth and isinstance(auth, Auth) and auth.authenticated:
+        query = DataCollections(auth).parameters(**kwargs)
     else:
         query = DataCollections().parameters(**kwargs)
     datasets_found = query.hits()
@@ -271,10 +281,10 @@ def search_data(count: int = -1, **kwargs: Any) -> List[DataGranule]:
             cloud_hosted=True,
             temporal=("2002-01-01", "2002-12-31")
         )
-        ```
     """
-    if earthaccess.__auth__.authenticated:
-        query = DataGranules(earthaccess.__auth__).parameters(**kwargs)
+    auth = earthaccess.__auth__
+    if auth and auth.authenticated:
+        query = DataGranules(auth).parameters(**kwargs)
     else:
         query = DataGranules().parameters(**kwargs)
     granules_found = query.hits()
@@ -305,7 +315,11 @@ def search_services(count: int = -1, **kwargs: Any) -> List[Any]:
         services = search_services(provider="POCLOUD", keyword="COG")
         ```
     """
-    query = DataServices(auth=earthaccess.__auth__).parameters(**kwargs)
+    auth = earthaccess.__auth__
+    if auth and isinstance(auth, Auth):
+        query = DataServices(auth=auth).parameters(**kwargs)
+    else:
+        query = DataServices(auth=None).parameters(**kwargs)
     hits = query.hits()
     logger.info(f"Services found: {hits}")
 
@@ -343,10 +357,14 @@ def login(
     # before triggering the getattr function for `__auth__`.
     earthaccess._auth._set_earthdata_system(system)
 
+    auth = earthaccess.__auth__
+    if not isinstance(auth, Auth):
+        raise RuntimeError("Authentication object is not properly initialized")
+
     if strategy == "all":
         for strategy in ["environment", "netrc", "interactive"]:
             try:
-                earthaccess.__auth__.login(
+                auth.login(
                     strategy=strategy,
                     persist=persist,
                     system=system,
@@ -355,40 +373,42 @@ def login(
                 logger.debug(err)
                 continue
 
-            if earthaccess.__auth__.authenticated:
-                earthaccess.__store__ = Store(earthaccess.__auth__)
+            if auth.authenticated:
+                earthaccess._store = Store(auth)
                 break
     else:
-        earthaccess.__auth__.login(
+        auth.login(
             strategy=strategy,
             persist=persist,
             system=system,
         )
-        if earthaccess.__auth__.authenticated:
-            earthaccess.__store__ = Store(earthaccess.__auth__)
+        if auth.authenticated:
+            earthaccess._store = Store(auth)
 
-    return earthaccess.__auth__
+    return auth
 
 
 def download(
     granules: Union[DataGranule, List[DataGranule], str, List[str]],
-    local_path: Optional[Union[Path, str]] = None,
+    path: Optional[Union[Path, str, TargetLocation]] = None,
     provider: Optional[str] = None,
     threads: int = 8,
     *,
     show_progress: Optional[bool] = None,
     credentials_endpoint: Optional[str] = None,
-    pqdm_kwargs: Optional[Mapping[str, Any]] = None,
+    max_workers: Optional[int] = None,
+    parallel: Union[str, bool, None] = None,
 ) -> List[Path]:
-    """Retrieves data granules from a remote storage system. Provide the optional `local_path` argument to prevent repeated downloads.
+    """Retrieves data granules from a remote storage system. Provide the optional `path` argument to prevent repeated downloads.
 
-       * If we run this in the cloud, we will be using S3 to move data to `local_path`.
+       * If we run this in the cloud, we will be using S3 to move data to `path`.
        * If we run it outside AWS (us-west-2 region) and the dataset is cloud hosted,
             we'll use HTTP links.
 
     Parameters:
         granules: a granule, list of granules, a granule link (HTTP), or a list of granule links (HTTP)
-        local_path: Local directory to store the remote data granules.  If not
+        path: Target directory to store the remote data granules. Can be a local path,
+            cloud storage URI (s3://, gs://, az://), or TargetLocation object. If not
             supplied, defaults to a subdirectory of the current working directory
             of the form `data/YYYY-MM-DD-UUID`, where `YYYY-MM-DD` is the year,
             month, and day of the current date, and `UUID` is the last 6 digits
@@ -399,9 +419,7 @@ def download(
         threads: parallel number of threads to use to download the files, adjust as necessary, default = 8
         show_progress: whether or not to display a progress bar. If not specified, defaults to `True` for interactive sessions
             (i.e., in a notebook or a python REPL session), otherwise `False`.
-        pqdm_kwargs: Additional keyword arguments to pass to pqdm, a parallel processing library.
-            See pqdm documentation for available options. Default is to use immediate exception behavior
-            and the number of jobs specified by the `threads` parameter.
+        max_workers: Maximum number of worker threads for parallel processing. If not specified, defaults to the value of `threads`.
 
     Returns:
         List of downloaded files
@@ -416,15 +434,25 @@ def download(
     elif isinstance(granules, str):
         granules = [granules]
 
+    # Convert Path or string to TargetLocation if needed
+    if path is not None and not isinstance(path, TargetLocation):
+        path = TargetLocation(path)
+
     try:
-        return earthaccess.__store__.get(
+        store = earthaccess.__store__
+        if store is None:
+            raise RuntimeError(
+                "Store is not initialized. Please call earthaccess.login() first."
+            )
+        return store.get(
             granules,
-            local_path,
+            path,
             provider,
             threads,
             credentials_endpoint=credentials_endpoint,
             show_progress=show_progress,
-            pqdm_kwargs=pqdm_kwargs,
+            max_workers=max_workers,
+            parallel=parallel,
         )
     except AttributeError as err:
         logger.error(
@@ -440,8 +468,9 @@ def open(
     *,
     credentials_endpoint: Optional[str] = None,
     show_progress: Optional[bool] = None,
-    pqdm_kwargs: Optional[Mapping[str, Any]] = None,
+    max_workers: Optional[int] = None,
     open_kwargs: Optional[Dict[str, Any]] = None,
+    parallel: Union[str, bool, None] = None,
 ) -> List[AbstractFileSystem]:
     """Returns a list of file-like objects that can be used to access files
     hosted on S3 or HTTPS by third party libraries like xarray.
@@ -452,22 +481,26 @@ def open(
         provider: e.g. POCLOUD, NSIDC_CPRD, etc.
         show_progress: whether or not to display a progress bar. If not specified, defaults to `True` for interactive sessions
             (i.e., in a notebook or a python REPL session), otherwise `False`.
-        pqdm_kwargs: Additional keyword arguments to pass to pqdm, a parallel processing library.
-            See pqdm documentation for available options. Default is to use immediate exception behavior
-            and the number of jobs specified by the `threads` parameter.
+        max_workers: Maximum number of worker threads for parallel processing. If not specified, defaults to 8.
         open_kwargs: Additional keyword arguments to pass to `fsspec.open`, such as `cache_type` and `block_size`.
             Defaults to using `blockcache` with a block size determined by the file size (4 to 16MB).
 
     Returns:
         A list of "file pointers" to remote (i.e. s3 or https) files.
     """
-    return earthaccess.__store__.open(
+    store = earthaccess.__store__
+    if store is None:
+        raise RuntimeError(
+            "Store is not initialized. Please call earthaccess.login() first."
+        )
+    return store.open(
         granules=granules,
         provider=_normalize_location(provider),
         credentials_endpoint=credentials_endpoint,
         show_progress=show_progress,
-        pqdm_kwargs=pqdm_kwargs,
+        max_workers=max_workers,
         open_kwargs=open_kwargs,
+        parallel=parallel,
     )
 
 
@@ -491,10 +524,18 @@ def get_s3_credentials(
     """
     daac = _normalize_location(daac)
     provider = _normalize_location(provider)
+    auth = earthaccess.__auth__
+    if auth is None:
+        raise RuntimeError(
+            "Authentication is not initialized. Please call earthaccess.login() first."
+        )
+    if not isinstance(auth, Auth):
+        raise RuntimeError("Authentication object is not properly initialized")
+
     if results is not None:
         endpoint = results[0].get_s3_credentials_endpoint()
-        return earthaccess.__auth__.get_s3_credentials(endpoint=endpoint)
-    return earthaccess.__auth__.get_s3_credentials(daac=daac, provider=provider)
+        return auth.get_s3_credentials(endpoint=endpoint)
+    return auth.get_s3_credentials(daac=daac, provider=provider)
 
 
 def collection_query() -> CollectionQuery:
@@ -503,8 +544,9 @@ def collection_query() -> CollectionQuery:
     Returns:
         a query builder instance for data collections.
     """
-    if earthaccess.__auth__.authenticated:
-        query_builder = DataCollections(earthaccess.__auth__)
+    auth = earthaccess.__auth__
+    if auth and isinstance(auth, Auth) and auth.authenticated:
+        query_builder = DataCollections(auth)
     else:
         query_builder = DataCollections()
     return query_builder
@@ -516,8 +558,9 @@ def granule_query() -> GranuleQuery:
     Returns:
         a query builder instance for data granules.
     """
-    if earthaccess.__auth__.authenticated:
-        query_builder = DataGranules(earthaccess.__auth__)
+    auth = earthaccess.__auth__
+    if auth and isinstance(auth, Auth) and auth.authenticated:
+        query_builder = DataGranules(auth)
     else:
         query_builder = DataGranules()
     return query_builder
@@ -539,7 +582,12 @@ def get_fsspec_https_session() -> AbstractFileSystem:
             f.read(10)
         ```
     """
-    session = earthaccess.__store__.get_fsspec_session()
+    store = earthaccess.__store__
+    if store is None:
+        raise RuntimeError(
+            "Store is not initialized. Please call earthaccess.login() first."
+        )
+    session = store.get_fsspec_session()
     return session
 
 
@@ -562,7 +610,12 @@ def get_requests_https_session() -> requests.Session:
 
         ```
     """
-    session = earthaccess.__store__.get_requests_session()
+    store = earthaccess.__store__
+    if store is None:
+        raise RuntimeError(
+            "Store is not initialized. Please call earthaccess.login() first."
+        )
+    session = store.get_requests_session()
     return session
 
 
@@ -609,16 +662,22 @@ def get_s3_filesystem(
     """
     daac = _normalize_location(daac)
     provider = _normalize_location(provider)
+    store = earthaccess.__store__
+    if store is None:
+        raise RuntimeError(
+            "Store is not initialized. Please call earthaccess.login() first."
+        )
+
     if results:
         endpoint = results[0].get_s3_credentials_endpoint()
         if endpoint:
-            session = earthaccess.__store__.get_s3_filesystem(endpoint=endpoint)
+            session = store.get_s3_filesystem(endpoint=endpoint)
         else:
             raise ValueError("No s3 credentials specified in the given DataGranule")
     elif endpoint:
-        session = earthaccess.__store__.get_s3_filesystem(endpoint=endpoint)
+        session = store.get_s3_filesystem(endpoint=endpoint)
     elif daac or provider:
-        session = earthaccess.__store__.get_s3_filesystem(daac=daac, provider=provider)
+        session = store.get_s3_filesystem(daac=daac, provider=provider)
     else:
         raise ValueError(
             "Invalid set of input arguments given. Please provide either "
@@ -633,12 +692,27 @@ def get_edl_token() -> str:
     Returns:
         EDL token
     """
-    token = earthaccess.__auth__.token
+    auth = earthaccess.__auth__
+    if auth is None:
+        raise RuntimeError(
+            "Authentication is not initialized. Please call earthaccess.login() first."
+        )
+    if not isinstance(auth, Auth):
+        raise RuntimeError("Authentication object is not properly initialized")
+    token = auth.token
+    if not isinstance(token, str):
+        raise RuntimeError("Token is not available or not in expected format")
     return token
 
 
 def auth_environ() -> Dict[str, str]:
     auth = earthaccess.__auth__
+    if auth is None:
+        raise RuntimeError(
+            "Authentication is not initialized. Please call earthaccess.login() first."
+        )
+    if not isinstance(auth, Auth):
+        raise RuntimeError("Authentication object is not properly initialized")
     if not auth.authenticated:
         raise RuntimeError(
             "`auth_environ()` requires you to first authenticate with `earthaccess.login()`"
