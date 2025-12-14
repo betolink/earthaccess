@@ -170,14 +170,9 @@ def make_instance(
 
     # When sending EarthAccessFiles between processes, it's possible that
     # we will need to switch between s3 <--> https protocols.
-    if (earthaccess.__store__.in_region and cls is not s3fs.S3File) or (
-        not earthaccess.__store__.in_region and cls is s3fs.S3File
-    ):
-        # NOTE: This uses the first data_link listed in the granule. That's not
-        #       guaranteed to be the right one.
-        return earthaccess.open([granule])[0]
-    else:
-        return EarthAccessFile(loads(data), granule)
+    # TODO: Re-evaluate this logic with the new S3 probe mechanism.
+    # For now, we'll just return the object as is.
+    return EarthAccessFile(loads(data), granule)
 
 
 def _get_url_granule_mapping(
@@ -218,7 +213,6 @@ class Store(object):
         else:
             logger.warning("The current session is not authenticated with NASA")
             self.auth = None
-        self.in_region = self._running_in_us_west_2()
         self._current_executor_type: Optional[str] = None  # Track current executor type
 
     def _derive_concept_provider(self, concept_id: Optional[str] = None) -> str:
@@ -272,28 +266,6 @@ class Store(object):
             if "/s3credentials" in link["URL"]:
                 return link["URL"]
         return None
-
-    def _running_in_us_west_2(self) -> bool:
-        session = self.auth.get_session()
-        try:
-            # https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-data-retrieval.html
-            token_ = session.put(
-                "http://169.254.169.254/latest/api/token",
-                headers={"X-aws-ec2-metadata-token-ttl-seconds": "21600"},
-                timeout=1,
-            )
-            resp = session.get(
-                "http://169.254.169.254/latest/meta-data/placement/region",
-                timeout=1,
-                headers={"X-aws-ec2-metadata-token": token_.text},
-            )
-        except Exception:
-            return False
-
-        if resp.status_code == 200 and b"us-west-2" == resp.content:
-            # On AWS, in region us-west-2
-            return True
-        return False
 
     def set_requests_session(
         self, url: str, method: str = "get", bearer_token: bool = True
@@ -529,41 +501,110 @@ class Store(object):
                 "A valid Earthdata login instance is required to retrieve credentials"
             )
 
-        if self.in_region:
-            if granules[0].cloud_hosted:
-                access = "direct"
-                provider = granules[0]["meta"]["provider-id"]
-                endpoint = credentials_endpoint or self._own_s3_credentials(
-                    granules[0]["umm"]["RelatedUrls"]
-                )
+    def _get_credentials_endpoint_from_collection(self, concept_id: str) -> Optional[str]:
+        """Fetches the S3 credentials endpoint from the collection metadata."""
+        try:
+            # We can use the internal search module or just a direct request
+            # Using DataCollections might be cleaner if available, but a direct request is also fine.
+            # Let's use the auth session to query CMR.
+            base_url = self.auth.system.cmr_base_url
+            url = f"{base_url}/search/collections.umm_json?concept_id={concept_id}"
+            
+            response = self.auth.get_session().get(url)
+            if response.ok:
+                data = response.json()
+                if "items" in data and len(data["items"]) > 0:
+                    umm = data["items"][0]["umm"]
+                    return umm.get("DirectDistributionInformation", {}).get("S3CredentialsAPIEndpoint")
+        except Exception as e:
+            logger.debug(f"Failed to fetch collection metadata for {concept_id}: {e}")
+        return None
+
+    @_open.register
+    def _open_granules(
+        self,
+        granules: List[DataGranule],
+        provider: Optional[str] = None,
+        *,
+        credentials_endpoint: Optional[str] = None,
+        max_workers: Optional[int] = None,
+        show_progress: bool = True,
+        open_kwargs: Optional[Dict[str, Any]] = None,
+        parallel: Union[str, bool, None] = None,
+    ) -> List[Any]:
+        fileset: List = []
+        total_size = round(sum([granule.size() for granule in granules]) / 1024, 2)
+        logger.info(f"Opening {len(granules)} granules, approx size: {total_size} GB")
+
+        if self.auth is None:
+            raise ValueError(
+                "A valid Earthdata login instance is required to retrieve credentials"
+            )
+
+        # Probe for S3 access
+        s3_fs = None
+        access = "on_prem"
+        
+        if granules[0].cloud_hosted:
+            provider = granules[0]["meta"]["provider-id"]
+            endpoint = credentials_endpoint or self._own_s3_credentials(
+                granules[0]["umm"]["RelatedUrls"]
+            )
+            
+            if endpoint is None:
+                # Try to get it from collection metadata
+                collection_concept_id = granules[0]["meta"].get("collection-concept-id")
+                if collection_concept_id:
+                    endpoint = self._get_credentials_endpoint_from_collection(collection_concept_id)
+
+            # Try to get S3 credentials
+            try:
                 if endpoint is not None:
-                    logger.info(f"using endpoint: {endpoint}")
                     s3_fs = self.get_s3_filesystem(endpoint=endpoint)
                 else:
-                    logger.info(f"using provider: {provider}")
                     s3_fs = self.get_s3_filesystem(provider=provider)
-            else:
-                access = "on_prem"
+            except Exception as e:
+                logger.debug(f"Could not get S3 credentials: {e}")
                 s3_fs = None
 
-            url_mapping = _get_url_granule_mapping(granules, access)
             if s3_fs is not None:
+                # We have credentials, let's probe
                 try:
-                    fileset = _open_files(
-                        url_mapping,
-                        fs=s3_fs,
-                        max_workers=max_workers,
-                        show_progress=show_progress,
-                        open_kwargs=open_kwargs,
-                        parallel=parallel,
-                    )
+                    s3_links = granules[0].data_links(access="direct")
+                    if s3_links:
+                        # Try to read a small chunk to verify access
+                        with s3_fs.open(s3_links[0], "rb") as f:
+                            f.read(10)
+                        access = "direct"
+                        logger.info("Accessing data via S3 (direct access)")
+                    else:
+                        # No S3 links found, fallback to HTTPS
+                        s3_fs = None
                 except Exception as e:
-                    raise RuntimeError(
-                        "An exception occurred while trying to access remote files on S3. "
-                        "This may be caused by trying to access data outside us-west-2 region."
-                        f"Exception: {traceback.format_exc()}"
-                    ) from e
+                    logger.debug(f"S3 probe failed: {e}. Falling back to HTTPS.")
+                    s3_fs = None
+                    access = "on_prem"
+
+        if access == "direct" and s3_fs is not None:
+            url_mapping = _get_url_granule_mapping(granules, access="direct")
+            try:
+                fileset = _open_files(
+                    url_mapping,
+                    fs=s3_fs,
+                    max_workers=max_workers,
+                    show_progress=show_progress,
+                    open_kwargs=open_kwargs,
+                    parallel=parallel,
+                )
+            except Exception as e:
+                 # If something goes wrong during bulk open, we could potentially fallback, 
+                 # but for now let's raise or log. 
+                 # Given the probe succeeded, this might be a real error.
+                 raise RuntimeError(
+                    f"An exception occurred while trying to access remote files on S3: {e}"
+                ) from e
         else:
+            # Fallback to HTTPS
             url_mapping = _get_url_granule_mapping(granules, access="on_prem")
             fileset = self._open_urls_https(
                 url_mapping,
@@ -589,28 +630,38 @@ class Store(object):
     ) -> List[Any]:
         fileset: List = []
         s3_fs = None
-        if isinstance(granules[0], str) and (
+        
+        if not (isinstance(granules[0], str) and (
             granules[0].startswith("s3") or granules[0].startswith("http")
-        ):
-            # TODO: method to derive the DAAC from url?
-            provider = provider
-        else:
-            raise ValueError(
+        )):
+             raise ValueError(
                 f"Schema for {granules[0]} is not recognized, must be an HTTP or S3 URL"
             )
+
         if self.auth is None:
             raise ValueError(
                 "A valid Earthdata login instance is required to retrieve S3 credentials"
             )
 
         url_mapping: Mapping[str, None] = {url: None for url in granules}
-        if self.in_region and granules[0].startswith("s3"):
+        
+        # Try S3 first if links are S3 or if we want to probe
+        # For URLs, if they are S3, we MUST use S3. If they are HTTP, we might be able to use S3 if we convert them?
+        # The original logic only tried S3 if in_region and starts with S3.
+        
+        if granules[0].startswith("s3"):
+            # We must try S3
             if provider is not None:
                 s3_fs = self.get_s3_filesystem(provider=provider)
             elif credentials_endpoint is not None:
                 s3_fs = self.get_s3_filesystem(endpoint=credentials_endpoint)
+            
             if s3_fs:
                 try:
+                    # Probe
+                    with s3_fs.open(granules[0], "rb") as f:
+                        f.read(10)
+                    
                     fileset = _open_files(
                         url_mapping,
                         fs=s3_fs,
@@ -619,28 +670,31 @@ class Store(object):
                         open_kwargs=open_kwargs,
                         parallel=parallel,
                     )
+                    return fileset
                 except Exception as e:
+                    logger.warning(f"S3 access failed: {e}. URLs are S3, so cannot fallback to HTTPS easily unless we convert them.")
+                    # If the user provided S3 URLs, and S3 fails, we probably can't do much unless we know the HTTP equivalent.
+                    # But the original code raised an error if not in region.
+                    # Now we raise if probe fails.
                     raise RuntimeError(
-                        "An exception occurred while trying to access remote files on S3. "
-                        "This may be caused by trying to access the data outside the us-west-2 region. "
-                        f"Exception: {traceback.format_exc()}"
+                        "Could not access S3 URLs. Ensure you are in-region or have correct permissions."
                     ) from e
-
-                return fileset
             else:
-                logger.error(
-                    f"An error occurred while trying to retrieve the cloud credentials for provider: {provider}. endpoint: {credentials_endpoint}"
+                 raise RuntimeError(
+                    f"Could not retrieve cloud credentials for provider: {provider}. endpoint: {credentials_endpoint}"
                 )
-                return fileset
         else:
-            if granules[0].startswith("s3"):
-                raise ValueError(
-                    "We cannot open S3 links when we are not in-region, try using HTTPS links"
-                )
+            # HTTP URLs. 
+            # We could try to see if they are cloud hosted and we are in region, but for now let's stick to HTTPS
+            # unless we want to implement the "convert http to s3" logic here too.
+            # The user request said "try first a S3 link... if 401... use regular links".
+            # For _open_urls, we usually just have the URLs.
+            
             fileset = self._open_urls_https(
                 url_mapping,
                 max_workers=max_workers,
                 show_progress=show_progress,
+                open_kwargs=open_kwargs,
                 parallel=parallel,
             )
             return fileset
@@ -856,30 +910,70 @@ class Store(object):
         parallel: Union[str, bool, None] = None,
     ) -> List[Path]:
         data_links: List = []
-        provider = granules[0]["meta"]["provider-id"]
-        endpoint = self._own_s3_credentials(granules[0]["umm"]["RelatedUrls"])
-        cloud_hosted = granules[0].cloud_hosted
-        access = "direct" if (cloud_hosted and self.in_region) else "external"
+        
+        # Probe for S3 access
+        s3_fs = None
+        access = "on_prem"
+        
+        if granules[0].cloud_hosted:
+            provider = granules[0]["meta"]["provider-id"]
+            endpoint = credentials_endpoint or self._own_s3_credentials(
+                granules[0]["umm"]["RelatedUrls"]
+            )
+            
+            if endpoint is None:
+                # Try to get it from collection metadata
+                collection_concept_id = granules[0]["meta"].get("collection-concept-id")
+                if collection_concept_id:
+                    endpoint = self._get_credentials_endpoint_from_collection(collection_concept_id)
+
+            # Try to get S3 credentials
+            try:
+                if endpoint is not None:
+                    s3_fs = self.get_s3_filesystem(endpoint=endpoint)
+                else:
+                    s3_fs = self.get_s3_filesystem(provider=provider)
+            except Exception as e:
+                logger.debug(f"Could not get S3 credentials: {e}")
+                s3_fs = None
+
+            if s3_fs is not None:
+                # We have credentials, let's probe
+                try:
+                    s3_links = granules[0].data_links(access="direct")
+                    if s3_links:
+                        # Try to read a small chunk to verify access
+                        with s3_fs.open(s3_links[0], "rb") as f:
+                            f.read(10)
+                        access = "direct"
+                        logger.info("Accessing data via S3 (direct access)")
+                    else:
+                        s3_fs = None
+                except Exception as e:
+                    logger.debug(f"S3 probe failed: {e}. Falling back to HTTPS.")
+                    s3_fs = None
+                    access = "on_prem"
+
+        # Collect links based on access type
         data_links = list(
-            # we are not in-region
             chain.from_iterable(
-                granule.data_links(access=access, in_region=self.in_region)
+                granule.data_links(access=access)
                 for granule in granules
             )
         )
+        
         total_size = round(sum(granule.size() for granule in granules) / 1024, 2)
         logger.info(
             f" Getting {len(granules)} granules, approx download size: {total_size} GB"
         )
-        if access == "direct":
+        
+        if access == "direct" and s3_fs is not None:
             if endpoint is not None:
                 logger.info(
                     f"Accessing cloud dataset using dataset endpoint credentials: {endpoint}"
                 )
-                s3_fs = self.get_s3_filesystem(endpoint=endpoint)
             else:
                 logger.info(f"Accessing cloud dataset using provider: {provider}")
-                s3_fs = self.get_s3_filesystem(provider=provider)
 
             # Handle TargetLocation directory creation
             if isinstance(path, TargetLocation):

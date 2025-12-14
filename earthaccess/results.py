@@ -294,49 +294,38 @@ class DataGranule(CustomDict):
         return s3_links
 
     def data_links(
-        self, access: Optional[str] = None, in_region: bool = False
+        self, access: Optional[str] = None
     ) -> List[str]:
-        """Placeholder.
-
-        Returns the data links from a granule.
+        """Returns the data links from a granule.
 
         Parameters:
             access: direct or external.
                 Direct means in-region access for cloud-hosted collections.
-            in_region: True if we are running in us-west-2.
-                It is meant for the store class.
 
         Returns:
             The data links for the requested access type.
         """
         https_links = self._filter_related_links("GET DATA")
         s3_links = self._filter_related_links("GET DATA VIA DIRECT ACCESS")
-        if in_region:
-            # we are in us-west-2
-            if self.cloud_hosted and access in (None, "direct"):
-                # this is a cloud collection, and we didn't specify the access type
-                # default to S3 links
-                if len(s3_links) == 0 and len(https_links) > 0:
-                    # This is guessing the S3 links for some cloud collections that for
-                    # some reason only offered HTTPS links
-                    return self._derive_s3_link(https_links)
-                else:
-                    # we have the s3 links so we return those
-                    return s3_links
-            else:
-                # Even though we are in us-west-2, the user wants the HTTPS links used in-region.
-                # They are S3 signed links from TEA.
-                # <https://github.com/asfadmin/thin-egress-app>
-                return https_links
+        
+        if access == "direct":
+            return s3_links
+        elif access == "external" or access == "on_prem":
+             return https_links
         else:
-            # we are not in-region
-            if access == "direct":
-                # maybe the user wants to collect S3 links and use them later
-                # from the cloud
-                return s3_links
-            else:
-                # we are not in us-west-2, even cloud collections have HTTPS links
-                return https_links
+            # Default behavior: return all links? Or prefer HTTPS?
+            # The previous logic was complex and depended on in_region.
+            # Now, if we want to let the Store decide, we should probably provide what is asked.
+            # If access is None, let's return HTTPS links as they are more universally usable,
+            # BUT the Store will explicitly ask for "direct" if it wants to try S3.
+            
+            # If the user asks for links without specifying access, they probably want the download links.
+            if self.cloud_hosted:
+                 if len(s3_links) > 0:
+                     return s3_links + https_links
+                 else:
+                     return https_links
+            return https_links
 
     def dataviz_links(self) -> List[str]:
         """Placeholder.
