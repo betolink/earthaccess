@@ -35,6 +35,7 @@ def _repr_granule_html(granule: Any) -> str:
         [
             f'<a href="{link}" target="_blank" class="btn btn-secondary btn-sm">{link.split("/")[-1]}</a>'
             for link in granule.data_links()
+            if link.startswith("http")
         ]
     )
     granule_size = round(granule.size(), 2)
