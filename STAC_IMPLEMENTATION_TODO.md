@@ -26,7 +26,7 @@ Implementing STAC interoperability improvements following SOLID principles, TDD,
 - [x] Flexible type definitions (BBoxLike, PointLike, etc.)
 - [x] Input normalization utilities for all supported formats
 
-### 🟡 Group B: Results Classes - Pending
+### 🟡 Group B: Results Classes - COMPLETED ✅
 - [ ] ResultsBase abstract class
 - [ ] GranuleResults lazy pagination
 - [ ] StreamingExecutor for lazy results
