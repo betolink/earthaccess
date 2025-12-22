@@ -263,8 +263,8 @@ Following SOLID principles, TDD, and Pythonic code:
 | 2024-12-22 | dc9b277 | Add to_stac() and to_dict() methods to DataGranule and DataCollection |
 | 2024-12-22 | 7b14b51 | Add STAC converters module with bidirectional conversion |
 | 2024-12-22 | c989800 | Add streaming execution module with AuthContext and StreamingExecutor |
-| 2024-12-22 | 881a8bf | Add CredentialManager for S3 credential caching |
-| 2024-12-22 | (pending) | Add API integration for new query objects |
+| 2024-12-22 | 41ce123 | Add CredentialManager for S3 credential caching |
+| 2024-12-22 | cdce7de | Add API integration for new query objects |
 
 ---
 

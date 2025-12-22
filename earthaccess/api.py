@@ -10,7 +10,6 @@ from typing_extensions import (
     Any,
     Dict,
     List,
-    Mapping,
     Optional,
     Union,
     deprecated,
@@ -21,16 +20,19 @@ from earthaccess.exceptions import LoginStrategyUnavailable, ServiceOutage
 from earthaccess.services import DataServices
 
 from .auth import Auth
+from .query import (
+    CollectionQuery as NewCollectionQuery,
+    GranuleQuery as NewGranuleQuery,
+)
 from .results import DataCollection, DataGranule
 from .search import CollectionQuery, DataCollections, DataGranules, GranuleQuery
 from .store import Store
-from .target_filesystem import TargetLocation
 from .system import PROD, System
+from .target_filesystem import TargetLocation
 from .utils import _validation as validate
 
 if TYPE_CHECKING:
     # Type checking stubs to help the type checker understand __getattr__ behavior
-    from typing import Any as _Any
 
     _auth: Auth
     _store: Optional[Store]
@@ -101,12 +103,19 @@ def _normalize_location(location: Optional[str]) -> Optional[str]:
     return location
 
 
-def search_datasets(count: int = -1, **kwargs: Any) -> List[DataCollection]:
+def search_datasets(
+    query: Optional[NewCollectionQuery] = None,
+    count: int = -1,
+    **kwargs: Any,
+) -> List[DataCollection]:
     """Search datasets (collections) using NASA's CMR.
 
     [https://cmr.earthdata.nasa.gov/search/site/docs/search/api.html](https://cmr.earthdata.nasa.gov/search/site/docs/search/api.html)
 
     Parameters:
+        query: A CollectionQuery object from earthaccess.query. When provided,
+            the query parameters are extracted from this object. Cannot be used
+            together with keyword arguments.
         count: Number of records to get, -1 = all
         kwargs (Dict):
             arguments to CMR:
@@ -158,8 +167,10 @@ def search_datasets(count: int = -1, **kwargs: Any) -> List[DataCollection]:
 
     Raises:
         RuntimeError: The CMR query failed.
+        ValueError: If both query and kwargs are provided.
 
     Examples:
+        Using keyword arguments (backward compatible):
         ```python
         datasets = earthaccess.search_datasets(
             keyword="sea surface anomaly",
@@ -167,22 +178,30 @@ def search_datasets(count: int = -1, **kwargs: Any) -> List[DataCollection]:
         )
         ```
 
+        Using a query object:
         ```python
-        results = earthaccess.search_datasets(
-            daac="NSIDC",
-            bounding_box=(-73., 58., -10., 84.),
-        )
-        ```
+        from earthaccess.query import CollectionQuery
 
-        ```python
-        results = earthaccess.search_datasets(
-            instrument="ATLAS",
-            bounding_box=(-73., 58., -10., 84.),
-            temporal=("2024-09-01", "2025-04-30"),
-        )
+        query = CollectionQuery().keyword("sea surface anomaly").cloud_hosted(True)
+        datasets = earthaccess.search_datasets(query=query)
         ```
 
     """
+    # Handle query object vs kwargs
+    if query is not None:
+        if kwargs:
+            raise ValueError(
+                "Cannot use both 'query' parameter and keyword arguments. "
+                "Use either a query object or keyword arguments, not both."
+            )
+        # Validate the query
+        validation = query.validate()
+        if not validation.is_valid:
+            errors = "; ".join(f"{e.field}: {e.message}" for e in validation.errors)
+            raise ValueError(f"Invalid query: {errors}")
+        # Convert query to CMR parameters
+        kwargs = query.to_cmr()
+
     if not validate.valid_dataset_parameters(**kwargs):
         logger.warning(
             "A valid set of parameters is needed to search for datasets on CMR"
@@ -190,17 +209,21 @@ def search_datasets(count: int = -1, **kwargs: Any) -> List[DataCollection]:
         return []
     auth = earthaccess.__auth__
     if auth and isinstance(auth, Auth) and auth.authenticated:
-        query = DataCollections(auth).parameters(**kwargs)
+        cmr_query = DataCollections(auth).parameters(**kwargs)
     else:
-        query = DataCollections().parameters(**kwargs)
-    datasets_found = query.hits()
+        cmr_query = DataCollections().parameters(**kwargs)
+    datasets_found = cmr_query.hits()
     logger.info(f"Datasets found: {datasets_found}")
     if count > 0:
-        return query.get(count)
-    return query.get_all()
+        return cmr_query.get(count)
+    return cmr_query.get_all()
 
 
-def search_data(count: int = -1, **kwargs: Any) -> List[DataGranule]:
+def search_data(
+    query: Optional[NewGranuleQuery] = None,
+    count: int = -1,
+    **kwargs: Any,
+) -> List[DataGranule]:
     """Search for dataset files (granules) using NASA's CMR.
 
     [https://cmr.earthdata.nasa.gov/search/site/docs/search/api.html](https://cmr.earthdata.nasa.gov/search/site/docs/search/api.html)
@@ -208,6 +231,9 @@ def search_data(count: int = -1, **kwargs: Any) -> List[DataGranule]:
     The CMR does not permit queries across all granules in all collections in order to provide fast search responses. Granule queries must target a subset of the collections in the CMR using a condition like provider, provider_id, concept_id, collection_concept_id, short_name, version or entry_title.
 
     Parameters:
+        query: A GranuleQuery object from earthaccess.query. When provided,
+            the query parameters are extracted from this object. Cannot be used
+            together with keyword arguments.
         count: Number of records to get, -1 = all
         kwargs (Dict):
             arguments to CMR:
@@ -266,8 +292,10 @@ def search_data(count: int = -1, **kwargs: Any) -> List[DataGranule]:
 
     Raises:
         RuntimeError: The CMR query failed.
+        ValueError: If both query and kwargs are provided, or if query is invalid.
 
     Examples:
+        Using keyword arguments (backward compatible):
         ```python
         granules = earthaccess.search_data(
             short_name="ATL06",
@@ -275,23 +303,39 @@ def search_data(count: int = -1, **kwargs: Any) -> List[DataGranule]:
             )
         ```
 
+        Using a query object:
         ```python
-        granules = earthaccess.search_data(
-            doi="10.5067/SLREF-CDRV2",
-            cloud_hosted=True,
-            temporal=("2002-01-01", "2002-12-31")
-        )
+        from earthaccess.query import GranuleQuery
+
+        query = GranuleQuery().short_name("ATL06").bounding_box(-46.5, 61.0, -42.5, 63.0)
+        granules = earthaccess.search_data(query=query)
+        ```
     """
+    # Handle query object vs kwargs
+    if query is not None:
+        if kwargs:
+            raise ValueError(
+                "Cannot use both 'query' parameter and keyword arguments. "
+                "Use either a query object or keyword arguments, not both."
+            )
+        # Validate the query
+        validation = query.validate()
+        if not validation.is_valid:
+            errors = "; ".join(f"{e.field}: {e.message}" for e in validation.errors)
+            raise ValueError(f"Invalid query: {errors}")
+        # Convert query to CMR parameters
+        kwargs = query.to_cmr()
+
     auth = earthaccess.__auth__
     if auth and auth.authenticated:
-        query = DataGranules(auth).parameters(**kwargs)
+        cmr_query = DataGranules(auth).parameters(**kwargs)
     else:
-        query = DataGranules().parameters(**kwargs)
-    granules_found = query.hits()
+        cmr_query = DataGranules().parameters(**kwargs)
+    granules_found = cmr_query.hits()
     logger.info(f"Granules found: {granules_found}")
     if count > 0:
-        return query.get(count)
-    return query.get_all()
+        return cmr_query.get(count)
+    return cmr_query.get_all()
 
 
 def search_services(count: int = -1, **kwargs: Any) -> List[Any]:

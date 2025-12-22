@@ -24,11 +24,19 @@ from .api import (
 from .auth import Auth
 from .dmrpp_zarr import open_virtual_dataset, open_virtual_mfdataset
 from .kerchunk import consolidate_metadata
+from .query import (
+    BoundingBox,
+    CollectionQuery,
+    DateRange,
+    GranuleQuery,
+    Point,
+    Polygon,
+)
 from .search import DataCollection, DataCollections, DataGranule, DataGranules
 from .services import DataServices
 from .store import Store
-from .target_filesystem import TargetLocation
 from .system import PROD, UAT
+from .target_filesystem import TargetLocation
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +77,13 @@ __all__ = [
     "open_virtual_mfdataset",
     "PROD",
     "UAT",
+    # query package (new query builders)
+    "GranuleQuery",
+    "CollectionQuery",
+    "BoundingBox",
+    "DateRange",
+    "Point",
+    "Polygon",
 ]
 
 __version__ = version("earthaccess")
