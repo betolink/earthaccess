@@ -425,3 +425,180 @@ services = earthaccess.search_services(provider="PODAAC")
 ```
 
 `search_services` returns a list of Python doctionaries.
+
+## Using Query Objects (Advanced)
+
+In addition to passing keyword arguments directly to `search_data` and `search_datasets`,
+you can use query objects to build searches programmatically. Query objects provide:
+
+- **Method chaining** for a fluent API
+- **Query validation** before execution
+- **STAC format conversion** for interoperability with STAC-based tools
+
+### Building a Granule Query
+
+Use `GranuleQuery` to build a search for data granules:
+
+```python
+from earthaccess import GranuleQuery, search_data
+
+# Build a query using method chaining
+query = (
+    GranuleQuery()
+    .short_name("ATL06")
+    .temporal("2020-01-01", "2020-03-31")
+    .bounding_box(-46.5, 61.0, -42.5, 63.0)
+)
+
+# Execute the search
+results = search_data(query=query)
+```
+
+This is equivalent to:
+
+```python
+results = earthaccess.search_data(
+    short_name="ATL06",
+    temporal=("2020-01-01", "2020-03-31"),
+    bounding_box=(-46.5, 61.0, -42.5, 63.0),
+)
+```
+
+### Building a Collection Query
+
+Use `CollectionQuery` to build a search for datasets:
+
+```python
+from earthaccess import CollectionQuery, search_datasets
+
+query = (
+    CollectionQuery()
+    .keyword("sea surface temperature")
+    .cloud_hosted(True)
+    .temporal("2020-01-01", "2020-12-31")
+)
+
+datasets = search_datasets(query=query)
+```
+
+### Query Validation
+
+Query objects validate parameters before execution. Invalid queries raise a
+`ValueError` with details:
+
+```python
+from earthaccess import GranuleQuery, search_data
+
+# This query is invalid: spatial searches require a collection filter
+query = GranuleQuery().bounding_box(-180, -90, 180, 90)
+
+# This will raise ValueError with explanation
+results = search_data(query=query)
+# ValueError: Invalid query: spatial: Spatial queries require a collection filter
+# (short_name, entry_title, or concept_id)
+```
+
+### Converting Queries to STAC Format
+
+Query objects can be converted to STAC API format for use with STAC-compatible
+tools like `pystac-client`:
+
+```python
+from earthaccess import GranuleQuery
+
+query = (
+    GranuleQuery()
+    .short_name("ATL03")
+    .temporal("2020-01-01", "2020-12-31")
+    .bounding_box(-180, -90, 180, 90)
+)
+
+# Get STAC-compatible search parameters
+stac_params = query.to_stac()
+print(stac_params)
+# {'collections': ['ATL03'],
+#  'datetime': '2020-01-01T00:00:00Z/2020-12-31T23:59:59Z',
+#  'bbox': [-180.0, -90.0, 180.0, 90.0]}
+
+# Get CMR-compatible search parameters
+cmr_params = query.to_cmr()
+print(cmr_params)
+# {'short_name': 'ATL03',
+#  'temporal': '2020-01-01T00:00:00Z,2020-12-31T23:59:59Z',
+#  'bounding_box': '-180.0,-90.0,180.0,90.0'}
+```
+
+### Available Query Methods
+
+**GranuleQuery** supports:
+
+| Method | Description |
+|--------|-------------|
+| `short_name(name)` | Filter by collection short name |
+| `version(version)` | Filter by collection version |
+| `concept_id(ids)` | Filter by concept ID(s) |
+| `provider(provider)` | Filter by data provider |
+| `temporal(from, to)` | Filter by date range |
+| `bounding_box(west, south, east, north)` | Filter by bounding box |
+| `point(lon, lat)` | Filter by geographic point |
+| `polygon(coords)` | Filter by polygon |
+| `line(coords)` | Filter by line |
+| `granule_name(name)` | Filter by granule name (wildcards supported) |
+| `day_night_flag(flag)` | Filter by day/night |
+| `cloud_cover(min, max)` | Filter by cloud cover percentage |
+| `orbit_number(orbit)` | Filter by orbit number |
+| `instrument(instrument)` | Filter by instrument |
+| `platform(platform)` | Filter by platform |
+| `downloadable(bool)` | Filter for downloadable granules |
+
+**CollectionQuery** supports:
+
+| Method | Description |
+|--------|-------------|
+| `keyword(text)` | Search by keyword |
+| `short_name(name)` | Filter by short name |
+| `concept_id(ids)` | Filter by concept ID(s) |
+| `provider(provider)` | Filter by provider |
+| `daac(daac)` | Filter by DAAC |
+| `temporal(from, to)` | Filter by date range |
+| `bounding_box(west, south, east, north)` | Filter by bounding box |
+| `point(lon, lat)` | Filter by point |
+| `polygon(coords)` | Filter by polygon |
+| `cloud_hosted(bool)` | Filter for cloud-hosted collections |
+| `has_granules(bool)` | Filter for collections with granules |
+
+## Converting Results to STAC Format
+
+Search results can be converted to STAC format for interoperability with
+STAC-based tools and catalogs:
+
+```python
+import earthaccess
+
+# Search for granules
+granules = earthaccess.search_data(
+    short_name="ATL06",
+    count=5
+)
+
+# Convert a granule to a STAC Item
+stac_item = granules[0].to_stac()
+print(stac_item["type"])  # "Feature"
+print(stac_item["stac_version"])  # "1.0.0"
+
+# Convert to a plain dictionary (useful for serialization)
+granule_dict = granules[0].to_dict()
+```
+
+Similarly for collections:
+
+```python
+datasets = earthaccess.search_datasets(
+    keyword="temperature",
+    count=1
+)
+
+# Convert to STAC Collection format
+stac_collection = datasets[0].to_stac()
+print(stac_collection["type"])  # "Collection"
+```
