@@ -83,8 +83,8 @@ Implementing STAC interoperability improvements following SOLID principles, TDD,
    - [x] CredentialManager class (with tests passing)
    - [x] FileSystemFactory class (with type fixes)
    - [x] URL-to-provider inference (comprehensive)
-   - [ ] Cloud-to-cloud streaming
-   - [ ] Store refactoring to use new components
+    - [x] Cloud-to-cloud streaming (CloudTransfer class with strategy detection)
+    - [ ] Store refactoring to use new components
 2. **Start Query Architecture** (Group A) - ✅ COMPLETED
    - [ ] GranuleQuery base structure
    - [ ] Basic method chaining
