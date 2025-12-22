@@ -1,12 +1,11 @@
-"""
-Filesystem factory for earthaccess.
+"""Filesystem factory for earthaccess.
 
 Provides centralized filesystem creation with proper credential handling.
 Follows SOLID principles with single responsibility for filesystem operations.
 """
 
 import logging
-from typing import Any, Dict, Optional, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import fsspec
 import s3fs
@@ -123,7 +122,8 @@ class FileSystemFactory:
         """
         # Check cache first
         protocol = url.split("://")[0] if "://" in url else "file"
-        cache_key = str((protocol, provider, frozenset(fs_kwargs.items())))
+        cache_items = (protocol, provider, frozenset(fs_kwargs.items()))
+        cache_key = f"{cache_items[0]}|{cache_items[1]}|{hash(str(cache_items[2]))}"
         if cache_key in self._fs_cache:
             return self._fs_cache[cache_key]
 
@@ -155,7 +155,7 @@ class FileSystemFactory:
 
     def cache_info(self) -> Dict[str, Any]:
         """Get information about cached filesystems."""
-        protocols = [key[0] for key in self._fs_cache.keys() if isinstance(key, tuple)]
+        protocols = [key.split("|")[0] for key in self._fs_cache.keys()]
         return {
             "cached_filesystems": len(self._fs_cache),
             "protocols": list(set(protocols)),
