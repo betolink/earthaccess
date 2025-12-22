@@ -38,6 +38,32 @@
 - Streaming execution pattern for lazy results
 - obstore backend (optional)
 
+### 🔲 Documentation Improvements Needed
+
+- **User documentation for parallel execution**: Document the `parallel` parameter on `open()` and `download()` methods
+- **Executor selection guide**: When to use ThreadPool vs Dask vs Lithops
+- **TargetLocation documentation**: How to download to cloud storage (S3, GCS, Azure)
+- **Real-world examples page**: Add comprehensive tutorial page with realistic use cases (see Group I below)
+- **Migration guide**: Document changes from previous versions
+
+### 🔲 VirtualiZarr Refactoring Needed
+
+- **Align `open_virtual_dataset` with `open_virtual_mfdataset`**: Single granule opener should support all parameters from mfdataset:
+  - `load` parameter (materialize coordinates or not)
+  - `reference_dir` and `reference_format` parameters
+  - Consistent behavior for coordinate handling
+- **Update virtualizarr dependency**: Currently pinned to `>=2.1.2`, latest is `2.2.1`
+- **Dependency consolidation**: Consider moving `virtualizarr` and related packages to core dependencies to avoid user confusion
+
+### 🔲 Dependency Review
+
+Current optional dependencies that may cause user confusion:
+- `virtualizarr` - users expect `open_virtual_dataset` to work out of the box
+- `kerchunk` - needed for reference file generation
+- `xarray` - used extensively in examples but optional
+
+Recommendation: Evaluate adding these as core dependencies or improve error messages.
+
 ---
 
 ## Overview
@@ -72,8 +98,10 @@ This document outlines a **robust, grouped-by-functionality** implementation pla
 6. [Group F: Flexible Input Types](#group-f-flexible-input-types) 🔲 Pending
 7. [Group G: Geometry Handling](#group-g-geometry-handling) 🔲 Pending
 8. [Group H: Query Widget (Optional)](#group-h-query-widget-optional) 🔲 Optional
-9. [Implementation Phases](#implementation-phases)
-10. [Migration Guide](#migration-guide)
+9. [Group I: Documentation & Examples](#group-i-documentation--examples) 🔲 Pending
+10. [Group J: VirtualiZarr Improvements](#group-j-virtualizarr-improvements) 🔲 Pending
+11. [Implementation Phases](#implementation-phases)
+12. [Migration Guide](#migration-guide)
 
 ---
 
@@ -6244,7 +6272,359 @@ pip install earthaccess ipyleaflet ipywidgets
 
 ---
 
-## Implementation Phases
+## Group I: Documentation & Examples
+
+> **Status**: 🔲 Not Started
+>
+> Documentation needs significant improvement to help users understand the new parallel execution features and provide real-world usage examples.
+
+### I.1 Documentation Improvements
+
+The following documentation updates are needed:
+
+1. **Parallel Execution Guide**
+   - Document the `parallel` parameter on `open()` and `download()` methods
+   - Explain when to use each executor type (ThreadPool, Dask, Lithops)
+   - Performance considerations and benchmarks
+   - Examples with Dask distributed clusters
+
+2. **TargetLocation Documentation**
+   - How to download directly to cloud storage (S3, GCS, Azure)
+   - Storage options configuration
+   - Cross-cloud data movement patterns
+
+3. **Migration Guide**
+   - Changes from pqdm-based parallel execution
+   - New parameter names and behaviors
+   - Deprecation notices
+
+### I.2 Real-World Examples Page
+
+Create a comprehensive tutorial/examples page showcasing realistic use cases:
+
+#### I.2.1 HLS (Harmonized Landsat Sentinel-2) Example
+
+```python
+import earthaccess
+import xarray as xr
+
+# Authenticate
+earthaccess.login()
+
+# Search for HLS granules over an area of interest
+granules = earthaccess.search_data(
+    short_name="HLSS30",
+    bounding_box=(-122.5, 37.5, -122.0, 38.0),  # San Francisco Bay Area
+    temporal=("2024-06-01", "2024-06-30"),
+    cloud_cover=(0, 20),
+    count=10,
+)
+
+print(f"Found {len(granules)} granules")
+
+# Open specific bands using virtualizarr
+vds = earthaccess.open_virtual_mfdataset(
+    granules,
+    access="indirect",
+    concat_dim="time",
+    coords="minimal",
+    compat="override",
+)
+
+# Select only the bands we need (RGB + NIR)
+bands = ["B02", "B03", "B04", "B08"]
+ds = vds[bands]
+
+# Calculate NDVI
+ds["NDVI"] = (ds["B08"] - ds["B04"]) / (ds["B08"] + ds["B04"])
+
+# Plot a time series
+ds["NDVI"].mean(dim=["x", "y"]).plot()
+```
+
+#### I.2.2 MUR SST (Sea Surface Temperature) Example
+
+```python
+import earthaccess
+import matplotlib.pyplot as plt
+
+# Search for MUR SST data
+granules = earthaccess.search_data(
+    short_name="MUR-JPL-L4-GLOB-v4.1",
+    temporal=("2024-01-01", "2024-01-07"),
+    count=7,
+)
+
+# Open as virtual dataset for efficient access
+vds = earthaccess.open_virtual_mfdataset(
+    granules,
+    access="indirect",
+    load=True,
+    concat_dim="time",
+    coords="minimal",
+    compat="override",
+    combine_attrs="drop_conflicts",
+)
+
+# Select a region (Gulf of Mexico)
+gulf_sst = vds["analysed_sst"].sel(
+    lat=slice(18, 31),
+    lon=slice(-98, -80),
+)
+
+# Plot SST anomaly
+gulf_sst.mean(dim="time").plot(cmap="RdBu_r", vmin=290, vmax=305)
+plt.title("Mean SST - Gulf of Mexico (Jan 2024)")
+```
+
+#### I.2.3 ICESat-2 ATL08 (Land/Vegetation Height) Example
+
+```python
+import earthaccess
+from pathlib import Path
+
+# Search for ATL08 data over a forest region
+granules = earthaccess.search_data(
+    short_name="ATL08",
+    bounding_box=(-122.5, 37.5, -122.0, 38.0),
+    temporal=("2023-01-01", "2023-12-31"),
+    count=20,
+)
+
+# Download with parallel execution
+files = earthaccess.download(
+    granules,
+    path="./atl08_data",
+    parallel="threads",  # Use thread pool
+    max_workers=4,
+)
+
+print(f"Downloaded {len(files)} files to ./atl08_data")
+
+# Process with h5py
+import h5py
+for f in files[:3]:
+    with h5py.File(f, "r") as h5:
+        # Access vegetation height data
+        heights = h5["/gt1l/land_segments/canopy/h_canopy"][:]
+        print(f"{f.name}: {len(heights)} canopy height measurements")
+```
+
+#### I.2.4 Parallel Download to Cloud Storage Example
+
+```python
+import earthaccess
+
+# Download directly to S3 bucket
+granules = earthaccess.search_data(
+    short_name="GEDI_L2A",
+    temporal=("2024-01"),
+    count=50,
+)
+
+# Download to S3 with Dask distributed
+files = earthaccess.download(
+    granules,
+    path="s3://my-bucket/gedi-data/",
+    parallel="dask",
+    max_workers=16,
+)
+```
+
+#### I.2.5 EMIT Hyperspectral Example
+
+```python
+import earthaccess
+
+# Search for EMIT hyperspectral data
+granules = earthaccess.search_data(
+    short_name="EMITL2ARFL",
+    bounding_box=(-118.5, 34.0, -118.0, 34.5),  # Los Angeles
+    temporal=("2024-01", "2024-06"),
+    count=5,
+)
+
+# Open with virtualizarr
+vds = earthaccess.open_virtual_mfdataset(
+    granules,
+    access="indirect",
+    load=True,
+)
+
+# Access reflectance data
+print(f"Dimensions: {vds.dims}")
+print(f"Variables: {list(vds.data_vars)}")
+```
+
+### I.3 Implementation Tasks
+
+| Task | Priority | Status |
+|------|----------|--------|
+| Create parallel execution user guide | High | 🔲 Pending |
+| Create TargetLocation documentation | High | 🔲 Pending |
+| Create real-world examples page | High | 🔲 Pending |
+| Add HLS tutorial example | High | 🔲 Pending |
+| Add MUR SST tutorial example | High | 🔲 Pending |
+| Add ICESat-2 ATL08 example | Medium | 🔲 Pending |
+| Add cloud-to-cloud download example | Medium | 🔲 Pending |
+| Add EMIT hyperspectral example | Medium | 🔲 Pending |
+| Update API reference documentation | High | 🔲 Pending |
+| Create migration guide from previous versions | Medium | 🔲 Pending |
+
+---
+
+## Group J: VirtualiZarr Improvements
+
+> **Status**: 🔲 Not Started
+>
+> The virtualizarr integration needs refactoring to provide consistent API between single and multi-file openers, update to the latest virtualizarr version, and review dependency management.
+
+### J.1 Current Issues
+
+#### J.1.1 API Inconsistency
+
+The `open_virtual_dataset` (single granule) and `open_virtual_mfdataset` (multiple granules) have inconsistent APIs:
+
+**`open_virtual_mfdataset` parameters:**
+- `granules`, `group`, `access` ✅
+- `preprocess` ✅
+- `parallel` ✅
+- `load` ✅ - Controls coordinate materialization
+- `reference_dir` ✅
+- `reference_format` ✅
+- `**xr_combine_nested_kwargs` ✅
+
+**`open_virtual_dataset` parameters:**
+- `granule`, `group`, `access` ✅
+- `preprocess` ❌ Missing
+- `parallel` ❌ Missing (hardcoded to False)
+- `load` ❌ Missing
+- `reference_dir` ❌ Missing
+- `reference_format` ❌ Missing
+
+This means users cannot:
+- Choose whether to materialize coordinates for single granules
+- Use the same workflow for single vs. multiple granules
+
+#### J.1.2 Outdated virtualizarr Version
+
+- **Current pinned version**: `>=2.1.2`
+- **Latest available version**: `2.2.1`
+- **Update needed**: Review changelog for breaking changes and update minimum version
+
+#### J.1.3 Dependency Confusion
+
+Users frequently encounter import errors because virtualizarr and related packages are optional:
+
+```python
+>>> import earthaccess
+>>> vds = earthaccess.open_virtual_dataset(granules[0])
+ImportError: `earthaccess.open_virtual_dataset` requires `pip install earthaccess[virtualizarr]`
+```
+
+**Options to consider:**
+1. Move virtualizarr to core dependencies
+2. Improve error messages with clear installation instructions
+3. Add optional import guards with helpful warnings
+4. Document clearly in README which features require extras
+
+### J.2 Proposed Changes
+
+#### J.2.1 Align `open_virtual_dataset` with `open_virtual_mfdataset`
+
+```python
+def open_virtual_dataset(
+    granule: earthaccess.DataGranule,
+    group: str | None = None,
+    access: str = "indirect",
+    load: bool = True,  # NEW: Control coordinate materialization
+    reference_dir: str | None = None,  # NEW
+    reference_format: Literal["json", "parquet"] = "json",  # NEW
+) -> xr.Dataset:
+    """Open a granule as a single virtual xarray Dataset.
+
+    Parameters:
+        granule: The granule to open
+        group: Path to the netCDF4 group to open
+        access: "direct" (S3) or "indirect" (HTTPS)
+        load: If True, materialize coordinates for lazy indexing.
+              If False, return pure virtual dataset with ManifestArrays.
+        reference_dir: Directory to store kerchunk references (if load=True)
+        reference_format: Reference format - "json" or "parquet"
+
+    Returns:
+        xarray.Dataset
+    """
+    return open_virtual_mfdataset(
+        granules=[granule],
+        group=group,
+        access=access,
+        parallel=False,
+        preprocess=None,
+        load=load,
+        reference_dir=reference_dir,
+        reference_format=reference_format,
+    )
+```
+
+#### J.2.2 Update virtualizarr Version
+
+Update `pyproject.toml`:
+
+```toml
+[project.optional-dependencies]
+virtualizarr = [
+    "numpy >=1.26.4",
+    "zarr >=3.1.1",
+    "virtualizarr >=2.2.0",  # Updated from 2.1.2
+    # ... rest unchanged
+]
+```
+
+#### J.2.3 Dependency Consolidation Options
+
+**Option A: Move to core dependencies**
+
+Pros:
+- Simpler user experience
+- No import errors
+- Features work out of the box
+
+Cons:
+- Larger install size
+- May conflict with user environments
+- Not all users need these features
+
+**Option B: Keep optional with better UX**
+
+```python
+# In earthaccess/__init__.py
+def open_virtual_dataset(*args, **kwargs):
+    try:
+        from .dmrpp_zarr import open_virtual_dataset as _open_vds
+        return _open_vds(*args, **kwargs)
+    except ImportError:
+        raise ImportError(
+            "Virtual dataset support requires additional dependencies.\n"
+            "Install with: pip install 'earthaccess[virtualizarr]'\n"
+            "Or: conda install -c conda-forge earthaccess virtualizarr"
+        )
+```
+
+**Recommended: Option B** - Keep optional but improve error messages and documentation.
+
+### J.3 Implementation Tasks
+
+| Task | Priority | Status |
+|------|----------|--------|
+| Add `load`, `reference_dir`, `reference_format` to `open_virtual_dataset` | High | 🔲 Pending |
+| Update virtualizarr minimum version to 2.2.0 | Medium | 🔲 Pending |
+| Review virtualizarr 2.2.x changelog for breaking changes | Medium | 🔲 Pending |
+| Improve import error messages for optional deps | High | 🔲 Pending |
+| Add virtualizarr installation to quick-start docs | High | 🔲 Pending |
+| Consider xarray as core dependency | Medium | 🔲 Pending |
+| Add integration tests for virtualizarr features | Medium | 🔲 Pending |
+| Document coord materialization behavior | High | 🔲 Pending |
 
 ### Phase 0: Store Refactoring (Week 0-2) - Pre-requisite
 
