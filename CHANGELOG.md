@@ -9,6 +9,28 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Added
 
+- Added `GranuleQuery` and `CollectionQuery` classes for building search queries
+  with method chaining, validation, and conversion to CMR or STAC format.
+  Query objects can be passed to `search_data()` and `search_datasets()` via
+  the new `query` parameter.
+  ([@betolink](https://github.com/betolink))
+- Added `to_stac()` and `to_dict()` methods to `DataGranule` and `DataCollection`
+  classes for converting results to STAC Item/Collection format.
+  ([@betolink](https://github.com/betolink))
+- Added `earthaccess.stac` module with bidirectional converters between CMR UMM
+  format and STAC format (`umm_granule_to_stac_item`, `stac_item_to_data_granule`,
+  etc.) enabling interoperability with external STAC catalogs.
+  ([@betolink](https://github.com/betolink))
+- Added `earthaccess.streaming` module with `StreamingExecutor` for lazy,
+  memory-efficient parallel processing of large result sets with backpressure
+  support. Includes `AuthContext` for shipping credentials to distributed workers.
+  ([@betolink](https://github.com/betolink))
+- Added `earthaccess.credentials` module with `CredentialManager` for centralized
+  S3 credential caching, automatic expiration handling, and provider inference
+  from S3 URLs.
+  ([@betolink](https://github.com/betolink))
+- Added architecture documentation with Mermaid diagrams and use case examples.
+  ([@betolink](https://github.com/betolink))
 - Added methods `doi` and `citation` to `DataCollection` class.
   ([#203](https://github.com/nsidc/earthaccess/issues/203))
   (@Sherwin-14, @chuckwondo)
