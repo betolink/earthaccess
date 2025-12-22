@@ -39,41 +39,42 @@ Following SOLID principles, TDD, and Pythonic code:
 
 ---
 
-## Phase 2: Results Classes Enhancement (Group B) 🔲
+## Phase 2: Results Classes Enhancement (Group B) ✅
 
 ### 2.1 Create Results Base Classes
-- [ ] Create `ResultsBase` abstract class with lazy pagination
-- [ ] Implement CMR `search-after` token pagination
-- [ ] Add `pages()` method for batch iteration
-- [ ] Add `get_all()` for backwards compatibility
+- [ ] Create `ResultsBase` abstract class with lazy pagination (deferred)
+- [ ] Implement CMR `search-after` token pagination (deferred)
+- [ ] Add `pages()` method for batch iteration (deferred)
+- [ ] Add `get_all()` for backwards compatibility (deferred)
 
 ### 2.2 Enhance DataGranule
-- [ ] Add `to_stac()` method to convert to pystac Item
-- [ ] Add `to_dict()` method for serialization (needed for distributed)
-- [ ] Add asset filtering methods
+- [x] Add `to_stac()` method to convert to pystac Item
+- [x] Add `to_dict()` method for serialization (needed for distributed)
+- [ ] Add asset filtering methods (deferred)
 
 ### 2.3 Enhance DataCollection
-- [ ] Add `to_stac()` method to convert to pystac Collection
+- [x] Add `to_stac()` method to convert to pystac Collection
+- [x] Add `to_dict()` method for serialization
 
 ### 2.4 Tests
-- [ ] Extend `tests/unit/test_results.py` with STAC conversion tests
+- [x] Extend `tests/unit/test_results.py` with STAC conversion tests (6 new tests)
 
 ---
 
-## Phase 3: STAC Conversion (Group D) 🔲
+## Phase 3: STAC Conversion (Group D) ✅
 
 ### 3.1 UMM to STAC Converter
-- [ ] Create `earthaccess/stac/__init__.py` package
-- [ ] Create `earthaccess/stac/converters.py`
-- [ ] Implement `umm_granule_to_stac_item()` function
-- [ ] Implement `umm_collection_to_stac_collection()` function
+- [x] Create `earthaccess/stac/__init__.py` package
+- [x] Create `earthaccess/stac/converters.py`
+- [x] Implement `umm_granule_to_stac_item()` function
+- [x] Implement `umm_collection_to_stac_collection()` function
 
 ### 3.2 STAC to UMM Converter (for external STAC)
-- [ ] Implement `stac_item_to_data_granule()` function
-- [ ] Implement `stac_collection_to_data_collection()` function
+- [x] Implement `stac_item_to_data_granule()` function
+- [x] Implement `stac_collection_to_data_collection()` function
 
 ### 3.3 Tests
-- [ ] Create `tests/unit/test_stac_converters.py`
+- [x] Create `tests/unit/test_stac_converters.py` (44 tests)
 
 ---
 
@@ -151,6 +152,28 @@ Following SOLID principles, TDD, and Pythonic code:
 - Created implementation todo list
 - Identified key SOLID principles to apply
 
+### 2024-12-22 - Phase 3 Complete
+- Created `earthaccess/stac/` package with:
+  - `__init__.py` - Package exports
+  - `converters.py` - Standalone conversion functions
+- Implemented UMM to STAC converters:
+  - `umm_granule_to_stac_item()` - Convert CMR granule to STAC Item
+  - `umm_collection_to_stac_collection()` - Convert CMR collection to STAC Collection
+- Implemented STAC to UMM converters (for external STAC sources):
+  - `stac_item_to_data_granule()` - Convert STAC Item to DataGranule
+  - `stac_collection_to_data_collection()` - Convert STAC Collection to DataCollection
+- Created `tests/unit/test_stac_converters.py` with 44 tests
+
+### 2024-12-22 - Phase 2 Complete
+- Enhanced `earthaccess/results.py` with STAC conversion:
+  - `DataGranule.to_stac()` - Convert CMR UMM granule to STAC Item format
+  - `DataGranule.to_dict()` - Return plain dictionary for serialization
+  - `DataCollection.to_stac()` - Convert CMR UMM collection to STAC Collection
+  - `DataCollection.to_dict()` - Return plain dictionary for serialization
+- Added helper methods for temporal, spatial, links, and assets extraction
+- Extended `tests/unit/test_results.py` with 6 new tests (total 21 tests)
+- Commit: `dc9b277`
+
 ### 2024-12-22 - Phase 1 Complete
 - Created `earthaccess/query/` package with:
   - `__init__.py` - Package exports
@@ -185,7 +208,9 @@ Following SOLID principles, TDD, and Pythonic code:
 
 | Date | Commit | Description |
 |------|--------|-------------|
-| | | |
+| 2024-12-22 | ed8b1e3 | Add query package with GranuleQuery and CollectionQuery classes |
+| 2024-12-22 | dc9b277 | Add to_stac() and to_dict() methods to DataGranule and DataCollection |
+| 2024-12-22 | (pending) | Add STAC converters module with bidirectional conversion |
 
 ---
 
