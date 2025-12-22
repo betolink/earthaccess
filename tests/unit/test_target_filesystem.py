@@ -1,19 +1,14 @@
-"""
-Tests for TargetLocation and target filesystem functionality.
-"""
+"""Tests for TargetLocation and target filesystem functionality."""
 
 import tempfile
-import os
 from pathlib import Path
-from unittest.mock import patch, MagicMock
-
-import pytest
+from unittest.mock import MagicMock, patch
 
 from earthaccess.target_filesystem import (
-    TargetLocation,
-    LocalFilesystem,
     FsspecFilesystem,
+    LocalFilesystem,
     TargetFilesystem,
+    TargetLocation,
 )
 
 
@@ -105,10 +100,12 @@ class TestLocalFilesystem:
             assert fs.basename("path/to/file.txt") == "file.txt"
             assert fs.basename("/absolute/path/file.txt") == "file.txt"
 
-            # Test join
-            assert fs.join("dir", "file.txt") == str(Path("dir", "file.txt"))
+            # Test join - should include base path
+            assert fs.join("dir", "file.txt") == str(
+                Path(tmpdir) / Path("dir", "file.txt")
+            )
             assert fs.join("dir", "subdir", "file.txt") == str(
-                Path("dir", "subdir", "file.txt")
+                Path(tmpdir) / Path("dir", "subdir", "file.txt")
             )
 
             # Test file write/read
@@ -252,14 +249,14 @@ class TestFsspecFilesystem:
 
     @patch("fsspec.filesystem")
     def test_join(self, mock_fs):
-        """Test join method."""
+        """Test join method - should include base path."""
         mock_fs_instance = MagicMock()
         mock_fs.return_value = mock_fs_instance
 
         fs = FsspecFilesystem("s3://bucket/path")
 
         result = fs.join("dir", "file.txt")
-        assert result == str(Path("dir", "file.txt"))
+        assert result == "s3://bucket/path/dir/file.txt"
 
 
 class TestTargetFilesystemInterface:
@@ -330,7 +327,7 @@ class TestIntegration:
             # Test utility methods
             assert fs.basename("data/subdir/file2.txt") == "file2.txt"
             assert fs.join("data", "subdir", "file3.txt") == str(
-                Path("data", "subdir", "file3.txt")
+                Path(tmpdir) / Path("data", "subdir", "file3.txt")
             )
 
     def test_path_conversion_compatibility(self):

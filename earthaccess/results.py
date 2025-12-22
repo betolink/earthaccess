@@ -338,9 +338,7 @@ class DataGranule(CustomDict):
                 s3_links.append(f"s3://{links[0].split('nasa.gov/')[1]}")
         return s3_links
 
-    def data_links(
-        self, access: Optional[str] = None
-    ) -> List[str]:
+    def data_links(self, access: Optional[str] = None) -> List[str]:
         """Returns the data links from a granule.
 
         Parameters:
@@ -352,24 +350,24 @@ class DataGranule(CustomDict):
         """
         https_links = self._filter_related_links("GET DATA")
         s3_links = self._filter_related_links("GET DATA VIA DIRECT ACCESS")
-        
+
         if access == "direct":
             return s3_links
-        elif access == "external" or access == "on_prem":
-             return https_links
+        elif access in ("external", "indirect", "on_prem"):
+            return https_links
         else:
             # Default behavior: return all links? Or prefer HTTPS?
             # The previous logic was complex and depended on in_region.
             # Now, if we want to let the Store decide, we should probably provide what is asked.
             # If access is None, let's return HTTPS links as they are more universally usable,
             # BUT the Store will explicitly ask for "direct" if it wants to try S3.
-            
+
             # If the user asks for links without specifying access, they probably want the download links.
             if self.cloud_hosted:
-                 if len(s3_links) > 0:
-                     return s3_links + https_links
-                 else:
-                     return https_links
+                if len(s3_links) > 0:
+                    return s3_links + https_links
+                else:
+                    return https_links
             return https_links
 
     def dataviz_links(self) -> List[str]:

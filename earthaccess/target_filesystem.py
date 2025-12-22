@@ -1,15 +1,12 @@
-"""
-Unified target filesystem interface for earthaccess.
+"""Unified target filesystem interface for earthaccess.
 
 This module provides a unified interface for writing downloaded files to different
 target filesystems including local POSIX paths and cloud storage systems.
 """
 
-import os
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, Optional, Union, IO, BinaryIO
-from urllib.parse import urlparse
+from typing import IO, Any, Dict, Optional, Union
 
 import fsspec
 
@@ -105,8 +102,8 @@ class LocalFilesystem(TargetFilesystem):
         full_path.mkdir(parents=True, exist_ok=exist_ok)
 
     def join(self, *paths: str) -> str:
-        """Join path components for local filesystem."""
-        return str(Path(*paths))
+        """Join path components with base path for local filesystem."""
+        return str(self.base_path / Path(*paths))
 
     def basename(self, path: str) -> str:
         """Get basename of local path."""
@@ -159,9 +156,10 @@ class FsspecFilesystem(TargetFilesystem):
         self.fs.makedirs(full_path, exist_ok=exist_ok)
 
     def join(self, *paths: str) -> str:
-        """Join path components for cloud filesystem."""
-        # For cloud paths, we use simple string joining
-        return "/".join(str(p).strip("/") for p in paths if p)
+        """Join path components with base path for cloud filesystem."""
+        # Use _get_full_path to include base path
+        relative_path = "/".join(str(p).strip("/") for p in paths if p)
+        return self._get_full_path(relative_path)
 
     def basename(self, path: str) -> str:
         """Get basename of cloud path."""
