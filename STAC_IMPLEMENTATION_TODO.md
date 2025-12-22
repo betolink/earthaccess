@@ -99,34 +99,41 @@ Following SOLID principles, TDD, and Pythonic code:
 
 ---
 
-## Phase 5: Credential Management (Group 0.2) 🔲
+## Phase 5: Credential Management (Group 0.2) ✅
 
 ### 5.1 Credential Manager
-- [ ] Create `CredentialManager` class
-- [ ] Implement S3 credential caching with expiration
-- [ ] Add URL-to-provider inference (bucket prefix mapping)
+- [x] Create `CredentialManager` class
+- [x] Implement S3 credential caching with expiration
+- [x] Add URL-to-provider inference (bucket prefix mapping)
 
 ### 5.2 Tests
-- [ ] Create `tests/unit/test_credentials.py`
+- [x] Create `tests/unit/test_credentials.py` (32 tests)
 
 ---
 
-## Phase 6: API Integration 🔲
+## Phase 6: API Integration ✅
 
 ### 6.1 Update search_data()
-- [ ] Accept `GranuleQuery` objects
-- [ ] Maintain backward compatibility with kwargs
+- [x] Accept `GranuleQuery` objects via `query` parameter
+- [x] Maintain backward compatibility with kwargs
+- [x] Validate query before execution
+- [x] Raise error if both query and kwargs provided
 
 ### 6.2 Update search_datasets()
-- [ ] Accept `CollectionQuery` objects
-- [ ] Maintain backward compatibility
+- [x] Accept `CollectionQuery` objects via `query` parameter
+- [x] Maintain backward compatibility with kwargs
+- [x] Validate query before execution
+- [x] Raise error if both query and kwargs provided
 
-### 6.3 Update open() and download()
-- [ ] Add `streaming` parameter
-- [ ] Add `auto_batch` parameter
+### 6.3 Update __init__.py exports
+- [x] Export `GranuleQuery`, `CollectionQuery`, `BoundingBox`, `DateRange`, `Point`, `Polygon`
 
 ### 6.4 Tests
-- [ ] Update `tests/unit/test_api.py`
+- [x] Create `tests/unit/test_api_query_integration.py` with 15 tests
+
+### 6.5 Open/Download streaming (deferred)
+- [ ] Add `streaming` parameter to open() and download()
+- [ ] Add `auto_batch` parameter
 
 ---
 
@@ -146,11 +153,41 @@ Following SOLID principles, TDD, and Pythonic code:
 
 ## Implementation Log
 
+### 2024-12-22 - Phase 6 Complete
+- Updated `earthaccess/api.py`:
+  - `search_data()` now accepts `query` parameter (GranuleQuery object)
+  - `search_datasets()` now accepts `query` parameter (CollectionQuery object)
+  - Both validate query before execution and raise ValueError if invalid
+  - Both raise ValueError if both query and kwargs are provided
+  - Full backward compatibility with existing kwargs API
+- Updated `earthaccess/__init__.py`:
+  - Export new query classes: `GranuleQuery`, `CollectionQuery`
+  - Export type classes: `BoundingBox`, `DateRange`, `Point`, `Polygon`
+- Created `tests/unit/test_api_query_integration.py` with 15 tests:
+  - Tests for search_data() with GranuleQuery
+  - Tests for search_datasets() with CollectionQuery
+  - Tests for STAC output
+  - Tests for validation
+- Total unit tests: 287 (all passing)
+
 ### 2024-12-22 - Session Start
 - Analyzed STAC improvements plan
 - Reviewed existing codebase structure
 - Created implementation todo list
 - Identified key SOLID principles to apply
+
+### 2024-12-22 - Phase 5 Complete
+- Created `earthaccess/credentials.py` module with:
+  - `S3Credentials` class - Container for AWS temporary credentials
+  - `CredentialCache` class - Thread-safe credential caching
+  - `CredentialManager` class - Centralized credential lifecycle management
+- Features:
+  - Automatic credential expiration handling
+  - Bucket-to-provider inference from URL patterns
+  - Provider-to-endpoint mapping
+  - Thread-safe caching with RLock
+  - Force refresh support
+- Created `tests/unit/test_credentials.py` with 32 tests
 
 ### 2024-12-22 - Phase 4 Complete
 - Created `earthaccess/streaming.py` module with:
@@ -225,7 +262,9 @@ Following SOLID principles, TDD, and Pythonic code:
 | 2024-12-22 | ed8b1e3 | Add query package with GranuleQuery and CollectionQuery classes |
 | 2024-12-22 | dc9b277 | Add to_stac() and to_dict() methods to DataGranule and DataCollection |
 | 2024-12-22 | 7b14b51 | Add STAC converters module with bidirectional conversion |
-| 2024-12-22 | (pending) | Add streaming execution module with AuthContext and StreamingExecutor |
+| 2024-12-22 | c989800 | Add streaming execution module with AuthContext and StreamingExecutor |
+| 2024-12-22 | 881a8bf | Add CredentialManager for S3 credential caching |
+| 2024-12-22 | (pending) | Add API integration for new query objects |
 
 ---
 
