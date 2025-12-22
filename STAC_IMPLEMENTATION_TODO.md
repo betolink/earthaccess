@@ -16,13 +16,15 @@ Implementing STAC interoperability improvements following SOLID principles, TDD,
 - [x] CredentialManager class
 - [x] FileSystemFactory class
 
-### 🟡 Group A: Query Architecture - Pending
-- [ ] GranuleQuery class with method chaining
-- [ ] CollectionQuery class
-- [ ] Backend parameter (cmr/stac)
-- [ ] to_stac() and to_cmr() methods
-- [ ] Parameter validation
-- [ ] Integration with search_data()
+### ✅ Group A: Query Architecture - COMPLETED
+- [x] GranuleQuery class with method chaining
+- [x] CollectionQuery class with similar interface
+- [x] Backend parameter support (cmr/stac)
+- [x] to_stac() and to_cmr() methods for backend compatibility
+- [x] Comprehensive parameter validation with QueryValidationError
+- [x] Integration with search_data() via CMR parameters
+- [x] Flexible type definitions (BBoxLike, PointLike, etc.)
+- [x] Input normalization utilities for all supported formats
 
 ### 🟡 Group B: Results Classes - Pending
 - [ ] ResultsBase abstract class
@@ -83,7 +85,7 @@ Implementing STAC interoperability improvements following SOLID principles, TDD,
    - [x] URL-to-provider inference (comprehensive)
    - [ ] Cloud-to-cloud streaming
    - [ ] Store refactoring to use new components
-2. **Start Query Architecture** (Group A)
+2. **Start Query Architecture** (Group A) - ✅ COMPLETED
    - [ ] GranuleQuery base structure
    - [ ] Basic method chaining
 
