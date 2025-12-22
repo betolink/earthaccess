@@ -120,10 +120,11 @@ Implementing STAC interoperability improvements following SOLID principles, TDD,
 
 ### What Needs Attention
 1. Store refactoring: Integrate CredentialManager and FileSystemFactory into Store
-2. Cloud-to-cloud streaming implementation
-3. Error handling improvements in existing Store
-4. Type compatibility fixes for parallel executor overrides
-5. Documentation updates
+2. Cloud-to-cloud streaming: Comprehensive CloudTransfer class implemented (strategy detection, S3-to-S3 optimization)
+3. Query architecture: GranuleQuery with flexible input types and STAC compatibility
+4. Error handling improvements in existing Store
+5. Type compatibility fixes for parallel executor overrides
+6. Documentation updates
 
 ### Design Principles Applied Successfully
 - ✅ **Single Responsibility**: Each class has one clear purpose
@@ -136,10 +137,14 @@ Implementing STAC interoperability improvements following SOLID principles, TDD,
 
 ### ✅ What's Working (Newly Added)
 - **Credential Management**: Complete S3Credentials, AuthContext, CredentialManager with caching
+- **Filesystem Factory**: FileSystemFactory with protocol detection and caching
 - **Provider Inference**: Comprehensive URL-to-provider mapping for all NASA DAACs
 - **Unit Testing**: 25+ TDD tests covering all credential functionality
 - **Distributed Execution Ready**: AuthContext provides serializable auth state
 - **Parallel Executor System**: From maxparallelism branch, solid foundation
+- **Cloud Transfer Architecture**: CloudTransfer class with strategy detection and S3-to-S3 optimization
+- **Query Architecture**: GranuleQuery with flexible input types, method chaining, and STAC compatibility
+- **Input Validation**: Comprehensive parameter validation for bbox, point, temporal, and coordinates
 
 ### 🔄 What Needs Attention (Next Priority)
 1. **Store Refactoring**: Integrate CredentialManager and FileSystemFactory into Store class
