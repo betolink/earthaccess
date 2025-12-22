@@ -223,6 +223,166 @@ class DataCollection(CustomDict):
 
         return {service: query.get_all() for service, query in zip(services, queries)}
 
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert the collection to a plain dictionary.
+
+        Returns:
+            A dictionary representation of the collection.
+        """
+        return dict(self)
+
+    def to_stac(self) -> Dict[str, Any]:
+        """Convert the CMR UMM collection to a STAC Collection.
+
+        Returns a dictionary representation of a STAC Collection following
+        the STAC spec. This can be used with pystac or pystac-client.
+
+        Returns:
+            A dictionary representing a STAC Collection.
+        """
+        # Extract basic metadata
+        concept_id = self.concept_id()
+        short_name = self.get_umm("ShortName") or concept_id
+        version = self.version()
+        abstract = self.abstract()
+
+        # Build collection ID
+        collection_id = f"{short_name}_v{version}" if version else str(short_name)
+
+        # Extract temporal extent
+        temporal_extents = self.get_umm("TemporalExtents")
+        temporal_extent = self._extract_temporal_extent(temporal_extents)
+
+        # Extract spatial extent
+        spatial_extents = self.get_umm("SpatialExtent")
+        spatial_extent = self._extract_spatial_extent(spatial_extents)
+
+        # Build STAC Collection
+        stac_collection: Dict[str, Any] = {
+            "type": "Collection",
+            "stac_version": "1.0.0",
+            "stac_extensions": [],
+            "id": collection_id,
+            "title": str(short_name),
+            "description": str(abstract) if abstract else "No description available",
+            "license": "proprietary",
+            "extent": {
+                "spatial": {"bbox": [spatial_extent]},
+                "temporal": {"interval": [temporal_extent]},
+            },
+            "links": self._build_stac_links(),
+            "providers": self._build_stac_providers(),
+        }
+
+        # Add DOI if available
+        doi = self.doi()
+        if doi:
+            stac_collection["sci:doi"] = doi
+            stac_collection["stac_extensions"].append(
+                "https://stac-extensions.github.io/scientific/v1.0.0/schema.json"
+            )
+
+        # Add CMR-specific properties
+        stac_collection["cmr:concept_id"] = concept_id
+        stac_collection["cmr:provider_id"] = self["meta"].get("provider-id", "")
+
+        return stac_collection
+
+    def _extract_temporal_extent(self, temporal_extents: Any) -> List[Optional[str]]:
+        """Extract temporal extent from UMM TemporalExtents."""
+        if not temporal_extents:
+            return [None, None]
+
+        if isinstance(temporal_extents, list) and len(temporal_extents) > 0:
+            extent = temporal_extents[0]
+            if "RangeDateTimes" in extent and extent["RangeDateTimes"]:
+                range_dt = extent["RangeDateTimes"][0]
+                start = range_dt.get("BeginningDateTime")
+                end = range_dt.get("EndingDateTime")
+                return [start, end]
+            elif "SingleDateTimes" in extent and extent["SingleDateTimes"]:
+                single = extent["SingleDateTimes"][0]
+                return [single, single]
+
+        return [None, None]
+
+    def _extract_spatial_extent(self, spatial_extent: Any) -> List[float]:
+        """Extract spatial extent from UMM SpatialExtent."""
+        default_bbox = [-180.0, -90.0, 180.0, 90.0]
+
+        if not spatial_extent:
+            return default_bbox
+
+        if isinstance(spatial_extent, dict):
+            granule_spatial = spatial_extent.get("HorizontalSpatialDomain", {}).get(
+                "Geometry", {}
+            )
+
+            bounding_rects = granule_spatial.get("BoundingRectangles", [])
+            if bounding_rects:
+                rect = bounding_rects[0]
+                return [
+                    rect.get("WestBoundingCoordinate", -180.0),
+                    rect.get("SouthBoundingCoordinate", -90.0),
+                    rect.get("EastBoundingCoordinate", 180.0),
+                    rect.get("NorthBoundingCoordinate", 90.0),
+                ]
+
+        return default_bbox
+
+    def _build_stac_links(self) -> List[Dict[str, str]]:
+        """Build STAC links from collection metadata."""
+        links: List[Dict[str, str]] = []
+
+        # Self link
+        concept_id = self.concept_id()
+        links.append(
+            {
+                "rel": "self",
+                "href": f"https://cmr.earthdata.nasa.gov/search/concepts/{concept_id}",
+                "type": "application/json",
+            }
+        )
+
+        # Landing page
+        landing = self.landing_page()
+        if landing:
+            links.append(
+                {
+                    "rel": "about",
+                    "href": landing,
+                    "type": "text/html",
+                    "title": "Landing Page",
+                }
+            )
+
+        # Get data links
+        for url in self.get_data():
+            links.append(
+                {
+                    "rel": "via",
+                    "href": url,
+                    "title": "Data Access",
+                }
+            )
+
+        return links
+
+    def _build_stac_providers(self) -> List[Dict[str, Any]]:
+        """Build STAC providers from collection metadata."""
+        providers: List[Dict[str, Any]] = []
+
+        provider_id = self["meta"].get("provider-id", "")
+        if provider_id:
+            providers.append(
+                {
+                    "name": provider_id,
+                    "roles": ["producer", "host"],
+                }
+            )
+
+        return providers
+
     def __repr__(self) -> str:
         return json.dumps(
             self.render_dict, sort_keys=False, indent=2, separators=(",", ": ")
@@ -378,3 +538,246 @@ class DataGranule(CustomDict):
         """
         links = self._filter_related_links("GET RELATED VISUALIZATION")
         return links
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert the granule to a plain dictionary.
+
+        This is useful for serialization, especially when shipping granule
+        metadata to distributed workers.
+
+        Returns:
+            A dictionary representation of the granule.
+        """
+        return dict(self)
+
+    def to_stac(self) -> Dict[str, Any]:
+        """Convert the CMR UMM granule to a STAC Item.
+
+        Returns a dictionary representation of a STAC Item following
+        the STAC spec. This can be used with pystac or pystac-client.
+
+        Returns:
+            A dictionary representing a STAC Item.
+        """
+        # Extract basic metadata
+        concept_id = self["meta"]["concept-id"]
+        granule_ur = self["umm"].get("GranuleUR", concept_id)
+        collection_ref = self["umm"].get("CollectionReference", {})
+
+        # Get collection ID from reference
+        collection_id = collection_ref.get(
+            "ShortName", collection_ref.get("EntryTitle", "unknown")
+        )
+        collection_version = collection_ref.get("Version", "")
+        if collection_version:
+            collection_id = f"{collection_id}_v{collection_version}"
+
+        # Extract temporal
+        temporal_extent = self["umm"].get("TemporalExtent", {})
+        datetime_str = self._extract_item_datetime(temporal_extent)
+        start_datetime, end_datetime = self._extract_item_datetime_range(
+            temporal_extent
+        )
+
+        # Extract spatial
+        spatial_extent = self["umm"].get("SpatialExtent", {})
+        geometry, bbox = self._extract_item_geometry(spatial_extent)
+
+        # Build properties
+        properties: Dict[str, Any] = {}
+
+        # Set datetime (STAC requires either datetime or start/end)
+        if datetime_str:
+            properties["datetime"] = datetime_str
+        elif start_datetime:
+            properties["datetime"] = None
+            properties["start_datetime"] = start_datetime
+            properties["end_datetime"] = end_datetime
+        else:
+            properties["datetime"] = None
+
+        # Add size if available
+        if self.size() > 0:
+            properties["file:size"] = int(
+                self.size() * 1024 * 1024
+            )  # Convert MB to bytes
+
+        # Build STAC Item
+        stac_item: Dict[str, Any] = {
+            "type": "Feature",
+            "stac_version": "1.0.0",
+            "stac_extensions": [],
+            "id": granule_ur,
+            "geometry": geometry,
+            "bbox": bbox,
+            "properties": properties,
+            "links": self._build_item_links(collection_id),
+            "assets": self._build_item_assets(),
+            "collection": collection_id,
+        }
+
+        # Add CMR-specific properties
+        stac_item["properties"]["cmr:concept_id"] = concept_id
+        stac_item["properties"]["cmr:provider_id"] = self["meta"].get("provider-id", "")
+
+        return stac_item
+
+    def _extract_item_datetime(self, temporal_extent: Dict[str, Any]) -> Optional[str]:
+        """Extract a single datetime from temporal extent."""
+        if "SingleDateTime" in temporal_extent:
+            return temporal_extent["SingleDateTime"]
+
+        range_dt = temporal_extent.get("RangeDateTime", {})
+        if "BeginningDateTime" in range_dt:
+            return range_dt["BeginningDateTime"]
+
+        return None
+
+    def _extract_item_datetime_range(
+        self, temporal_extent: Dict[str, Any]
+    ) -> tuple[Optional[str], Optional[str]]:
+        """Extract datetime range from temporal extent."""
+        range_dt = temporal_extent.get("RangeDateTime", {})
+        start = range_dt.get("BeginningDateTime")
+        end = range_dt.get("EndingDateTime")
+        return start, end
+
+    def _extract_item_geometry(
+        self, spatial_extent: Dict[str, Any]
+    ) -> tuple[Optional[Dict[str, Any]], Optional[List[float]]]:
+        """Extract geometry and bbox from spatial extent."""
+        h_domain = spatial_extent.get("HorizontalSpatialDomain", {})
+        geometry_data = h_domain.get("Geometry", {})
+
+        # Try bounding rectangles first
+        bounding_rects = geometry_data.get("BoundingRectangles", [])
+        if bounding_rects:
+            rect = bounding_rects[0]
+            west = rect.get("WestBoundingCoordinate", -180.0)
+            south = rect.get("SouthBoundingCoordinate", -90.0)
+            east = rect.get("EastBoundingCoordinate", 180.0)
+            north = rect.get("NorthBoundingCoordinate", 90.0)
+
+            bbox = [west, south, east, north]
+            geometry = {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [west, south],
+                        [east, south],
+                        [east, north],
+                        [west, north],
+                        [west, south],
+                    ]
+                ],
+            }
+            return geometry, bbox
+
+        # Try GPolygons
+        gpolygons = geometry_data.get("GPolygons", [])
+        if gpolygons:
+            polygon = gpolygons[0]
+            boundary = polygon.get("Boundary", {}).get("Points", [])
+            if boundary:
+                coords = [
+                    [p.get("Longitude", 0), p.get("Latitude", 0)] for p in boundary
+                ]
+                # Close the polygon if not closed
+                if coords and coords[0] != coords[-1]:
+                    coords.append(coords[0])
+
+                # Calculate bbox
+                lons = [c[0] for c in coords]
+                lats = [c[1] for c in coords]
+                bbox = [min(lons), min(lats), max(lons), max(lats)]
+
+                geometry = {"type": "Polygon", "coordinates": [coords]}
+                return geometry, bbox
+
+        # Try points
+        points = geometry_data.get("Points", [])
+        if points:
+            point = points[0]
+            lon = point.get("Longitude", 0)
+            lat = point.get("Latitude", 0)
+            geometry = {"type": "Point", "coordinates": [lon, lat]}
+            bbox = [lon, lat, lon, lat]
+            return geometry, bbox
+
+        # Default to global extent
+        return None, None
+
+    def _build_item_links(self, collection_id: str) -> List[Dict[str, str]]:
+        """Build STAC links for the item."""
+        links: List[Dict[str, str]] = []
+
+        # Self link
+        concept_id = self["meta"]["concept-id"]
+        links.append(
+            {
+                "rel": "self",
+                "href": f"https://cmr.earthdata.nasa.gov/search/concepts/{concept_id}",
+                "type": "application/json",
+            }
+        )
+
+        # Parent collection link
+        links.append(
+            {
+                "rel": "parent",
+                "href": f"#/collections/{collection_id}",
+                "type": "application/json",
+            }
+        )
+
+        # Collection link
+        links.append(
+            {
+                "rel": "collection",
+                "href": f"#/collections/{collection_id}",
+                "type": "application/json",
+            }
+        )
+
+        return links
+
+    def _build_item_assets(self) -> Dict[str, Dict[str, Any]]:
+        """Build STAC assets from granule data links."""
+        assets: Dict[str, Dict[str, Any]] = {}
+
+        # Add data assets
+        data_links = self.data_links()
+        for i, link in enumerate(data_links):
+            asset_key = f"data_{i}" if i > 0 else "data"
+            asset: Dict[str, Any] = {
+                "href": link,
+                "roles": ["data"],
+            }
+
+            # Determine if it's direct access (S3)
+            if link.startswith("s3://"):
+                asset["roles"].append("cloud-optimized")
+
+            # Try to infer media type
+            if link.endswith(".nc") or link.endswith(".nc4"):
+                asset["type"] = "application/x-netcdf"
+            elif link.endswith(".tif") or link.endswith(".tiff"):
+                asset["type"] = "image/tiff; application=geotiff"
+            elif link.endswith(".hdf") or link.endswith(".h5") or link.endswith(".he5"):
+                asset["type"] = "application/x-hdf5"
+            elif link.endswith(".zarr"):
+                asset["type"] = "application/vnd+zarr"
+
+            assets[asset_key] = asset
+
+        # Add browse/thumbnail assets
+        viz_links = self.dataviz_links()
+        for i, link in enumerate(viz_links):
+            asset_key = f"thumbnail_{i}" if i > 0 else "thumbnail"
+            assets[asset_key] = {
+                "href": link,
+                "roles": ["thumbnail"],
+                "type": "image/png" if link.endswith(".png") else "image/jpeg",
+            }
+
+        return assets

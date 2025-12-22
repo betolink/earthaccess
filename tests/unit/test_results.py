@@ -290,3 +290,272 @@ def test_get_citation_returns_none_when_doi_empty():
     collection = DataCollection({"umm": {"DOI": {"DOI": ""}}, "meta": {}})
 
     assert collection.citation(format="apa", language="en-US") is None
+
+
+# Tests for to_dict() and to_stac() methods
+
+
+def test_collection_to_dict():
+    """Test that to_dict returns a plain dictionary."""
+    collection = DataCollection(
+        {
+            "umm": {
+                "ShortName": "TestCollection",
+                "Version": "1.0",
+                "Abstract": "A test collection",
+            },
+            "meta": {
+                "concept-id": "C123456-TEST",
+                "provider-id": "TEST",
+            },
+        }
+    )
+
+    result = collection.to_dict()
+    assert isinstance(result, dict)
+    assert result["umm"]["ShortName"] == "TestCollection"
+    assert result["meta"]["concept-id"] == "C123456-TEST"
+
+
+def test_collection_to_stac():
+    """Test that to_stac returns a valid STAC Collection structure."""
+    collection = DataCollection(
+        {
+            "umm": {
+                "ShortName": "TestCollection",
+                "Version": "1.0",
+                "Abstract": "A test collection for STAC conversion",
+                "DOI": {"DOI": "10.5067/TEST"},
+                "TemporalExtents": [
+                    {
+                        "RangeDateTimes": [
+                            {
+                                "BeginningDateTime": "2020-01-01T00:00:00Z",
+                                "EndingDateTime": "2020-12-31T23:59:59Z",
+                            }
+                        ]
+                    }
+                ],
+                "SpatialExtent": {
+                    "HorizontalSpatialDomain": {
+                        "Geometry": {
+                            "BoundingRectangles": [
+                                {
+                                    "WestBoundingCoordinate": -180.0,
+                                    "SouthBoundingCoordinate": -90.0,
+                                    "EastBoundingCoordinate": 180.0,
+                                    "NorthBoundingCoordinate": 90.0,
+                                }
+                            ]
+                        }
+                    }
+                },
+                "RelatedUrls": [
+                    {"Type": "LANDING PAGE", "URL": "https://example.com/landing"},
+                    {"Type": "GET DATA", "URL": "https://example.com/data"},
+                ],
+            },
+            "meta": {
+                "concept-id": "C123456-TEST",
+                "provider-id": "TEST",
+            },
+        }
+    )
+
+    stac = collection.to_stac()
+
+    # Check required STAC fields
+    assert stac["type"] == "Collection"
+    assert stac["stac_version"] == "1.0.0"
+    assert "id" in stac
+    assert "description" in stac
+    assert "extent" in stac
+    assert "links" in stac
+
+    # Check extent structure
+    assert "spatial" in stac["extent"]
+    assert "temporal" in stac["extent"]
+    assert stac["extent"]["spatial"]["bbox"] == [[-180.0, -90.0, 180.0, 90.0]]
+
+    # Check DOI extension
+    assert stac["sci:doi"] == "10.5067/TEST"
+
+    # Check CMR-specific properties
+    assert stac["cmr:concept_id"] == "C123456-TEST"
+
+
+def test_granule_to_dict():
+    """Test that DataGranule.to_dict returns a plain dictionary."""
+    from earthaccess.results import DataGranule
+
+    granule = DataGranule(
+        {
+            "umm": {
+                "GranuleUR": "test_granule_001",
+                "CollectionReference": {
+                    "ShortName": "TestCollection",
+                    "Version": "1.0",
+                },
+                "TemporalExtent": {
+                    "RangeDateTime": {
+                        "BeginningDateTime": "2020-06-01T00:00:00Z",
+                        "EndingDateTime": "2020-06-01T23:59:59Z",
+                    }
+                },
+                "SpatialExtent": {
+                    "HorizontalSpatialDomain": {
+                        "Geometry": {
+                            "BoundingRectangles": [
+                                {
+                                    "WestBoundingCoordinate": -10.0,
+                                    "SouthBoundingCoordinate": 30.0,
+                                    "EastBoundingCoordinate": 10.0,
+                                    "NorthBoundingCoordinate": 50.0,
+                                }
+                            ]
+                        }
+                    }
+                },
+                "RelatedUrls": [],
+            },
+            "meta": {
+                "concept-id": "G123456-TEST",
+                "provider-id": "TEST",
+            },
+        }
+    )
+
+    result = granule.to_dict()
+    assert isinstance(result, dict)
+    assert result["umm"]["GranuleUR"] == "test_granule_001"
+    assert result["meta"]["concept-id"] == "G123456-TEST"
+
+
+def test_granule_to_stac():
+    """Test that DataGranule.to_stac returns a valid STAC Item structure."""
+    from earthaccess.results import DataGranule
+
+    granule = DataGranule(
+        {
+            "umm": {
+                "GranuleUR": "test_granule_001",
+                "CollectionReference": {
+                    "ShortName": "TestCollection",
+                    "Version": "1.0",
+                },
+                "TemporalExtent": {
+                    "RangeDateTime": {
+                        "BeginningDateTime": "2020-06-01T00:00:00Z",
+                        "EndingDateTime": "2020-06-01T23:59:59Z",
+                    }
+                },
+                "SpatialExtent": {
+                    "HorizontalSpatialDomain": {
+                        "Geometry": {
+                            "BoundingRectangles": [
+                                {
+                                    "WestBoundingCoordinate": -10.0,
+                                    "SouthBoundingCoordinate": 30.0,
+                                    "EastBoundingCoordinate": 10.0,
+                                    "NorthBoundingCoordinate": 50.0,
+                                }
+                            ]
+                        }
+                    }
+                },
+                "RelatedUrls": [
+                    {"Type": "GET DATA", "URL": "https://example.com/data.nc"},
+                    {
+                        "Type": "GET RELATED VISUALIZATION",
+                        "URL": "https://example.com/browse.png",
+                    },
+                ],
+                "DataGranule": {"ArchiveAndDistributionInformation": [{"Size": 100.5}]},
+            },
+            "meta": {
+                "concept-id": "G123456-TEST",
+                "provider-id": "TEST",
+            },
+        }
+    )
+
+    stac = granule.to_stac()
+
+    # Check required STAC Item fields
+    assert stac["type"] == "Feature"
+    assert stac["stac_version"] == "1.0.0"
+    assert stac["id"] == "test_granule_001"
+    assert "geometry" in stac
+    assert "bbox" in stac
+    assert "properties" in stac
+    assert "assets" in stac
+    assert "links" in stac
+
+    # Check geometry
+    assert stac["geometry"]["type"] == "Polygon"
+    assert stac["bbox"] == [-10.0, 30.0, 10.0, 50.0]
+
+    # Check collection reference
+    assert stac["collection"] == "TestCollection_v1.0"
+
+    # Check assets
+    assert "data" in stac["assets"]
+    assert stac["assets"]["data"]["href"] == "https://example.com/data.nc"
+    assert "thumbnail" in stac["assets"]
+
+    # Check CMR-specific properties
+    assert stac["properties"]["cmr:concept_id"] == "G123456-TEST"
+
+
+def test_granule_to_stac_with_s3_links():
+    """Test STAC conversion with S3 direct access links."""
+    from earthaccess.results import DataGranule
+
+    granule = DataGranule(
+        {
+            "umm": {
+                "GranuleUR": "s3_granule_001",
+                "CollectionReference": {"ShortName": "CloudData"},
+                "TemporalExtent": {"SingleDateTime": "2020-06-15T12:00:00Z"},
+                "SpatialExtent": {},
+                "RelatedUrls": [
+                    {"Type": "GET DATA VIA DIRECT ACCESS", "URL": "s3://bucket/data.nc"}
+                ],
+            },
+            "meta": {
+                "concept-id": "G789-CLOUD",
+                "provider-id": "CLOUD",
+            },
+        },
+        cloud_hosted=True,
+    )
+
+    stac = granule.to_stac()
+
+    # Check that S3 asset has cloud-optimized role
+    assert "data" in stac["assets"]
+    assert stac["assets"]["data"]["href"] == "s3://bucket/data.nc"
+    assert "cloud-optimized" in stac["assets"]["data"]["roles"]
+
+
+def test_collection_to_stac_minimal():
+    """Test STAC conversion with minimal collection data."""
+    collection = DataCollection(
+        {
+            "umm": {
+                "ShortName": "MinimalCollection",
+            },
+            "meta": {
+                "concept-id": "C999-MIN",
+            },
+        }
+    )
+
+    stac = collection.to_stac()
+
+    # Should still produce valid STAC structure
+    assert stac["type"] == "Collection"
+    assert stac["id"] == "MinimalCollection"
+    assert "extent" in stac
+    # Default bbox when no spatial info
+    assert stac["extent"]["spatial"]["bbox"] == [[-180.0, -90.0, 180.0, 90.0]]
