@@ -10,7 +10,7 @@ Implementing STAC interoperability improvements following SOLID principles, TDD,
 
 ### 🔴 Group 0: Store Refactoring (Pre-requisite) - ~80% Complete
 - [x] Parallel executor system (via maxparallelism branch)
-- [x] Target filesystem abstraction 
+- [x] Target filesystem abstraction
 - [x] URL-to-provider inference
 - [ ] Cloud-to-cloud streaming
 - [x] CredentialManager class
@@ -18,7 +18,7 @@ Implementing STAC interoperability improvements following SOLID principles, TDD,
 
 ### 🟡 Group A: Query Architecture - Pending
 - [ ] GranuleQuery class with method chaining
-- [ ] CollectionQuery class  
+- [ ] CollectionQuery class
 - [ ] Backend parameter (cmr/stac)
 - [ ] to_stac() and to_cmr() methods
 - [ ] Parameter validation
@@ -77,9 +77,9 @@ Implementing STAC interoperability improvements following SOLID principles, TDD,
 ## Current Sprint Focus
 
 ### Week 1: Core Foundations (Mostly Complete)
-1. **✅ Implement missing Store components** (Group 0 ~80% complete)
+1. **✅ Implement missing Store components** (Group 0 ~85% complete)
    - [x] CredentialManager class (with tests passing)
-   - [x] FileSystemFactory class (basic implementation)  
+   - [x] FileSystemFactory class (with type fixes)
    - [x] URL-to-provider inference (comprehensive)
    - [ ] Cloud-to-cloud streaming
    - [ ] Store refactoring to use new components
@@ -93,7 +93,7 @@ Implementing STAC interoperability improvements following SOLID principles, TDD,
 
 #### Credential Management
 - **S3Credentials dataclass**: Immutable credential storage with expiration handling
-- **AuthContext dataclass**: Serializable authentication context for distributed execution  
+- **AuthContext dataclass**: Serializable authentication context for distributed execution
 - **CredentialManager class**: Caching, refresh, and credential lifecycle management
 - **URL-to-provider inference**: Comprehensive bucket pattern matching for all NASA DAACs
 
@@ -114,7 +114,9 @@ Implementing STAC interoperability improvements following SOLID principles, TDD,
 - Provider inference from S3 URLs (POCLOUD, NSIDC_CPRD, etc.)
 - Credential caching and refresh logic
 - AuthContext serialization for distributed execution
+- FilesystemFactory with protocol detection and caching
 - All unit tests passing
+- Type safety improvements and cache key generation
 
 ### What Needs Attention
 1. Store refactoring: Integrate CredentialManager and FileSystemFactory into Store
@@ -126,7 +128,7 @@ Implementing STAC interoperability improvements following SOLID principles, TDD,
 ### Design Principles Applied Successfully
 - ✅ **Single Responsibility**: Each class has one clear purpose
 - ✅ **Immutability**: S3Credentials and AuthContext are immutable
-- ✅ **Caching**: Smart credential caching with expiration awareness  
+- ✅ **Caching**: Smart credential caching with expiration awareness
 - ✅ **Type Safety**: Proper type hints throughout
 - ✅ **Test Coverage**: TDD approach with comprehensive tests
 
@@ -141,7 +143,7 @@ Implementing STAC interoperability improvements following SOLID principles, TDD,
 
 ### 🔄 What Needs Attention (Next Priority)
 1. **Store Refactoring**: Integrate CredentialManager and FileSystemFactory into Store class
-2. **Cloud-to-Cloud Streaming**: Implement transfer between cloud providers  
+2. **Cloud-to-Cloud Streaming**: Implement transfer between cloud providers
 3. **Query Architecture**: Start GranuleQuery implementation (Group A)
 4. **Results Classes**: Implement lazy pagination and streaming execution
 5. **Type Fixes**: Resolve parallel executor override signature issues
