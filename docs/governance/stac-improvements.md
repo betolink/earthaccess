@@ -2672,7 +2672,7 @@ Instead of materializing all results upfront, use a **streaming architecture** w
    sequentially             (backpressure)          in parallel
 ```
 
-#### B.3.1 Implementation: Chunked Streaming
+#### B.3.1 Implementation: Chunked Streaming with Auth Context
 
 ```python
 # earthaccess/store/streaming.py
@@ -2682,110 +2682,354 @@ Streaming parallel execution for lazy results.
 
 Key insight: We don't need ALL URLs upfront - we just need enough to keep
 workers busy. Fetch pages in chunks, process in parallel, repeat.
+
+Auth Strategy (per Issue #913):
+- For S3: Fetch credentials ONCE, share immutable dict across all workers
+- For HTTPS: Clone session per-thread to share cookies, avoid per-file auth
+- Thread-local storage ensures each thread has its own session/filesystem
 """
 
+import threading
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass, field
 from queue import Queue
 from threading import Thread
-from typing import Any, Callable, Iterable, List, Optional, TypeVar
+from typing import Any, Callable, Dict, Iterable, List, Optional, TypeVar, Union
+from urllib.parse import urlparse
 
 T = TypeVar("T")
 R = TypeVar("R")
 
 
-def stream_parallel(
-    items: Iterable[T],
-    process_fn: Callable[[T], R],
-    max_workers: int = 8,
-    prefetch_pages: int = 2,
-    page_size: int = 2000,
-    show_progress: bool = True,
-) -> Iterator[R]:
-    """Process lazy iterable in parallel with streaming.
+@dataclass
+class AuthContext:
+    """Immutable authentication context shared across all workers.
 
-    Uses a producer-consumer pattern:
-    1. Producer thread fetches pages from the lazy iterator
-    2. Work queue buffers items (bounded to prevent memory bloat)
-    3. Worker pool processes items in parallel
-    4. Results yielded as completed
+    Created once before parallel execution begins. Contains credentials
+    and session state that can be safely shared or cloned by workers.
 
-    Args:
-        items: Lazy iterable (e.g., GranuleResults)
-        process_fn: Function to apply to each item
-        max_workers: Parallel workers
-        prefetch_pages: Pages to buffer ahead (controls memory usage)
-        page_size: Items per page (for progress estimation)
-        show_progress: Show progress bar
+    For S3 (cloud-hosted):
+        - s3_credentials: Dict with access_key, secret_key, token
+        - Immutable, thread-safe to share directly
 
-    Yields:
-        Processed results as they complete
-
-    Example:
-        results = earthaccess.search_data(short_name="ATL03", count=50000)
-
-        def open_one(granule):
-            return fs.open(granule.data_links()[0])
-
-        # Streams: fetches pages while processing previous ones
-        for file in stream_parallel(results, open_one):
-            process(file)
+    For HTTPS (on-prem):
+        - session_template: requests.Session with auth cookies
+        - Each thread clones this to get its own session (per Issue #913)
     """
-    # Bounded queue: prefetch_pages * page_size items max
-    max_queue_size = prefetch_pages * page_size
-    work_queue: Queue[Optional[T]] = Queue(maxsize=max_queue_size)
+    s3_credentials: Optional[Dict[str, str]] = None
+    session_template: Optional["requests.Session"] = None
+    provider: Optional[str] = None
+    cloud_hosted: bool = True
 
-    # Producer: fetches pages and enqueues items
-    def producer():
+    @classmethod
+    def for_streaming(
+        cls,
+        provider: Optional[str] = None,
+        cloud_hosted: bool = True,
+    ) -> "AuthContext":
+        """Create auth context for streaming execution.
+
+        Fetches credentials/session ONCE, to be shared by all workers.
+        """
+        import earthaccess
+
+        if cloud_hosted:
+            # S3: Fetch credentials once
+            # These are immutable dicts, safe to share across threads
+            creds = earthaccess.get_s3_credentials(provider=provider)
+            return cls(
+                s3_credentials=creds,
+                provider=provider,
+                cloud_hosted=True,
+            )
+        else:
+            # HTTPS: Get authenticated session template
+            # Workers will clone this per-thread (not per-file!)
+            auth = earthaccess.get_auth()
+            session = auth.get_session()
+            return cls(
+                session_template=session,
+                provider=provider,
+                cloud_hosted=False,
+            )
+
+
+class WorkerContext:
+    """Per-thread context for workers, providing filesystem and session access.
+
+    Each thread gets its own WorkerContext via thread-local storage.
+    This ensures:
+    - S3: Each thread has its own s3fs.S3FileSystem instance
+    - HTTPS: Each thread has its own cloned session (not per-file!)
+    - Target FS: Each thread creates its own target filesystem
+
+    This pattern addresses Issue #913 by reusing sessions within threads,
+    reducing EDL auth requests from N (per-file) to T (per-thread).
+
+    Supports multiple filesystem backends:
+    - fsspec/s3fs: Default, with configurable caching (blockcache, filecache, none)
+    - obstore: Alternative high-performance S3 backend
+    """
+
+    def __init__(
+        self,
+        auth_context: AuthContext,
+        fs_backend: str = "fsspec",
+        fs_options: Optional[Dict[str, Any]] = None,
+    ):
+        self._auth_context = auth_context
+        self._fs_backend = fs_backend
+        self._fs_options = fs_options or {}
+        self._source_fs: Optional[Any] = None  # Lazy-initialized
+        self._session: Optional[Any] = None  # Lazy-initialized
+        self._target_filesystems: Dict[str, Any] = {}  # Cache by target path
+        self._obstore: Optional[Any] = None  # Lazy-initialized obstore
+
+    def get_filesystem(self, url: str) -> "fsspec.AbstractFileSystem":
+        """Get filesystem for the given URL.
+
+        Creates filesystem once per thread, reuses for all files in that thread.
+
+        For fsspec, supports cache configuration via fs_options:
+        - cache_type: "blockcache", "filecache", "readahead", "none", "all" (default)
+        - block_size: Block size for blockcache (default 8MB)
+        - cache_storage: Directory for filecache
+        """
+        if self._source_fs is not None:
+            return self._source_fs
+
+        parsed = urlparse(url)
+
+        if self._fs_backend == "obstore":
+            # Use obstore wrapped in fsspec compatibility layer
+            self._source_fs = self._create_obstore_fs()
+        elif parsed.scheme == "s3" or self._auth_context.cloud_hosted:
+            # S3 filesystem with shared credentials and optional caching
+            self._source_fs = self._create_s3fs_with_cache()
+        elif parsed.scheme in ("http", "https"):
+            # HTTP filesystem with cloned session
+            import fsspec
+            session = self._get_cloned_session()
+            self._source_fs = fsspec.filesystem(
+                "https",
+                client_kwargs={"session": session},
+            )
+        else:
+            # Local filesystem
+            import fsspec
+            self._source_fs = fsspec.filesystem("file")
+
+        return self._source_fs
+
+    def _create_s3fs_with_cache(self) -> "fsspec.AbstractFileSystem":
+        """Create S3 filesystem with configurable caching.
+
+        Cache options (via fs_options):
+        - cache_type: Type of cache to use
+            - "none": No caching, direct reads
+            - "blockcache": Cache blocks in memory (good for random access)
+            - "filecache": Cache whole files to disk
+            - "readahead": Read-ahead buffer (good for sequential reads)
+            - "all": Cache entire file in memory (default fsspec behavior)
+        - block_size: Size of blocks for blockcache (default 8MB)
+        - cache_storage: Directory for filecache (default /tmp)
+        """
+        import s3fs
+        import fsspec
+
+        # Base S3 filesystem with credentials
+        base_fs = s3fs.S3FileSystem(**self._auth_context.s3_credentials)
+
+        cache_type = self._fs_options.get("cache_type", "all")
+
+        if cache_type == "none":
+            # No caching - direct access
+            return base_fs
+        elif cache_type == "blockcache":
+            # Block-based caching (good for random access patterns)
+            block_size = self._fs_options.get("block_size", 8 * 1024 * 1024)
+            return fsspec.filesystem(
+                "blockcache",
+                target_protocol="s3",
+                target_options=self._auth_context.s3_credentials,
+                block_size=block_size,
+            )
+        elif cache_type == "filecache":
+            # File-based caching (caches entire files to disk)
+            cache_storage = self._fs_options.get("cache_storage", "/tmp/earthaccess_cache")
+            return fsspec.filesystem(
+                "filecache",
+                target_protocol="s3",
+                target_options=self._auth_context.s3_credentials,
+                cache_storage=cache_storage,
+                same_names=True,
+            )
+        elif cache_type == "readahead":
+            # Read-ahead buffer (good for sequential access)
+            return fsspec.filesystem(
+                "simplecache",
+                target_protocol="s3",
+                target_options=self._auth_context.s3_credentials,
+            )
+        else:
+            # Default: let s3fs use its default caching
+            return base_fs
+
+    def _create_obstore_fs(self) -> "fsspec.AbstractFileSystem":
+        """Create obstore-backed filesystem.
+
+        Obstore (https://github.com/developmentseed/obstore) provides a
+        high-performance alternative to s3fs for S3 access. It can be
+        significantly faster for some workloads.
+
+        Requires: pip install obstore
+        """
         try:
-            for item in items:
-                work_queue.put(item)  # Blocks if queue full (backpressure)
-        finally:
-            # Signal end of items
-            for _ in range(max_workers):
-                work_queue.put(None)
+            import obstore as obs
+            from obstore.fsspec import ObstoreFsspecStore
+        except ImportError:
+            raise ImportError(
+                "obstore is required for fs_backend='obstore'. "
+                "Install with: pip install obstore"
+            )
 
-    producer_thread = Thread(target=producer, daemon=True)
-    producer_thread.start()
+        creds = self._auth_context.s3_credentials
 
-    # Consumer: workers process items from queue
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        pending = []
-        done_count = 0
-        workers_done = 0
+        # Create obstore S3 store with credentials
+        store = obs.store.S3Store.from_env(
+            access_key_id=creds.get("key"),
+            secret_access_key=creds.get("secret"),
+            session_token=creds.get("token"),
+            region=creds.get("region", "us-west-2"),
+            **self._fs_options,
+        )
 
-        while workers_done < max_workers or pending:
-            # Submit work while queue has items and we have capacity
-            while len(pending) < max_workers * 2:
-                try:
-                    item = work_queue.get_nowait()
-                except:
-                    break
+        # Wrap in fsspec-compatible interface
+        return ObstoreFsspecStore(store)
 
-                if item is None:
-                    workers_done += 1
-                    continue
+    def open_file(self, url: str, mode: str = "rb") -> Any:
+        """Open a file, using the configured filesystem backend.
 
-                future = executor.submit(process_fn, item)
-                pending.append(future)
+        This is the preferred method for opening files as it handles
+        all backend-specific details internally.
 
-            if not pending:
-                continue
+        Args:
+            url: URL to open (s3://, https://, or local path)
+            mode: File mode (default "rb")
 
-            # Yield completed results
-            done = [f for f in pending if f.done()]
-            for future in done:
-                pending.remove(future)
-                done_count += 1
-                yield future.result()
+        Returns:
+            File-like object (context manager)
+        """
+        fs = self.get_filesystem(url)
+        return fs.open(url, mode)
+
+    def _get_cloned_session(self) -> "requests.Session":
+        """Clone the session template for this thread.
+
+        Called once per thread, not once per file. This is the key
+        optimization from PR #909 that addresses Issue #913.
+        """
+        if self._session is not None:
+            return self._session
+
+        import requests
+
+        template = self._auth_context.session_template
+        self._session = requests.Session()
+        self._session.headers.update(template.headers)
+        self._session.cookies.update(template.cookies)
+        self._session.auth = template.auth
+
+        return self._session
+
+    def get_target_filesystem(
+        self,
+        target: str,
+        target_options: Optional[Dict[str, Any]] = None,
+    ) -> "fsspec.AbstractFileSystem":
+        """Get or create target filesystem for downloads.
+
+        Each worker creates its own target filesystem instance.
+        Cached per target path within the thread.
+        """
+        cache_key = target
+        if cache_key in self._target_filesystems:
+            return self._target_filesystems[cache_key]
+
+        import fsspec
+
+        parsed = urlparse(target)
+        options = target_options or {}
+
+        if parsed.scheme == "s3":
+            fs = fsspec.filesystem("s3", **options)
+        elif parsed.scheme == "gs":
+            fs = fsspec.filesystem("gcs", **options)
+        elif parsed.scheme in ("az", "abfs"):
+            fs = fsspec.filesystem("az", **options)
+        else:
+            fs = fsspec.filesystem("file")
+
+        self._target_filesystems[cache_key] = fs
+        return fs
+
+    def stream_to_target(
+        self,
+        source_url: str,
+        target_base: str,
+        source_fs: "fsspec.AbstractFileSystem",
+        target_fs: "fsspec.AbstractFileSystem",
+        chunk_size: int = 1024 * 1024,
+        **kwargs,
+    ) -> str:
+        """Stream file from source to target filesystem.
+
+        Worker handles the entire transfer, writing directly to target.
+        """
+        from urllib.parse import urlparse
+        import posixpath
+
+        # Determine target path
+        filename = source_url.split("/")[-1]
+        parsed_target = urlparse(target_base)
+
+        if parsed_target.scheme in ("s3", "gs", "az", "abfs"):
+            target_path = f"{target_base.rstrip('/')}/{filename}"
+        else:
+            target_path = posixpath.join(target_base, filename)
+
+        # Check if exists
+        if target_fs.exists(target_path):
+            return target_path
+
+        # Stream copy
+        with source_fs.open(source_url, "rb") as src:
+            with target_fs.open(target_path, "wb") as dst:
+                while True:
+                    chunk = src.read(chunk_size)
+                    if not chunk:
+                        break
+                    dst.write(chunk)
+
+        return target_path
 
 
 class StreamingExecutor:
-    """Executor optimized for lazy, paginated inputs.
+    """Executor optimized for lazy, paginated inputs with proper auth handling.
 
     Unlike standard executors that need all items upfront, this
     streams items through a bounded buffer, enabling parallel
     processing of lazy iterables without memory blowup.
+
+    Auth handling (per Issue #913):
+    - AuthContext is created ONCE before execution
+    - Each thread gets its own WorkerContext via thread-local storage
+    - Sessions/credentials are shared efficiently, not recreated per-file
+
+    Filesystem backends:
+    - fsspec (default): Supports configurable caching (blockcache, filecache, etc.)
+    - obstore: High-performance alternative for S3 access
     """
 
     def __init__(
@@ -2793,30 +3037,95 @@ class StreamingExecutor:
         max_workers: int = 8,
         prefetch_pages: int = 2,
         page_size: int = 2000,
+        auth_context: Optional[AuthContext] = None,
+        fs_backend: str = "fsspec",
+        fs_options: Optional[Dict[str, Any]] = None,
     ):
         self.max_workers = max_workers
         self.prefetch_pages = prefetch_pages
         self.page_size = page_size
+        self.auth_context = auth_context
+        self.fs_backend = fs_backend
+        self.fs_options = fs_options or {}
+        self._thread_local = threading.local()
+
+    def _get_worker_context(self) -> WorkerContext:
+        """Get or create WorkerContext for current thread."""
+        if not hasattr(self._thread_local, "worker_context"):
+            self._thread_local.worker_context = WorkerContext(
+                self.auth_context,
+                fs_backend=self.fs_backend,
+                fs_options=self.fs_options,
+            )
+        return self._thread_local.worker_context
 
     def map(
         self,
-        fn: Callable[[T], R],
+        fn: Callable[[T, WorkerContext], R],
         items: Iterable[T],
+        show_progress: bool = True,
         **kwargs,
     ) -> Iterator[R]:
-        """Apply function to lazy iterable with streaming parallelism."""
-        return stream_parallel(
-            items,
-            fn,
-            max_workers=self.max_workers,
-            prefetch_pages=self.prefetch_pages,
-            page_size=self.page_size,
-            **kwargs,
-        )
+        """Apply function to lazy iterable with streaming parallelism.
+
+        The function receives both the item AND a WorkerContext, which
+        provides thread-local filesystem and session access.
+        """
+        max_queue_size = self.prefetch_pages * self.page_size
+        work_queue: Queue[Optional[T]] = Queue(maxsize=max_queue_size)
+
+        # Producer: fetches pages and enqueues items
+        def producer():
+            try:
+                for item in items:
+                    work_queue.put(item)  # Blocks if queue full (backpressure)
+            finally:
+                # Signal end of items
+                for _ in range(self.max_workers):
+                    work_queue.put(None)
+
+        producer_thread = Thread(target=producer, daemon=True)
+        producer_thread.start()
+
+        # Wrapper that provides WorkerContext to the function
+        def process_with_context(item: T) -> R:
+            worker_context = self._get_worker_context()
+            return fn(item, worker_context)
+
+        # Consumer: workers process items from queue
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            pending = []
+            done_count = 0
+            workers_done = 0
+
+            while workers_done < self.max_workers or pending:
+                # Submit work while queue has items and we have capacity
+                while len(pending) < self.max_workers * 2:
+                    try:
+                        item = work_queue.get_nowait()
+                    except:
+                        break
+
+                    if item is None:
+                        workers_done += 1
+                        continue
+
+                    future = executor.submit(process_with_context, item)
+                    pending.append(future)
+
+                if not pending:
+                    continue
+
+                # Yield completed results
+                done = [f for f in pending if f.done()]
+                for future in done:
+                    pending.remove(future)
+                    done_count += 1
+                    yield future.result()
 
     def map_batched(
         self,
-        fn: Callable[[List[T]], List[R]],
+        fn: Callable[[List[T], WorkerContext], List[R]],
         items: Iterable[T],
         batch_size: int = 100,
         **kwargs,
@@ -2836,13 +3145,7 @@ class StreamingExecutor:
             if batch:
                 yield batch
 
-        for result_batch in stream_parallel(
-            batch_iterator(),
-            fn,
-            max_workers=self.max_workers,
-            prefetch_pages=self.prefetch_pages,
-            **kwargs,
-        ):
+        for result_batch in self.map(fn, batch_iterator(), **kwargs):
             yield from result_batch
 ```
 
@@ -2860,6 +3163,9 @@ class GranuleResults(ResultsBase["DataGranule"]):
         max_workers: int = 8,
         prefetch_pages: int = 2,
         show_progress: bool = True,
+        provider: Optional[str] = None,
+        fs_backend: Literal["fsspec", "obstore"] = "fsspec",
+        fs_options: Optional[Dict[str, Any]] = None,
         **fsspec_kwargs,
     ) -> Iterator[fsspec.spec.AbstractBufferedFile]:
         """Open granules with streaming parallelism.
@@ -2871,7 +3177,15 @@ class GranuleResults(ResultsBase["DataGranule"]):
             max_workers: Parallel file openers
             prefetch_pages: Pages to buffer ahead
             show_progress: Show progress bar
-            **fsspec_kwargs: Passed to fsspec.open()
+            provider: Data provider (auto-detected if not specified)
+            fs_backend: Filesystem backend
+                - "fsspec": Use fsspec/s3fs with configurable caching (default)
+                - "obstore": Use obstore for faster S3 access
+            fs_options: Options for filesystem backend. For fsspec:
+                - cache_type: "blockcache", "filecache", "readahead", "none", "all"
+                - block_size: Block size for blockcache (default 8MB)
+                - cache_storage: Directory for filecache
+            **fsspec_kwargs: Additional options passed to fs.open()
 
         Yields:
             Open file handles as they become ready
@@ -2884,17 +3198,34 @@ class GranuleResults(ResultsBase["DataGranule"]):
                 data = xr.open_dataset(fh)
                 process(data)
                 fh.close()
+
+            # With blockcache for random access patterns
+            for fh in results.open(
+                fs_options={"cache_type": "blockcache", "block_size": 16*1024*1024}
+            ):
+                data = xr.open_dataset(fh)
+                process(data)
+                fh.close()
         """
         from .store.streaming import StreamingExecutor
+
+        # Prepare auth context once, share across workers
+        auth_context = AuthContext.for_streaming(
+            provider=provider,
+            cloud_hosted=self._cloud_hosted,
+        )
 
         executor = StreamingExecutor(
             max_workers=max_workers,
             prefetch_pages=prefetch_pages,
+            auth_context=auth_context,
+            fs_backend=fs_backend,
+            fs_options=fs_options,
         )
 
-        def open_one(granule: DataGranule):
+        def open_one(granule: DataGranule, worker_context: WorkerContext):
             url = granule.data_links()[0]  # TODO: asset filtering
-            return self._store.open_single(url, **fsspec_kwargs)
+            return worker_context.open_file(url, **fsspec_kwargs)
 
         yield from executor.map(open_one, self, show_progress=show_progress)
 
@@ -2905,28 +3236,192 @@ class GranuleResults(ResultsBase["DataGranule"]):
         max_workers: int = 8,
         prefetch_pages: int = 2,
         show_progress: bool = True,
+        provider: Optional[str] = None,
+        target_options: Optional[Dict[str, Any]] = None,
         **kwargs,
     ) -> Iterator[str]:
         """Download granules with streaming parallelism.
 
         Fetches pages lazily while downloading in parallel.
+        Each worker writes directly to the target filesystem.
+
+        Args:
+            target: Target path (local, s3://, gs://, az://)
+            max_workers: Parallel downloaders
+            prefetch_pages: Pages to buffer ahead
+            show_progress: Show progress bar
+            provider: Data provider (auto-detected if not specified)
+            target_options: fsspec options for target filesystem (credentials, etc.)
 
         Yields:
-            Local paths as downloads complete
+            Target paths as downloads complete
         """
         from .store.streaming import StreamingExecutor
+
+        # Prepare auth context once, share across workers
+        auth_context = AuthContext.for_streaming(
+            provider=provider,
+            cloud_hosted=self._cloud_hosted,
+        )
 
         executor = StreamingExecutor(
             max_workers=max_workers,
             prefetch_pages=prefetch_pages,
+            auth_context=auth_context,
         )
 
-        def download_one(granule: DataGranule) -> str:
+        def download_one(granule: DataGranule, worker_context: WorkerContext) -> str:
             url = granule.data_links()[0]
-            return self._store.download_single(url, target, **kwargs)
+            # Worker creates its own target filesystem
+            target_fs = worker_context.get_target_filesystem(target, target_options)
+            source_fs = worker_context.get_filesystem(url)
+            return worker_context.stream_to_target(
+                url, target, source_fs, target_fs, **kwargs
+            )
 
         yield from executor.map(download_one, self, show_progress=show_progress)
+
+    def process(
+        self,
+        fn: Callable[["xr.Dataset"], T],
+        *,
+        max_workers: int = 8,
+        prefetch_pages: int = 2,
+        show_progress: bool = True,
+        provider: Optional[str] = None,
+        fs_backend: Literal["fsspec", "obstore"] = "fsspec",
+        fs_options: Optional[Dict[str, Any]] = None,
+        xarray_engine: str = "h5netcdf",
+        xarray_options: Optional[Dict[str, Any]] = None,
+        **kwargs,
+    ) -> Iterator[T]:
+        """Process granules with a function, streaming results.
+
+        Fetches pages lazily while processing in parallel.
+        Each worker opens, processes, and closes files independently.
+
+        Args:
+            fn: Function that takes an xarray Dataset and returns a result.
+                The result must be serializable (numpy arrays, dicts, primitives).
+            max_workers: Parallel workers
+            prefetch_pages: Pages to buffer ahead
+            show_progress: Show progress bar
+            provider: Data provider (auto-detected if not specified)
+            fs_backend: Filesystem backend to use:
+                - "fsspec": Use fsspec/s3fs (default, supports caching)
+                - "obstore": Use obstore for potentially faster S3 access
+            fs_options: Options passed to the filesystem backend. For fsspec, this
+                includes cache configuration:
+                - {"cache_type": "blockcache", "block_size": 8*1024*1024}
+                - {"cache_type": "filecache", "cache_storage": "/tmp/earthaccess_cache"}
+                - {"cache_type": "none"} to disable caching
+                For obstore, options are passed directly to the store constructor.
+            xarray_engine: Engine for xr.open_dataset() (default: "h5netcdf")
+            xarray_options: Additional options passed to xr.open_dataset()
+
+        Yields:
+            Results as they complete
+
+        Example:
+            results = earthaccess.search_data(short_name="MUR-JPL-L4-GLOB", count=365)
+
+            def get_mean(ds):
+                return float(ds["analysed_sst"].mean())
+
+            # Default: uses fsspec with default caching
+            for mean_sst in results.process(get_mean, max_workers=8):
+                print(mean_sst)
+
+            # With custom cache settings
+            for mean_sst in results.process(
+                get_mean,
+                fs_options={
+                    "cache_type": "blockcache",
+                    "block_size": 16 * 1024 * 1024,  # 16MB blocks
+                },
+            ):
+                print(mean_sst)
+
+            # Using obstore for faster S3 access
+            for mean_sst in results.process(
+                get_mean,
+                fs_backend="obstore",
+            ):
+                print(mean_sst)
+
+            # Disable caching entirely
+            for mean_sst in results.process(
+                get_mean,
+                fs_options={"cache_type": "none"},
+            ):
+                print(mean_sst)
+        """
+        from .store.streaming import StreamingExecutor
+
+        # Prepare auth context once, share across workers
+        auth_context = AuthContext.for_streaming(
+            provider=provider,
+            cloud_hosted=self._cloud_hosted,
+        )
+
+        executor = StreamingExecutor(
+            max_workers=max_workers,
+            prefetch_pages=prefetch_pages,
+            auth_context=auth_context,
+            fs_backend=fs_backend,
+            fs_options=fs_options,
+        )
+
+        xr_opts = xarray_options or {}
+
+        def process_one(granule: DataGranule, worker_context: WorkerContext) -> T:
+            import xarray as xr
+            url = granule.data_links()[0]
+
+            with worker_context.open_file(url) as fh:
+                ds = xr.open_dataset(fh, engine=xarray_engine, **xr_opts)
+                result = fn(ds)
+                ds.close()
+            return result
+
+        yield from executor.map(process_one, self, show_progress=show_progress)
 ```
+
+#### B.3.2.1 Aligned Method Signatures
+
+All methods on `GranuleResults` follow a consistent pattern with aligned parameters:
+
+| Parameter | `open()` | `download()` | `process()` | Description |
+|-----------|----------|--------------|-------------|-------------|
+| `max_workers` | ✅ | ✅ | ✅ | Number of parallel workers |
+| `prefetch_pages` | ✅ | ✅ | ✅ | Pages to buffer ahead for backpressure |
+| `show_progress` | ✅ | ✅ | ✅ | Show progress bar |
+| `provider` | ✅ | ✅ | ✅ | Data provider (auto-detected if not specified) |
+| `fs_backend` | ✅ | - | ✅ | Filesystem backend: "fsspec" or "obstore" |
+| `fs_options` | ✅ | - | ✅ | Filesystem options (cache settings, etc.) |
+| `target` | - | ✅ | - | Target path for downloads |
+| `target_options` | - | ✅ | - | fsspec options for target filesystem |
+| `xarray_engine` | - | - | ✅ | Engine for xr.open_dataset() |
+| `xarray_options` | - | - | ✅ | Options passed to xr.open_dataset() |
+| `fn` | - | - | ✅ | Processing function |
+
+**Key Design Principles:**
+
+1. **Auth handled once**: `AuthContext` is created before parallel execution begins
+2. **Thread-local workers**: Each thread gets its own `WorkerContext` with cloned sessions (per Issue #913)
+3. **Workers write directly**: For downloads, each worker writes directly to target filesystem
+4. **Configurable filesystem**: Support for fsspec (with caching) and obstore backends
+5. **Lazy by default**: All methods return iterators, not lists
+
+**Filesystem Cache Options (for `fs_options`):**
+
+| `cache_type` | Description | Best For |
+|--------------|-------------|----------|
+| `"all"` | Cache entire file in memory (default) | Small files, repeated access |
+| `"blockcache"` | Cache blocks in memory | Random access patterns, large files |
+| `"filecache"` | Cache whole files to disk | Very large files, limited memory |
+| `"readahead"` | Read-ahead buffer | Sequential access patterns |
+| `"none"` | No caching, direct access | Streaming, one-pass reads |
 
 #### B.3.3 Eager vs Streaming API
 
@@ -3672,37 +4167,75 @@ def process(
     fn: Callable[[xr.Dataset], T],
     *,
     backend: Literal["local", "dask", "lithops", "ray"] = "local",
+    streaming: bool = True,
+    max_workers: int = 8,
+    prefetch_pages: int = 2,
+    provider: Optional[str] = None,
+    fs_backend: Literal["fsspec", "obstore"] = "fsspec",
+    fs_options: Optional[Dict[str, Any]] = None,
+    xarray_engine: str = "h5netcdf",
+    xarray_options: Optional[Dict[str, Any]] = None,
     credentials: Optional[Dict] = None,
     **backend_kwargs,
-) -> List[T]:
+) -> Union[Iterator[T], List[T]]:
     """Process granules with a function, optionally distributed.
 
-    This is the recommended API for distributed processing, since
-    file handles cannot be returned from remote workers.
+    For local backend with streaming=True (default), this uses lazy pagination
+    with the producer-consumer pattern for memory-efficient processing.
+
+    For distributed backends (dask, lithops, ray), results are materialized
+    upfront as these backends need to distribute work across nodes.
 
     Args:
-        granules: Granules to process
+        granules: Granules to process (list or lazy GranuleResults)
         fn: Function that takes an xarray Dataset and returns a result.
             The result must be serializable (numpy arrays, dicts, primitives).
         backend: Execution backend
-            - "local": ThreadPoolExecutor (default)
-            - "dask": Dask distributed
-            - "lithops": Lithops serverless
-            - "ray": Ray distributed
+            - "local": StreamingExecutor with ThreadPoolExecutor (default)
+            - "dask": Dask distributed (materializes all granules first)
+            - "lithops": Lithops serverless (materializes all granules first)
+            - "ray": Ray distributed (materializes all granules first)
+        streaming: If True and backend="local", return iterator (memory-efficient).
+            If False, return list. Ignored for distributed backends.
+        max_workers: Parallel workers (for local backend)
+        prefetch_pages: Pages to buffer ahead (for local streaming)
+        provider: Data provider (auto-detected if not specified)
+        fs_backend: Filesystem backend
+            - "fsspec": Use fsspec/s3fs with configurable caching (default)
+            - "obstore": Use obstore for faster S3 access
+        fs_options: Options for filesystem backend. For fsspec:
+            - cache_type: "blockcache", "filecache", "readahead", "none", "all"
+            - block_size: Block size for blockcache (default 8MB)
+            - cache_storage: Directory for filecache
+        xarray_engine: Engine for xr.open_dataset() (default: "h5netcdf")
+        xarray_options: Additional options passed to xr.open_dataset()
         credentials: S3 credentials (auto-fetched if not provided)
         **backend_kwargs: Backend-specific options
 
     Returns:
-        List of results from applying fn to each granule
+        Iterator[T] if streaming=True and backend="local", else List[T]
 
     Examples:
-        # Local processing (default)
-        def get_mean(ds):
-            return float(ds["temperature"].mean())
+        # Streaming local processing (default, memory-efficient)
+        for result in earthaccess.process(results, get_mean):
+            print(result)
 
-        results = earthaccess.process(granules, get_mean)
+        # Eager local processing (returns list)
+        results = earthaccess.process(granules, get_mean, streaming=False)
 
-        # Distributed with Ray
+        # With custom cache settings
+        for result in earthaccess.process(
+            results,
+            get_mean,
+            fs_options={"cache_type": "blockcache", "block_size": 16*1024*1024},
+        ):
+            print(result)
+
+        # Using obstore for faster S3 access
+        for result in earthaccess.process(results, get_mean, fs_backend="obstore"):
+            print(result)
+
+        # Distributed with Ray (materializes granules first)
         results = earthaccess.process(
             granules,
             get_mean,
@@ -3718,7 +4251,42 @@ def process(
             config={"lithops": {"backend": "aws_lambda"}},
         )
     """
+    if backend == "local":
+        # Use streaming executor for memory-efficient processing
+        if isinstance(granules, GranuleResults):
+            # Use the GranuleResults.process() method which handles streaming
+            iterator = granules.process(
+                fn,
+                max_workers=max_workers,
+                prefetch_pages=prefetch_pages,
+                provider=provider,
+                fs_backend=fs_backend,
+                fs_options=fs_options,
+                xarray_engine=xarray_engine,
+                xarray_options=xarray_options,
+            )
+            if streaming:
+                return iterator
+            else:
+                return list(iterator)
+        else:
+            # List of granules - wrap in simple iterator
+            return _process_local_list(
+                granules, fn,
+                max_workers=max_workers,
+                fs_backend=fs_backend,
+                fs_options=fs_options,
+                xarray_engine=xarray_engine,
+                xarray_options=xarray_options,
+                **backend_kwargs,
+            )
+
+    # Distributed backends: must materialize granules first
     if isinstance(granules, GranuleResults):
+        logger.info(
+            f"Materializing {granules.matched()} granules for distributed backend '{backend}'. "
+            f"For memory-efficient processing, use backend='local' with streaming=True."
+        )
         granules = granules.get_all()
 
     # Auto-fetch credentials if needed (fetches ONCE, ships to all workers)
@@ -3727,16 +4295,62 @@ def process(
         credentials = auth_context["credentials"]
         logger.info(f"Fetched credentials for {auth_context['provider']} - shipping to {len(granules)} workers")
 
-    if backend == "local":
-        return _process_local(granules, fn, credentials, **backend_kwargs)
-    elif backend == "dask":
-        return _process_dask(granules, fn, credentials, **backend_kwargs)
+    # Wrap function to handle file opening with specified options
+    wrapped_fn = _wrap_fn(fn, fs_backend, fs_options, xarray_engine, xarray_options)
+
+    if backend == "dask":
+        return _process_dask(granules, wrapped_fn, credentials, **backend_kwargs)
     elif backend == "lithops":
         processor = LithopsProcessor(**backend_kwargs)
-        return processor.map(_wrap_fn(fn), granules, credentials)
+        return processor.map(wrapped_fn, granules, credentials)
     elif backend == "ray":
         processor = RayProcessor(**backend_kwargs)
-        return processor.map(_wrap_fn(fn), granules, credentials)
+        return processor.map(wrapped_fn, granules, credentials)
+    else:
+        raise ValueError(f"Unknown backend: {backend}")
+
+
+def _process_local_list(
+    granules: List[DataGranule],
+    fn: Callable[[xr.Dataset], T],
+    max_workers: int = 8,
+    fs_backend: str = "fsspec",
+    fs_options: Optional[Dict[str, Any]] = None,
+    xarray_engine: str = "h5netcdf",
+    xarray_options: Optional[Dict[str, Any]] = None,
+    **kwargs,
+) -> List[T]:
+    """Process a list of granules locally with thread pool."""
+    from .store.streaming import AuthContext, WorkerContext, StreamingExecutor
+
+    # Detect provider from first granule
+    provider = granules[0]["meta"]["provider-id"] if granules else None
+    cloud_hosted = granules[0].cloud_hosted if granules else True
+
+    auth_context = AuthContext.for_streaming(
+        provider=provider,
+        cloud_hosted=cloud_hosted,
+    )
+
+    executor = StreamingExecutor(
+        max_workers=max_workers,
+        auth_context=auth_context,
+        fs_backend=fs_backend,
+        fs_options=fs_options,
+    )
+
+    xr_opts = xarray_options or {}
+
+    def process_one(granule: DataGranule, worker_context: WorkerContext) -> T:
+        import xarray as xr
+        url = granule.data_links()[0]
+        with worker_context.open_file(url) as fh:
+            ds = xr.open_dataset(fh, engine=xarray_engine, **xr_opts)
+            result = fn(ds)
+            ds.close()
+        return result
+
+    return list(executor.map(process_one, granules))
 
 
 def get_distributed_credentials(granules) -> Dict[str, Any]:
@@ -3773,17 +4387,69 @@ def get_distributed_credentials(granules) -> Dict[str, Any]:
     }
 
 
-def _wrap_fn(fn):
-    """Wrap user function to handle file opening."""
+def _wrap_fn(
+    fn: Callable,
+    fs_backend: str = "fsspec",
+    fs_options: Optional[Dict[str, Any]] = None,
+    xarray_engine: str = "h5netcdf",
+    xarray_options: Optional[Dict[str, Any]] = None,
+):
+    """Wrap user function to handle file opening with configurable backend."""
+    xr_opts = xarray_options or {}
+
     def wrapped(granule_dict, credentials):
         import xarray as xr
-        import s3fs
 
-        fs = s3fs.S3FileSystem(**credentials)
         url = granule_dict["s3_links"][0]
 
+        if fs_backend == "obstore":
+            try:
+                import obstore as obs
+                from obstore.fsspec import ObstoreFsspecStore
+            except ImportError:
+                raise ImportError(
+                    "obstore required for fs_backend='obstore'. "
+                    "Install with: pip install obstore"
+                )
+            store = obs.store.S3Store.from_env(
+                access_key_id=credentials.get("key"),
+                secret_access_key=credentials.get("secret"),
+                session_token=credentials.get("token"),
+                region=credentials.get("region", "us-west-2"),
+                **(fs_options or {}),
+            )
+            fs = ObstoreFsspecStore(store)
+        else:
+            # fsspec with optional caching
+            import s3fs
+            import fsspec
+
+            cache_type = (fs_options or {}).get("cache_type", "all")
+
+            if cache_type == "none":
+                fs = s3fs.S3FileSystem(**credentials)
+            elif cache_type == "blockcache":
+                block_size = (fs_options or {}).get("block_size", 8 * 1024 * 1024)
+                fs = fsspec.filesystem(
+                    "blockcache",
+                    target_protocol="s3",
+                    target_options=credentials,
+                    block_size=block_size,
+                )
+            elif cache_type == "filecache":
+                cache_storage = (fs_options or {}).get("cache_storage", "/tmp/earthaccess_cache")
+                fs = fsspec.filesystem(
+                    "filecache",
+                    target_protocol="s3",
+                    target_options=credentials,
+                    cache_storage=cache_storage,
+                    same_names=True,
+                )
+            else:
+                fs = s3fs.S3FileSystem(**credentials)
+
         with fs.open(url) as fh:
-            ds = xr.open_dataset(fh, engine="h5netcdf")
+            ds = xr.open_dataset(fh, engine=xarray_engine, **xr_opts)
             result = fn(ds)
             ds.close()
 
@@ -3853,11 +4519,17 @@ def open(granules, *, parallel: ParallelBackend = "pqdm", **kwargs):
 
 | Task | Priority | Complexity |
 |------|----------|------------|
+| Implement `AuthContext` class | High | Low |
+| Implement `WorkerContext` class with fs_backend support | High | Medium |
+| Implement `StreamingExecutor` with auth_context | High | Medium |
+| Implement `GranuleResults.process()` method | High | Medium |
+| Implement `earthaccess.process()` function with streaming | High | Medium |
+| Add obstore filesystem backend support | Medium | Medium |
+| Add fsspec cache configuration (blockcache, filecache, etc.) | High | Low |
 | Implement `LithopsProcessor` class | Medium | Medium |
 | Implement `RayProcessor` class | Medium | Medium |
 | Implement `get_distributed_credentials()` for S3 | High | Low |
 | Implement `get_distributed_https_session()` for HTTPS | High | Low |
-| Implement `earthaccess.process()` function | High | Medium |
 | Add credential/session TTL documentation and warnings | High | Low |
 | Add clear error message for open() + distributed | High | Low |
 | Add `DataGranule.to_dict()` method | High | Low |
