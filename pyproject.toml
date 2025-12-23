@@ -34,7 +34,7 @@ classifiers = [
 
 requires-python = ">=3.11"
 
-dependencies = [
+ dependencies = [
   "python-cmr >=0.10.0",
   "requests >=2.26",
   "s3fs >=2025.2",
@@ -44,6 +44,7 @@ dependencies = [
   "multimethod >=1.8",
   "importlib-resources >=6.3.2",
   "typing_extensions >=4.10.0",
+  "pystac-client",
 ]
 
 [project.urls]
@@ -161,6 +162,7 @@ module = [
   "dask.*",
   "kerchunk.*",
   "s3fs",
+  "pystac_client",
   "tinynetrc.*", # TODO: generate stubs for tinynetrc and remove this line
   "vcr.unittest", # TODO: generate stubs for vcr and remove this line
 ]

@@ -4,7 +4,7 @@ import datetime
 from unittest.mock import Mock
 
 import pytest
-from earthaccess.store.credentials import (
+from earthaccess.store_components.credentials import (
     AuthContext,
     CredentialManager,
     S3Credentials,

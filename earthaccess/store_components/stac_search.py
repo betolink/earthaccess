@@ -5,7 +5,17 @@ external STAC catalogs via pystac-client.
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, Generator, Iterator, List, Optional
+
+if TYPE_CHECKING:
+    try:
+        from pystac_client import Client as PystacClient, ItemSearch as PystacItemSearch
+    except ImportError:
+        PystacClient: Any  # type: ignore
+        PystacItemSearch: Any  # type: ignore
+else:
+    PystacClient = Any  # type: ignore
+    PystacItemSearch = Any  # type: ignore
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +28,7 @@ def search_stac(
     intersects: Optional[Dict[str, Any]] = None,
     limit: int = 100,
     **kwargs: Any,
-):
+) -> "STACItemResults":
     """Search external STAC catalogs.
 
     Args:
@@ -66,13 +76,13 @@ def search_stac(
         ...     intersects=geojson
         ... )
     """
-    try:
-        import pystac_client
-    except ImportError:
+    if PystacClient is None:
         raise ImportError(
             "pystac-client is required for STAC catalog searches. "
             "Install it with: pip install pystac-client"
         )
+
+    import pystac_client
 
     # Validate URL
     if not url or not isinstance(url, str):
@@ -83,7 +93,7 @@ def search_stac(
         client = pystac_client.Client.open(url)
 
         # Build search parameters
-        search_params = {}
+        search_params: Dict[str, Any] = {}
         if collections:
             search_params["collections"] = collections
         if bbox:
@@ -110,77 +120,71 @@ def search_stac(
         )
 
     except Exception as e:
-        logger.error(f"Error searching STAC catalog: {e}")
+        logger.exception(f"Error searching STAC catalog: {e}")
         raise
 
 
 class STACItemResults:
-    """Results from external STAC catalog search.
+    """Wrapper for STAC catalog search results.
 
-    Provides lazy iteration over STAC items with CMR-like
-    interface for compatibility.
+    Provides CMR-like interface for external STAC catalog results.
     """
 
-    def __init__(self, search: Any, url: str, search_params: Dict[str, Any]):
-        """Initialize STAC results.
+    def __init__(
+        self,
+        search: "PystacItemSearch",
+        url: str,
+        search_params: Dict[str, Any],
+    ) -> None:
+        """Initialize STACItemResults.
 
         Args:
-            search: pystac_client search object
-            url: STAC API endpoint URL
-            search_params: Original search parameters
+            search: pystac_client ItemSearch object
+            url: STAC catalog URL
+            search_params: Search parameters used
         """
         self._search = search
-        self._url = url
-        self._search_params = search_params
-        self._items_cache: Optional[List[Any]] = None
-        self._logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
+        self.url = url
+        self.search_params = search_params
+
+        if hasattr(self._search, "items"):
+            self._items = list(self._search.items())
+        else:
+            self._items = []
 
     def __len__(self) -> int:
-        """Return number of matched items."""
-        return self._search.matched()
+        """Return number of items."""
+        if hasattr(self._search, "matched"):
+            return self._search.matched() or 0
+        return 0
 
     def __repr__(self) -> str:
         """String representation."""
-        return f"<STACItemResults from {self._url} with {len(self)} items>"
-
-    def __iter__(self):
-        """Iterate over all items."""
-        return iter(self.items())
-
-    def __getitem__(self, index):
-        """Get item by index."""
-        items = self.items()
-        return items[index]
+        return f"<STACItemResults from {self.url} with {len(self)} items>"
 
     def matched(self) -> int:
-        """Return number of matched items."""
-        return self._search.matched()
+        """Get total matched items."""
+        if hasattr(self._search, "matched"):
+            return self._search.matched()
+        return 0
 
     def count(self) -> int:
-        """Alias for matched()."""
-        return self.matched()
+        """Get count of items (alias for len)."""
+        return len(self)
 
-    def items(self, limit: Optional[int] = None) -> List[Any]:
-        """Get all items as list.
+    def __iter__(self) -> Iterator[Any]:
+        """Iterate over items."""
+        return iter(self._items)
 
-        Args:
-            limit: Optional limit on number of items returned
+    def __getitem__(self, index: int) -> Any:
+        """Get item by index."""
+        return self._items[index]
 
-        Returns:
-            List of pystac Item objects
-        """
-        if self._items_cache is None:
-            self._items_cache = list(self._search.items())
+    def get_all(self) -> List[Any]:
+        """Get all items as list."""
+        return self._items
 
-        if limit is not None:
-            return self._items_cache[:limit]
-        return self._items_cache
-
-    def get_all(self):
-        """Get all items as list (alias for items())."""
-        return self.items()
-
-    def pages(self, page_size: int = 100):
+    def pages(self, page_size: int = 100) -> Generator[List[Any], None, None]:
         """Iterate over pages of results.
 
         Args:
@@ -189,60 +193,41 @@ class STACItemResults:
         Yields:
             Lists of items for each page
         """
-        all_items = self.items()
-
+        all_items = self.get_all()
         for i in range(0, len(all_items), page_size):
             yield all_items[i : i + page_size]
 
-    def first(self):
-        """Get first item or None if empty."""
-        items = self.items()
-        return items[0] if len(items) > 0 else None
+    def first(self) -> Any:
+        """Get first item."""
+        items = self.get_all()
+        return items[0] if items else None
 
-    def last(self):
-        """Get last item or None if empty."""
-        items = self.items()
-        return items[-1] if len(items) > 0 else None
+    def last(self) -> Any:
+        """Get last item."""
+        items = self.get_all()
+        return items[-1] if items else None
 
-    def preview(self, limit: int = 10):
-        """Get preview of first N items."""
-        return self.items(limit=limit)
+    def preview(self, limit: int = 3) -> List[Any]:
+        """Preview first n items."""
+        return self.get_all()[:limit]
 
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert results to dictionary.
-
-        Returns:
-            Dictionary with metadata and items
-        """
-        return {
-            "url": self._url,
-            "search_params": self._search_params,
-            "matched": self.matched(),
-            "items": [self._item_to_dict(item) for item in self.items()],
-        }
-
-    def _item_to_dict(self, item: Any) -> Dict[str, Any]:
-        """Convert pystac Item to dictionary.
+    def items(self, limit: Optional[int] = None) -> List[Any]:
+        """Get items with optional limit.
 
         Args:
-            item: pystac Item object
+            limit: Maximum number of items to return
 
         Returns:
-            Dictionary representation
+            List of items
         """
+        items = self.get_all()
+        return items[:limit] if limit else items
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert results to dictionary format."""
         return {
-            "id": item.id,
-            "geometry": item.geometry,
-            "bbox": item.bbox,
-            "properties": item.properties,
-            "assets": {
-                key: {
-                    "href": asset.href,
-                    "type": asset.media_type,
-                    "roles": asset.roles,
-                }
-                for key, asset in item.assets.items()
-            },
-            "collection": item.collection_id,
-            "datetime": item.datetime.isoformat() if item.datetime else None,
+            "url": self.url,
+            "search_params": self.search_params,
+            "count": len(self),
+            "items": self.get_all(),
         }
