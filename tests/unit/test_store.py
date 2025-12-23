@@ -72,6 +72,7 @@ class TestStoreSessions(unittest.TestCase):
             "key": mock_creds["accessKeyId"],
             "secret": mock_creds["secretAccessKey"],
             "token": mock_creds["sessionToken"],
+            "region": "us-west-2",  # Added by S3Credentials.to_dict()
         }
 
         for endpoint in custom_endpoints:

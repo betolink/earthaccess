@@ -349,6 +349,31 @@ class Store(object):
         if self.filesystem_factory is None:
             raise ValueError("Cannot create filesystem: no authentication available")
 
+        # If endpoint is provided, fetch credentials directly from endpoint
+        if endpoint is not None:
+            import datetime as dt
+
+            creds_dict = self.auth.get_s3_credentials(endpoint=endpoint)
+            # Convert to S3Credentials format
+            from .store_components.credentials import S3Credentials
+
+            s3_creds = S3Credentials(
+                access_key_id=creds_dict["accessKeyId"],
+                secret_access_key=creds_dict["secretAccessKey"],
+                session_token=creds_dict["sessionToken"],
+                expiration=dt.datetime.now(dt.timezone.utc) + dt.timedelta(hours=1),
+                region=creds_dict.get("region", "us-west-2"),
+            )
+            return self.filesystem_factory.get_s3_filesystem(
+                credentials=s3_creds.to_dict()
+            )
+
+        # Otherwise use provider with credential manager
+        if provider is None:
+            raise ValueError(
+                "provider, daac, concept_id, or endpoint parameters must be specified"
+            )
+
         return self.filesystem_factory.get_s3_filesystem(provider=provider)
 
     @deprecated("Use get_s3_filesystem instead")
