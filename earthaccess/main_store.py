@@ -28,7 +28,6 @@ from .parallel import get_executor
 from .results import DataGranule
 from .search import DataCollections
 from .store_components import (
-    AuthContext,
     CredentialManager,
     FileSystemFactory,
     infer_provider_from_url,
@@ -205,7 +204,9 @@ class Store(object):
             CredentialManager(self.auth) if isinstance(auth, Auth) else None
         )
         self.filesystem_factory = (
-            FileSystemFactory(self.auth) if isinstance(auth, Auth) else None
+            FileSystemFactory(self.credential_manager)
+            if isinstance(auth, Auth)
+            else None
         )
 
         if isinstance(auth, Auth) and auth.authenticated:
@@ -321,6 +322,35 @@ class Store(object):
         else:
             resp.raise_for_status()
 
+    def _get_s3_filesystem(
+        self,
+        daac: Optional[str] = None,
+        concept_id: Optional[str] = None,
+        provider: Optional[str] = None,
+        endpoint: Optional[str] = None,
+    ) -> fsspec.AbstractFileSystem:
+        """Internal method to get an S3 filesystem.
+
+        Parameters:
+           daac: any of the DAACs, e.g. NSIDC, PODAAC
+           concept_id: collection concept ID
+           provider: a data provider if we know them, e.g. PODAAC -> POCLOUD
+           endpoint: pass the URL for the credentials directly
+
+        Returns:
+           An authenticated filesystem for reading in-region in us-west-2 for 1 hour.
+        """
+        if concept_id is not None:
+            provider = self._derive_concept_provider(concept_id)
+
+        if daac is not None:
+            provider = self._derive_daac_provider(daac)
+
+        if self.filesystem_factory is None:
+            raise ValueError("Cannot create filesystem: no authentication available")
+
+        return self.filesystem_factory.get_s3_filesystem(provider=provider)
+
     @deprecated("Use get_s3_filesystem instead")
     def get_s3fs_session(
         self,
@@ -339,124 +369,33 @@ class Store(object):
         Returns:
            An `s3fs.S3FileSystem` authenticated for reading in-region in us-west-2 for 1 hour.
         """
-        return self.get_s3_filesystem(daac, concept_id, provider, endpoint)
-        """Return an `s3fs.S3FileSystem` instance for a given cloud provider / DAAC.
+        return self._get_s3_filesystem(daac, concept_id, provider, endpoint)
 
-        Parameters:
+    def get_s3_filesystem(
+        self,
+        daac: Optional[str] = None,
+        concept_id: Optional[str] = None,
+        provider: Optional[str] = None,
+        endpoint: Optional[str] = None,
+    ) -> s3fs.S3FileSystem:
+        """Public wrapper for internal _get_s3_filesystem method.
+
+        This method provides backward compatibility for code calling get_s3_filesystem
+        without underscore prefix.
+
+        Args:
             daac: any of the DAACs, e.g. NSIDC, PODAAC
             provider: a data provider if we know them, e.g. PODAAC -> POCLOUD
             endpoint: pass a URL for credentials directly
 
         Returns:
             An `s3fs.S3FileSystem` authenticated for reading in-region in us-west-2 for 1hour.
+
+        Deprecated:
+            This method is deprecated in favor of direct CredentialManager use.
+            Internal code should use Store.credential_manager.get_credentials().
         """
-        if self.auth is None:
-            raise ValueError(
-                "A valid Earthdata login instance is required to retrieve S3 credentials"
-            )
-        if not any([concept_id, daac, provider, endpoint]):
-            raise ValueError(
-                "At least one of concept_id, daac, provider or endpoint"
-                "parameters must be specified. "
-            )
-
-        if concept_id is not None:
-            provider = self._derive_concept_provider(concept_id)
-
-        # Derive DAAC from provider for credential fetching if needed
-        fetch_provider = provider
-        if daac is not None and provider is None:
-            fetch_provider = self._derive_daac_provider(daac)
-
-        # Get existing S3 credentials if we already have them
-        location = (
-            daac,
-            provider,
-            endpoint,
-        )  # Identifier for where to get S3 credentials from
-        need_new_creds = False
-        try:
-            dt_init, creds = self._s3_credentials[location]
-        except KeyError:
-            need_new_creds = True
-        else:
-            # If cached credentials are expired, invalidate cache
-            delta = datetime.datetime.now() - dt_init
-            if round(delta.seconds / 60, 2) > 55:
-                need_new_creds = True
-                self._s3_credentials.pop(location)
-
-        if need_new_creds:
-            # Define now before use in all code paths
-            now = datetime.datetime.now()
-
-            # Use credential manager to fetch credentials if available
-            if self.credential_manager:
-                s3_creds_obj = self.credential_manager.get_credentials(
-                    provider=fetch_provider
-                )
-                creds = s3_creds_obj.to_boto3_dict()
-            else:
-                # Fallback to direct auth call
-                if endpoint is not None:
-                    creds = self.auth.get_s3_credentials(endpoint=endpoint)
-                elif daac is not None:
-                    creds = self.auth.get_s3_credentials(daac=daac)
-                elif provider is not None:
-                    creds = self.auth.get_s3_credentials(provider=provider)
-
-            # Include new credentials in cache
-            self._s3_credentials[location] = now, creds
-
-        return s3fs.S3FileSystem(
-            key=creds["aws_access_key_id"],
-            secret=creds["aws_secret_access_key"],
-            token=creds["aws_session_token"],
-        )
-        if not any([concept_id, daac, provider, endpoint]):
-            raise ValueError(
-                "At least one of the concept_id, daac, provider or endpoint"
-                "parameters must be specified. "
-            )
-
-        if concept_id is not None:
-            provider = self._derive_concept_provider(concept_id)
-
-        # Get existing S3 credentials if we already have them
-        location = (
-            daac,
-            provider,
-            endpoint,
-        )  # Identifier for where to get S3 credentials from
-        need_new_creds = False
-        try:
-            dt_init, creds = self._s3_credentials[location]
-        except KeyError:
-            need_new_creds = True
-        else:
-            # If cached credentials are expired, invalidate the cache
-            delta = datetime.datetime.now() - dt_init
-            if round(delta.seconds / 60, 2) > 55:
-                need_new_creds = True
-                self._s3_credentials.pop(location)
-
-        if need_new_creds:
-            # Don't have existing valid S3 credentials, so get new ones
-            now = datetime.datetime.now()
-            if endpoint is not None:
-                creds = self.auth.get_s3_credentials(endpoint=endpoint)
-            elif daac is not None:
-                creds = self.auth.get_s3_credentials(daac=daac)
-            elif provider is not None:
-                creds = self.auth.get_s3_credentials(provider=provider)
-            # Include new credentials in the cache
-            self._s3_credentials[location] = now, creds
-
-        return s3fs.S3FileSystem(
-            key=creds["accessKeyId"],
-            secret=creds["secretAccessKey"],
-            token=creds["sessionToken"],
-        )
+        return self._get_s3_filesystem(daac, concept_id, provider, endpoint)
 
     @lru_cache
     def get_fsspec_session(self) -> fsspec.AbstractFileSystem:
@@ -720,16 +659,14 @@ class Store(object):
 
         url_mapping: Mapping[str, None] = {url: None for url in granules}
 
-        # Try S3 first if links are S3 or if we want to probe
-        # For URLs, if they are S3, we MUST use S3. If they are HTTP, we might be able to use S3 if we convert them?
-        # The original logic only tried S3 if in_region and starts with S3.
-
         if granules[0].startswith("s3"):
-            # We must try S3
-            if provider is not None:
-                s3_fs = self.get_s3_filesystem(provider=provider)
-            elif credentials_endpoint is not None:
+            if provider is None and credentials_endpoint is None:
+                provider = infer_provider_from_url(granules[0])
+
+            if credentials_endpoint is not None:
                 s3_fs = self.get_s3_filesystem(endpoint=credentials_endpoint)
+            elif provider is not None:
+                s3_fs = self.get_s3_filesystem(provider=provider)
 
             if s3_fs:
                 try:
@@ -930,18 +867,13 @@ class Store(object):
         parallel: Union[str, bool, None] = None,
     ) -> List[Path]:
         data_links = granules
-        s3_fs = s3fs.S3FileSystem()
-        if (
-            provider is None
-            and credentials_endpoint is None
-            and self.in_region
-            and "cumulus" in data_links[0]
-        ):
-            raise ValueError(
-                "earthaccess can't yet guess the provider for cloud collections, "
-                "we need to use one from `earthaccess.list_cloud_providers()` or if known the S3 credential endpoint"
-            )
-        if self.in_region and data_links[0].startswith("s3"):
+        s3_fs = None
+
+        # Try S3 access for S3 URLs if we have credentials
+        if data_links[0].startswith("s3"):
+            if provider is None and credentials_endpoint is None:
+                provider = infer_provider_from_url(data_links[0])
+
             if credentials_endpoint is not None:
                 logger.info(
                     f"Accessing cloud dataset using credentials_endpoint: {credentials_endpoint}"
@@ -951,28 +883,31 @@ class Store(object):
                 logger.info(f"Accessing cloud dataset using provider: {provider}")
                 s3_fs = self.get_s3_filesystem(provider=provider)
 
-            def _download(file: str) -> Union[Path, None]:
-                return self.download_cloud_file(s3_fs, file, path)
+            if s3_fs is not None:
 
-            # Get executor and execute
-            executor = get_executor(
-                parallel, max_workers=max_workers, show_progress=show_progress
-            )
-            try:
-                results = list(executor.map(_download, data_links))
-                return [r for r in results if r is not None]
-            finally:
-                executor.shutdown(wait=True)
+                def _download(file: str) -> Union[Path, None]:
+                    return self.download_cloud_file(s3_fs, file, path)
 
-        else:
-            # if we are not in AWS
-            return self._download_onprem_granules(
-                data_links,
-                path,
-                max_workers=max_workers,
-                show_progress=show_progress,
-                parallel=parallel,
-            )
+                executor = get_executor(
+                    parallel, max_workers=max_workers, show_progress=show_progress
+                )
+                try:
+                    results = list(executor.map(_download, data_links))
+                    return [r for r in results if r is not None]
+                finally:
+                    executor.shutdown(wait=True)
+            else:
+                logger.warning(
+                    "No credentials available for S3 access. Falling back to HTTPS."
+                )
+
+        return self._download_onprem_granules(
+            data_links,
+            path,
+            max_workers=max_workers,
+            show_progress=show_progress,
+            parallel=parallel,
+        )
 
     @_get.register
     def _get_granules(

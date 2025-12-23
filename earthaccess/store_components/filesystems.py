@@ -11,7 +11,6 @@ import fsspec
 import s3fs
 
 if TYPE_CHECKING:
-    from ..auth import Auth
     from .credentials import CredentialManager
 
 logger = logging.getLogger(__name__)

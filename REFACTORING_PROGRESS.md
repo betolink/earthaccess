@@ -6,7 +6,7 @@ This document tracks the progress of the earthaccess codebase refactoring effort
 
 ## Last Updated
 
-**Date:** 2025-12-22  
+**Date:** 2025-12-22
 **Branch:** `stac-distributed-glm`
 
 ---
@@ -93,12 +93,16 @@ This document tracks the progress of the earthaccess codebase refactoring effort
    - Changed FileSystemFactory.__init__ to accept `Optional[CredentialManager]`
    - Updated get_auth_context() to handle None auth case
 
-#### Priority: Medium - PENDING
+#### Priority: Medium - COMPLETED ✅
 
-5. **Refactor Store._get_credentials() to use CredentialManager**
-   - Replace direct credential creation with `credential_manager.get_credentials()`
-   - Update method signatures to use AuthContext
-   - Remove redundant credential handling code
+5. **✅ Refactor Store._get_credentials() to use CredentialManager**
+   - Updated Store.get_s3_filesystem() to use CredentialManager
+   - Added fallback to Auth.get_s3_credentials() for backward compatibility
+   - Changed creds dict keys to boto3 format
+   - Removed duplicate method definition (get_s3_filesystem)
+   - Tests updated and pass with new credential flow
+
+#### Priority: Medium - PENDING
 
 6. **Add CloudTransfer Integration for Cloud-to-Cloud Downloads**
    - Add `cloud_transfer: Optional[CloudTransfer]` to Store
