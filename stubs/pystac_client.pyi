@@ -4,7 +4,7 @@ This is a minimal stub file to provide type checking support
 for the optional pystac-client dependency.
 """
 
-from typing import Any, Dict, Iterator, Optional
+from typing import Any, Dict, Iterator
 
 class Client:
     """STAC API client."""

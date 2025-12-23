@@ -21,19 +21,19 @@ class FileSystemFactory:
     """Factory for creating filesystem instances with proper authentication.
 
     Single Responsibility: Create and configure filesystems
-    - Handles credential injection
+    - Handles credential injection via CredentialManager
     - Supports multiple protocols (s3, https, file)
     - Provides consistent interface across protocols
     """
 
-    def __init__(self, auth: Auth, credential_manager: "CredentialManager") -> None:
+    def __init__(
+        self, credential_manager: Optional["CredentialManager"] = None
+    ) -> None:
         """Initialize filesystem factory.
 
         Args:
-            auth: Auth instance for session management
-            credential_manager: CredentialManager for S3 credentials
+            credential_manager: CredentialManager for S3 credentials and sessions
         """
-        self.auth = auth
         self.credential_manager = credential_manager
         self._fs_cache: Dict[str, Any] = {}
         self._logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
@@ -60,14 +60,14 @@ class FileSystemFactory:
         if credentials:
             s3_creds = credentials
             self._logger.debug("Using provided S3 credentials")
-        elif provider:
+        elif provider and self.credential_manager:
             # Fetch credentials using credential manager
             s3_creds_obj = self.credential_manager.get_credentials(provider)
             s3_creds = s3_creds_obj.to_dict()
             self._logger.debug(f"Fetched S3 credentials for {provider}")
         else:
             raise ValueError(
-                "Either provider or credentials must be provided for S3 filesystem"
+                "Either provider (with credential_manager) or credentials must be provided for S3 filesystem"
             )
 
         # Merge with additional kwargs
@@ -93,10 +93,17 @@ class FileSystemFactory:
             fs_kwargs.setdefault("client_kwargs", {}).update({"session": session})
             self._logger.debug("Using provided HTTPS session")
         else:
-            # Use authenticated session from auth
-            session = self.auth.get_session()
-            fs_kwargs.setdefault("client_kwargs", {}).update({"session": session})
-            self._logger.debug("Using authenticated HTTPS session from auth")
+            # Use credential manager to get session
+            if self.credential_manager:
+                auth_context = self.credential_manager.get_auth_context()
+                session = (
+                    auth_context.https_headers if auth_context.https_headers else None
+                )
+            else:
+                session = None
+
+            fs_kwargs.setdefault("client_kwargs", {}).update({"headers": session})
+            self._logger.debug("Using HTTPS session headers from credential manager")
 
         return fsspec.filesystem("https", **fs_kwargs)
 

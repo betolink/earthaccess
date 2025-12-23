@@ -27,6 +27,12 @@ from .daac import DAAC_TEST_URLS, find_provider
 from .parallel import get_executor
 from .results import DataGranule
 from .search import DataCollections
+from .store_components import (
+    AuthContext,
+    CredentialManager,
+    FileSystemFactory,
+    infer_provider_from_url,
+)
 from .target_filesystem import TargetLocation
 
 logger = logging.getLogger(__name__)
@@ -188,14 +194,21 @@ class Store(object):
     """Store class to access granules on-prem or in the cloud."""
 
     def __init__(self, auth: Any, pre_authorize: bool = False) -> None:
-        """Store is the class to access data.
+        """Store is a class to access data.
 
         Parameters:
             auth: Auth instance to download and access data.
         """
         self.thread_locals = threading.local()
-        if auth.authenticated is True:
-            self.auth = auth
+        self.auth = auth if isinstance(auth, Auth) else None
+        self.credential_manager = (
+            CredentialManager(self.auth) if isinstance(auth, Auth) else None
+        )
+        self.filesystem_factory = (
+            FileSystemFactory(self.auth) if isinstance(auth, Auth) else None
+        )
+
+        if isinstance(auth, Auth) and auth.authenticated:
             self._s3_credentials: Dict[
                 Tuple, Tuple[datetime.datetime, Dict[str, str]]
             ] = {}
@@ -207,11 +220,18 @@ class Store(object):
                 # collect cookies from other DAACs
                 for url in DAAC_TEST_URLS:
                     self.set_requests_session(url)
-
         else:
             logger.warning("The current session is not authenticated with NASA")
-            self.auth = None
         self._current_executor_type: Optional[str] = None  # Track current executor type
+
+    @property
+    def authenticated(self) -> bool:
+        """Check if Store is authenticated."""
+        return (
+            self.auth is not None
+            and isinstance(self.auth, Auth)
+            and self.auth.authenticated
+        )
 
     def _derive_concept_provider(self, concept_id: Optional[str] = None) -> str:
         if concept_id is not None:

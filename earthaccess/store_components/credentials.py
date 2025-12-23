@@ -107,7 +107,7 @@ class CredentialManager:
     - Provide credential context for distributed execution
     """
 
-    def __init__(self, auth: "Auth") -> None:
+    def __init__(self, auth: Optional["Auth"]) -> None:
         """Initialize credential manager.
 
         Args:
@@ -187,7 +187,7 @@ class CredentialManager:
         Returns:
             AuthContext instance
         """
-        if cloud_hosted:
+        if cloud_hosted and self.auth:
             # S3 credentials for cloud data
             s3_creds = self.get_credentials(provider)
             return AuthContext(
@@ -195,7 +195,7 @@ class CredentialManager:
                 provider=provider,
                 cloud_hosted=True,
             )
-        else:
+        elif self.auth:
             # HTTPS session state for on-prem data
             session = self.auth.get_session()
 
@@ -208,6 +208,15 @@ class CredentialManager:
                 https_cookies=cookies,
                 provider=provider,
                 cloud_hosted=False,
+            )
+        else:
+            # No auth available
+            return AuthContext(
+                s3_credentials=None,
+                https_headers=None,
+                https_cookies=None,
+                provider=provider,
+                cloud_hosted=cloud_hosted,
             )
 
     def invalidate_cache(self, provider: Optional[str] = None) -> None:
