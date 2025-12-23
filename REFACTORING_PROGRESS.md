@@ -71,30 +71,42 @@ This document tracks the progress of the earthaccess codebase refactoring effort
 
 ### Phase 4: Store Integration (from `docs/contributing/store-refactoring-plan.md`)
 
-#### Priority: Medium
+#### Priority: Medium - COMPLETED ✅
 
-1. **Integrate CredentialManager into Store.__init__()**
-   - Add `self.credential_manager: CredentialManager` attribute
+1. **✅ Integrate CredentialManager into Store.__init__()**
+   - Added `self.credential_manager: Optional[CredentialManager]` attribute
    - Initialize with Auth instance if provided
    - Replaces inline credential creation
 
-2. **Refactor Store._get_credentials() to use CredentialManager**
+2. **✅ Add Store.authenticated property**
+   - Added `@property def authenticated(self) -> bool` to Store class
+   - Checks auth is not None and isinstance(auth, Auth) and auth.authenticated
+   - Replaces direct auth.authenticated access
+
+3. **✅ Integrate FileSystemFactory into Store**
+   - Added `self.filesystem_factory: Optional[FileSystemFactory]` attribute
+   - Initialize with CredentialManager if available
+   - Replaces direct filesystem creation
+
+4. **✅ Update CredentialManager and FileSystemFactory for None auth**
+   - Changed CredentialManager.__init__ to accept `Optional[Auth]`
+   - Changed FileSystemFactory.__init__ to accept `Optional[CredentialManager]`
+   - Updated get_auth_context() to handle None auth case
+
+#### Priority: Medium - PENDING
+
+5. **Refactor Store._get_credentials() to use CredentialManager**
    - Replace direct credential creation with `credential_manager.get_credentials()`
    - Update method signatures to use AuthContext
    - Remove redundant credential handling code
 
-3. **Integrate FileSystemFactory into Store**
-   - Replace direct filesystem creation with `filesystem_factory.get_filesystem()`
-   - Update `_get_filesystem()` method
-   - Ensure consistent credential management
-
-4. **Add CloudTransfer Integration for Cloud-to-Cloud Downloads**
+6. **Add CloudTransfer Integration for Cloud-to-Cloud Downloads**
    - Add `cloud_transfer: Optional[CloudTransfer]` to Store
    - Detect cloud-to-cloud transfers in `download()` method
    - Call `CloudTransfer.transfer()` when appropriate
    - Update `download()` method signature
 
-5. **Run Full Test Suite Validation**
+7. **Run Full Test Suite Validation**
    - Run `python -m pytest tests/unit/` and ensure all pass
    - Run `python -m pytest tests/integration/` if applicable
    - Fix any test failures introduced by refactoring
