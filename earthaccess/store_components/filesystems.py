@@ -57,6 +57,8 @@ class FileSystemFactory:
         Raises:
             ValueError: If neither provider nor credentials provided
         """
+        s3_creds: Dict[str, Any] = {}
+
         if credentials:
             s3_creds = credentials
             self._logger.debug("Using provided S3 credentials")
@@ -65,10 +67,18 @@ class FileSystemFactory:
             s3_creds_obj = self.credential_manager.get_credentials(provider)
             s3_creds = s3_creds_obj.to_dict()
             self._logger.debug(f"Fetched S3 credentials for {provider}")
-        else:
-            raise ValueError(
-                "Either provider (with credential_manager) or credentials must be provided for S3 filesystem"
+        elif provider:
+            # No credential manager available, return anonymous filesystem
+            self._logger.debug(
+                "Creating anonymous S3 filesystem (no credential manager)"
             )
+            s3_creds = {"anon": True}
+        else:
+            # No provider, no credentials - allow anonymous filesystem
+            self._logger.debug(
+                "Creating anonymous S3 filesystem (no provider specified)"
+            )
+            s3_creds = {"anon": True}
 
         # Merge with additional kwargs
         fs_kwargs.update(s3_creds)

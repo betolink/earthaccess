@@ -340,28 +340,79 @@ class Store(object):
            An `s3fs.S3FileSystem` authenticated for reading in-region in us-west-2 for 1 hour.
         """
         return self.get_s3_filesystem(daac, concept_id, provider, endpoint)
-
-    def get_s3_filesystem(
-        self,
-        daac: Optional[str] = None,
-        concept_id: Optional[str] = None,
-        provider: Optional[str] = None,
-        endpoint: Optional[str] = None,
-    ) -> s3fs.S3FileSystem:
         """Return an `s3fs.S3FileSystem` instance for a given cloud provider / DAAC.
 
         Parameters:
             daac: any of the DAACs, e.g. NSIDC, PODAAC
             provider: a data provider if we know them, e.g. PODAAC -> POCLOUD
-            endpoint: pass the URL for the credentials directly
+            endpoint: pass a URL for credentials directly
 
         Returns:
-            a s3fs file instance
+            An `s3fs.S3FileSystem` authenticated for reading in-region in us-west-2 for 1hour.
         """
         if self.auth is None:
             raise ValueError(
                 "A valid Earthdata login instance is required to retrieve S3 credentials"
             )
+        if not any([concept_id, daac, provider, endpoint]):
+            raise ValueError(
+                "At least one of concept_id, daac, provider or endpoint"
+                "parameters must be specified. "
+            )
+
+        if concept_id is not None:
+            provider = self._derive_concept_provider(concept_id)
+
+        # Derive DAAC from provider for credential fetching if needed
+        fetch_provider = provider
+        if daac is not None and provider is None:
+            fetch_provider = self._derive_daac_provider(daac)
+
+        # Get existing S3 credentials if we already have them
+        location = (
+            daac,
+            provider,
+            endpoint,
+        )  # Identifier for where to get S3 credentials from
+        need_new_creds = False
+        try:
+            dt_init, creds = self._s3_credentials[location]
+        except KeyError:
+            need_new_creds = True
+        else:
+            # If cached credentials are expired, invalidate cache
+            delta = datetime.datetime.now() - dt_init
+            if round(delta.seconds / 60, 2) > 55:
+                need_new_creds = True
+                self._s3_credentials.pop(location)
+
+        if need_new_creds:
+            # Define now before use in all code paths
+            now = datetime.datetime.now()
+
+            # Use credential manager to fetch credentials if available
+            if self.credential_manager:
+                s3_creds_obj = self.credential_manager.get_credentials(
+                    provider=fetch_provider
+                )
+                creds = s3_creds_obj.to_boto3_dict()
+            else:
+                # Fallback to direct auth call
+                if endpoint is not None:
+                    creds = self.auth.get_s3_credentials(endpoint=endpoint)
+                elif daac is not None:
+                    creds = self.auth.get_s3_credentials(daac=daac)
+                elif provider is not None:
+                    creds = self.auth.get_s3_credentials(provider=provider)
+
+            # Include new credentials in cache
+            self._s3_credentials[location] = now, creds
+
+        return s3fs.S3FileSystem(
+            key=creds["aws_access_key_id"],
+            secret=creds["aws_secret_access_key"],
+            token=creds["aws_session_token"],
+        )
         if not any([concept_id, daac, provider, endpoint]):
             raise ValueError(
                 "At least one of the concept_id, daac, provider or endpoint"
