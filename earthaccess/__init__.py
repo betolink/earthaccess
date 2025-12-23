@@ -24,11 +24,22 @@ from .api import (
 from .auth import Auth
 from .dmrpp_zarr import open_virtual_dataset, open_virtual_mfdataset
 from .kerchunk import consolidate_metadata
-from .search import DataCollection, DataCollections, DataGranule, DataGranules
+from .main_store import Store
+from .search import DataCollection, DataGranule, DataGranules
 from .services import DataServices
-from .store import Store
-from .target_filesystem import TargetLocation
+from .store_components import (
+    Asset,
+    AssetFilter,
+    AuthContext,
+    CloudTransfer,
+    CollectionQuery as NewCollectionQuery,
+    CredentialManager,
+    FileSystemFactory,
+    GranuleQuery as NewGranuleQuery,
+    infer_provider_from_url,
+)
 from .system import PROD, UAT
+from .target_filesystem import TargetLocation
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +78,17 @@ __all__ = [
     # virtualizarr
     "open_virtual_dataset",
     "open_virtual_mfdataset",
+    # store_components
+    "Asset",
+    "AssetFilter",
+    "CredentialManager",
+    "AuthContext",
+    "FileSystemFactory",
+    "NewGranuleQuery",
+    "NewCollectionQuery",
+    "infer_provider_from_url",
+    "CloudTransfer",
+    # system
     "PROD",
     "UAT",
 ]

@@ -9,6 +9,61 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Added
 
+- **STAC Improvements**: Added comprehensive asset filtering and STAC interoperability features
+  - New `Asset` dataclass for immutable granule asset representation
+  - New `AssetFilter` dataclass with method chaining for filtering assets by content type, roles, bands, size, checksum, and filename patterns
+  - Added `get_data_assets()`, `get_thumbnail_assets()`, `get_browse_assets()` helper functions to `DataGranule`
+  - Added `get_assets_by_band()` and `get_assets_by_size_range()` helper functions for advanced filtering
+  - Added `filter_assets()` method to `DataGranule` for custom filtering with `AssetFilter` or callable predicates
+  - Added `to_stac()` method to `DataGranule` and `DataCollection` for STAC format conversion
+  - Added `to_umm()` method to `DataGranule` and `DataCollection` for original UMM metadata retrieval
+  - New `search_stac()` function for querying external STAC catalogs (requires `pystac-client`)
+  - New `STACItemResults` class with CMR-like interface for external STAC catalog results
+  - Enhanced `ResultsBase` class with `open()`, `download()`, and `process()` method signatures for asset filtering support
+  - Added flexible input handling for numpy arrays in bbox, point, and polygon query methods
+  - Added geometry simplification to comply with CMR's 300-point limit
+  - Added coordinates() method accepting GeoJSON geometry dictionaries
+  - Updated provider inference patterns for more accurate S3 bucket matching
+
+### Changed
+
+- `DataGranule` and `DataCollection` now provide asset-level access and STAC/UMM conversion capabilities
+
+### Fixed
+
+- Fixed `ResultsBase` abstract method conflict
+- Fixed `StreamingExecutor` mock interface in tests
+- Fixed `CloudTransfer` component multiple bugs:
+  - Fixed `s3fs.copy()` signature to use 2-argument form with full paths
+  - Fixed discarded `target_s3fs` return value in server-side copy
+  - Fixed `_parse_s3_url()` to handle URLs without keys (e.g., `s3://bucket`)
+  - Fixed `_create_target_key()` signature and path extraction logic
+  - Fixed `_parse_target()` to use `path` attribute instead of `url` for `TargetLocation`
+  - Fixed `TransferError` cause parameter type annotation
+  - Fixed `estimated_size` type annotation to support `int | float`
+  - Changed bare `except:` clause to `except Exception:` to avoid catching system events
+  - Added `overwrite` parameter checks in all transfer methods (S3, HTTPS, generic)
+- Fixed provider inference patterns for S3 buckets (removed trailing hyphens)
+- Fixed credential caching test with proper future expiration date
+- Fixed geometry simplification to pass required tolerance parameter
+- Fixed temporal validation to handle ISO 8601 duration format (e.g., `P1D`)
+- Fixed duplicate `is_data()` method in `Asset` class
+- Fixed `AssetFilter.combine()` to handle non-iterable values correctly
+- Fixed test expectations for temporal validation with ISO duration suffix
+
+### Tests
+
+- Added 38 unit tests for `Asset` and `AssetFilter` functionality
+- Added 13 unit tests for `search_stac()` and `STACItemResults`
+- All unit tests passing: 256 passed, 2 skipped
+- Full test coverage for asset filtering, STAC conversion, and external STAC catalog search
+
+### Documentation
+
+- Added migration guide for STAC improvements (`docs/contributing/migration-guide-stac-improvements.md`)
+- Added real-world examples (`docs/examples/stac_improvements_examples.md`)
+- Updated `STAC_IMPLEMENTATION_TODO.md` with completed groups (C, D, E, F, G, I)
+
 - Added methods `doi` and `citation` to `DataCollection` class.
   ([#203](https://github.com/nsidc/earthaccess/issues/203))
   (@Sherwin-14, @chuckwondo)

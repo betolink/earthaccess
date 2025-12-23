@@ -1,11 +1,9 @@
-"""
-Query architecture for earthaccess following SOLID principles.
+"""Query architecture for earthaccess following SOLID principles.
 
 Provides flexible, chainable query building with multiple backend support.
 Implements STAC-compatible parameter structures.
 """
 
-import datetime
 import logging
 from typing import (
     TYPE_CHECKING,
@@ -19,10 +17,13 @@ from typing import (
 )
 
 from ..auth import Auth
-from ..results import DataCollection, DataGranule, DataGranules
 
 if TYPE_CHECKING:
-    from .store_components.credentials import CredentialManager
+    from ..results import DataCollection
+    from ..search import DataGranules
+
+if TYPE_CHECKING:
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +54,7 @@ CoordinatesLike = Union[
 ]
 
 
-class QueryValidationError(Exception):
+class QueryValidationError(ValueError):
     """Raised when query parameters are invalid."""
 
     def __init__(self, message: str, parameter: str = None, value: Any = None):
@@ -87,11 +88,20 @@ class BaseQuery:
 
     def _validate_bbox(self, bbox: BBoxLike) -> Tuple[float, float, float, float]:
         """Validate and normalize bounding box."""
+        # Handle numpy arrays
+        if hasattr(bbox, "tolist"):
+            bbox = bbox.tolist()
+
         if isinstance(bbox, (list, tuple)):
             # Handle both list and tuple inputs
             coords = list(bbox)
-            if len(coords) == 4:
-                return tuple(float(c) for c in coords)
+            if len(coords) != 4:
+                raise QueryValidationError(
+                    f"Bounding box must have 4 values [west, south, east, north], got {len(coords)}",
+                    parameter="bounding_box",
+                    value=bbox,
+                )
+            return tuple(float(c) for c in coords)
 
         raise QueryValidationError(
             f"Invalid bounding box: {bbox}. Must be 4 coordinates "
@@ -102,13 +112,22 @@ class BaseQuery:
 
     def _validate_point(self, point: PointLike) -> Tuple[float, float]:
         """Validate and normalize point coordinates."""
+        # Handle numpy arrays
+        if hasattr(point, "tolist"):
+            point = point.tolist()
+
         if isinstance(point, (list, tuple)):
             coords = list(point)
-            if len(coords) == 2:
-                try:
-                    return float(coords[0]), float(coords[1])
-                except (ValueError, TypeError):
-                    pass
+            if len(coords) != 2:
+                raise QueryValidationError(
+                    f"Point must have 2 values [lon, lat], got {len(coords)}",
+                    parameter="point",
+                    value=point,
+                )
+            try:
+                return float(coords[0]), float(coords[1])
+            except (ValueError, TypeError):
+                pass
 
         raise QueryValidationError(
             f"Invalid point: {point}. Must be 2 coordinates [lon, lat]",
@@ -229,25 +248,37 @@ class GranuleQuery(BaseQuery):
 
     def temporal(
         self,
-        temporal: TemporalLike,
+        start_or_temporal: Union[str, TemporalLike],
+        end: Optional[str] = None,
     ) -> "GranuleQuery":
         """Filter by temporal range.
 
+        Accepts flexible input types for temporal filtering:
+        - Separate values: temporal("2023-01-01", "2023-12-31")
+        - Tuple/list: temporal(("2023-01-01", "2023-12-31"))
+        - Single date string: temporal("2023-01-01")
+        - Interval string: temporal("2023-01-01/2023-12-31")
+
         Args:
-            temporal: Temporal filter:
-                - Tuple/list: [start, end]
-                - String: ISO date, interval, or year
-                - Examples: ("2023-01-01", "2023-12-31"), "2023", "2023-01-01/2023-12-31"
+            start_or_temporal: Start date OR full temporal range
+            end: End date (if start_or_temporal is a single start date)
 
         Returns:
             Self for method chaining
 
         Examples:
-            >>> query.temporal(("2023-01-01", "2023-12-31"))
+            >>> query.temporal("2023-01-01", "2023-12-31")  # Separate values
+            >>> query.temporal(("2023-01-01", "2023-12-31"))  # Tuple
             >>> query.temporal(["2023-01-01", None])  # Open-ended
             >>> query.temporal("2023")  # Entire year
             >>> query.temporal("2023-01-01/P1D")  # ISO duration
         """
+        # Handle two separate arguments
+        if end is not None:
+            temporal = (start_or_temporal, end)
+        else:
+            temporal = start_or_temporal
+
         start, end = self._validate_temporal(temporal)
 
         if start is not None:
@@ -265,6 +296,12 @@ class GranuleQuery(BaseQuery):
     ) -> "GranuleQuery":
         """Filter by bounding box.
 
+        Accepts flexible input types for spatial filtering:
+        - Separate coordinate values: bounding_box(-180, -90, 180, 90)
+        - List or tuple: bounding_box([-180, -90, 180, 90])
+        - NumPy array: bounding_box(np.array([-180, -90, 180, 90]))
+        - GeoPandas bounds: bounding_box(gdf.total_bounds)
+
         Args:
             west_or_bbox: Western longitude OR full bbox [west, south, east, north]
             south: Southern latitude (if west_or_bbox is a single value)
@@ -275,15 +312,29 @@ class GranuleQuery(BaseQuery):
             Self for method chaining
 
         Examples:
-            >>> query.bounding_box(-180, -90, 180, 90)  # Four separate values
-            >>> query.bounding_box([-180, -90, 180, 90])  # List
-            >>> query.bounding_box((-180, -90, 180, 90))  # Tuple
-            >>> query.bounding_box(gdf.total_bounds)  # From GeoPandas
+            Four separate values:
+            >>> query.bounding_box(-180, -90, 180, 90)
+
+            List input:
+            >>> query.bounding_box([-180, -90, 180, 90])
+
+            Tuple input:
+            >>> query.bounding_box((-180, -90, 180, 90))
+
+            NumPy array:
+            >>> import numpy as np
+            >>> query.bounding_box(np.array([-180, -90, 180, 90]))
+
+            From GeoPandas:
+            >>> import geopandas as gpd
+            >>> gdf = gpd.read_file("regions.shp")
+            >>> query.bounding_box(gdf.total_bounds)
+
         """
         bbox = self._normalize_bbox(west_or_bbox, south, east, north)
         west, south, east, north = self._validate_bbox(bbox)
 
-        self._params["bounding_box"] = [west, south, east, north]
+        self._params["bounding_box"] = (west, south, east, north)
         self._logger.debug(f"Added bounding box: [{west}, {south}, {east}, {north}]")
         return self
 
@@ -319,10 +370,10 @@ class GranuleQuery(BaseQuery):
             >>> query.point([-122.4194, 37.7749])  # List
             >>> query.point((-122.4194, 37.7749))  # Tuple
         """
-        lon, lat = self._normalize_point(lon_or_point, lat)
-        lon, lat = self._validate_point((lon, lat))
+        point = self._normalize_point(lon_or_point, lat)
+        lon, lat = self._validate_point(point)
 
-        self._params["point"] = [lon, lat]
+        self._params["point"] = (lon, lat)
         self._logger.debug(f"Added point filter: [{lon}, {lat}]")
         return self
 
@@ -346,7 +397,7 @@ class GranuleQuery(BaseQuery):
         """Filter by coordinate list.
 
         Args:
-            coords: List of [lon, lat] coordinate pairs
+            coords: List of [lon, lat] coordinate pairs or GeoJSON geometry dict
 
         Returns:
             Self for method chaining
@@ -355,9 +406,57 @@ class GranuleQuery(BaseQuery):
             >>> query.coordinates([[-122.4, 37.8], [-121.9, 37.8]])  # List of tuples
             >>> query.coordinates([[-122.4, 37.8], [-121.9, 37.8]])  # List of lists
         """
+        # Check if this is a GeoJSON geometry dict
+        if isinstance(coords, dict) and "type" in coords:
+            if coords["type"] == "Polygon":
+                # Extract coordinates from GeoJSON polygon
+                self._params["polygon"] = coords["coordinates"][0]
+            elif coords["type"] == "Point":
+                self._params["point"] = tuple(coords["coordinates"])
+            else:
+                self._params["polygon"] = coords.get("coordinates", [])
+            self._logger.debug("Added GeoJSON geometry filter")
+            return self
+
         normalized = self._validate_coordinates(coords)
         self._params["polygon"] = [list(coord) for coord in normalized]
         self._logger.debug(f"Added coordinates filter with {len(normalized)} points")
+        return self
+
+    def polygon(
+        self,
+        coords,
+    ) -> "GranuleQuery":
+        """Filter by polygon.
+
+        Accepts flexible input types for polygon coordinates:
+        - List of tuples: [(-122.0, 37.0), (-121.0, 37.0), ...]
+        - List of lists: [[-122.0, 37.0], [-121.0, 37.0], ...]
+        - NumPy array: np.array([[-122.0, 37.0], [-121.0, 37.0], ...])
+        - Generator: (p for p in points)
+
+        Args:
+            coords: Polygon coordinates as list of [lon, lat] pairs
+
+        Returns:
+            Self for method chaining
+
+        Examples:
+            >>> query.polygon([(-122.0, 37.0), (-121.0, 37.0), (-121.0, 38.0)])
+            >>> query.polygon(np.array([[-122.0, 37.0], [-121.0, 37.0]]))
+        """
+        # Handle numpy arrays
+        if hasattr(coords, "tolist"):
+            coords = coords.tolist()
+
+        # Handle generators
+        if hasattr(coords, "__iter__") and not isinstance(coords, (list, tuple)):
+            coords = list(coords)
+
+        # Validate and store
+        normalized = self._validate_coordinates(coords)
+        self._params["polygon"] = [list(coord) for coord in normalized]
+        self._logger.debug(f"Added polygon filter with {len(normalized)} points")
         return self
 
     def cloud_hosted(self, cloud_hosted: bool = True) -> "GranuleQuery":
@@ -604,8 +703,119 @@ class CollectionQuery(BaseQuery):
 
     def _execute_stac(self) -> List[DataCollection]:
         """Execute collection query using STAC backend."""
-        self._logger.warning("STAC backend not yet implemented, falling back to CMR")
-        return self._execute_cmr()
+        try:
+            from pystac_client import Client
+        except ImportError:
+            self._logger.warning(
+                "pystac-client not installed, falling back to CMR. "
+                "Install with: pip install pystac-client"
+            )
+            return self._execute_cmr()
+
+        # Use CMR's STAC endpoint
+        stac_url = "https://cmr.earthdata.nasa.gov/stac"
+
+        # Convert parameters to STAC format
+        stac_params = self.to_stac()
+
+        try:
+            client = Client.open(stac_url)
+            search = client.search(**stac_params)
+
+            # Collect results
+            from ..results import DataCollection
+
+            collections = []
+            for collection in search.collections():
+                # Convert STAC collection to CMR-like format for DataCollection
+                cmr_dict = self._stac_collection_to_cmr(collection)
+                collections.append(cmr_dict)
+
+            results = [DataCollection(cmr_dict) for cmr_dict in collections]
+
+            self._logger.info(
+                f"STAC collection query returned {len(results)} collections"
+            )
+            return results
+
+        except Exception as e:
+            self._logger.error(f"STAC collection query failed: {e}")
+            return self._execute_cmr()
+
+    def _stac_collection_to_cmr(self, stac_collection):
+        """Convert STAC Collection to CMR-like format for DataCollection.
+
+        Args:
+            stac_collection: STAC Collection dictionary
+
+        Returns:
+            CMR-formatted dictionary compatible with DataCollection
+        """
+        extent = stac_collection.get("extent", {})
+
+        # Extract temporal extent
+        temporal = extent.get("temporal", {})
+        temporal_interval = (
+            temporal.get("interval", [[None, None]])[0] if temporal else [None, None]
+        )
+        start_datetime, end_datetime = temporal_interval
+
+        # Extract spatial extent
+        spatial = extent.get("spatial", {})
+        bbox_list = spatial.get("bbox", [[]])[0] if spatial else []
+        bbox = bbox_list[0] if bbox_list else []
+
+        # Convert to CMR format
+        cmr_dict = {
+            "meta": {
+                "concept-id": stac_collection.get("id", ""),
+                "provider-id": stac_collection.get("providers", [""])[0]
+                if stac_collection.get("providers")
+                else "",
+                "granule-count": stac_collection.get("extent", {})
+                .get("spatial", {})
+                .get("bbox", [])[0]
+                if bbox
+                else 0,
+            },
+            "umm": {
+                "ShortName": stac_collection.get("id", ""),
+                "Abstract": stac_collection.get("description", ""),
+                "SpatialExtent": {},
+                "TemporalExtents": [],
+                "RelatedUrls": [],
+            },
+        }
+
+        # Add spatial extent if available
+        if bbox and len(bbox) >= 4:
+            cmr_dict["umm"]["SpatialExtent"] = {
+                "HorizontalSpatialDomain": {
+                    "Geometry": {
+                        "BoundingRectangles": [
+                            {
+                                "WestBoundingCoordinate": bbox[0],
+                                "SouthBoundingCoordinate": bbox[1],
+                                "EastBoundingCoordinate": bbox[2],
+                                "NorthBoundingCoordinate": bbox[3],
+                            }
+                        ]
+                    }
+                }
+            }
+
+        # Add temporal extent if available
+        if start_datetime or end_datetime:
+            cmr_dict["umm"]["TemporalExtents"] = [
+                {
+                    "RangeDateTime": {
+                        "BeginningDateTime": start_datetime,
+                        "EndingDateTime": end_datetime,
+                    }
+                }
+            ]
+
+        return cmr_dict
 
 
 class QueryExecutionError(Exception):

@@ -9,6 +9,7 @@ import earthaccess
 
 from .formatters import _repr_granule_html
 from .services import DataServices
+from .store_components.asset import Asset, AssetFilter
 
 
 @cache
@@ -228,6 +229,109 @@ class DataCollection(CustomDict):
             self.render_dict, sort_keys=False, indent=2, separators=(",", ": ")
         )
 
+    def to_stac(self) -> Dict[str, Any]:
+        """Convert collection to STAC Collection format.
+
+        Returns:
+            Dictionary representing a STAC Collection
+        """
+        # Extract temporal extent
+        temporal_extents = self["umm"].get("TemporalExtents", [])
+        if temporal_extents:
+            range_dt = temporal_extents[0].get("RangeDateTime", {})
+            start = range_dt.get("BeginningDateTime")
+            end = range_dt.get("EndingDateTime")
+            temporal_extent = [[start, end]] if start or end else [[None, None]]
+        else:
+            temporal_extent = [[None, None]]
+
+        # Extract spatial extent
+        spatial = self["umm"].get("SpatialExtent", {})
+        horizontal = spatial.get("HorizontalSpatialDomain", {})
+        geometry = horizontal.get("Geometry", {})
+        if "BoundingRectangles" in geometry:
+            rect = geometry["BoundingRectangles"][0]
+            bbox = [
+                rect.get("WestBoundingCoordinate", -180),
+                rect.get("SouthBoundingCoordinate", -90),
+                rect.get("EastBoundingCoordinate", 180),
+                rect.get("NorthBoundingCoordinate", 90),
+            ]
+        else:
+            bbox = [-180, -90, 180, 90]
+
+        stac_collection = {
+            "type": "Collection",
+            "stac_version": "1.0.0",
+            "id": self["umm"].get("ShortName", "unknown"),
+            "title": self["umm"].get("ShortName", "unknown"),
+            "description": self["umm"].get("Abstract", ""),
+            "extent": {
+                "spatial": {"bbox": [bbox]},
+                "temporal": {"interval": temporal_extent},
+            },
+            "links": [],
+        }
+
+        # Add links
+        landing_page = self.landing_page()
+        if landing_page:
+            stac_collection["links"].append(
+                {
+                    "rel": "self",
+                    "href": landing_page,
+                }
+            )
+
+        return stac_collection
+
+    def to_umm(self) -> Dict[str, Any]:
+        """Return the original UMM (Unified Metadata Model) representation.
+
+        Returns:
+            Dictionary containing the original UMM metadata
+        """
+        return dict(self["umm"])
+
+    def query(self, auth=None):
+        """Create a GranuleQuery for this collection.
+
+        Provides convenient method chaining for querying granules
+        from a specific collection.
+
+        Args:
+            auth: Auth instance (defaults to earthaccess.__auth__)
+
+        Returns:
+            GranuleQuery object with collection pre-populated
+
+        Examples:
+            Query granules from a collection:
+            >>> import earthaccess
+            >>> collection = earthaccess.search_datasets(short_name="ATL03")[0]
+            >>> query = collection.query()
+            >>> granules = query.get(limit=10)
+
+            Method chaining with filters:
+            >>> granules = (collection.query()
+            ...                  .bounding_box(-180, -90, 180, 90)
+            ...                  .temporal("2023-01-01", "2023-01-31")
+            ...                  .get(limit=10))
+
+            Query specific region:
+            >>> import shapely.geometry as geom
+            >>> region = geom.box(-122, 37, -121, 38)
+            >>> from earthaccess.store_components.geometry import load_geometry
+            >>> granules = (collection.query()
+            ...                  .coordinates(load_geometry(region)))
+        """
+        from .store_components.query import GranuleQuery
+
+        query = GranuleQuery(auth=auth or earthaccess.__auth__)
+        query.short_name(self["umm"].get("ShortName"))
+        query.concept_id(self["meta"]["concept-id"])
+        return query
+
 
 class DataGranule(CustomDict):
     """Dictionary-like object to represent a granule from CMR."""
@@ -374,7 +478,167 @@ class DataGranule(CustomDict):
         """Placeholder.
 
         Returns:
-            The data visualization links, usually the browse images.
+            The data visualization links, usually browse images.
         """
         links = self._filter_related_links("GET RELATED VISUALIZATION")
         return links
+
+    def get_assets(self) -> List[Asset]:
+        """Get all assets from this granule.
+
+        Converts data_links to Asset objects.
+
+        Returns:
+            List of Asset objects
+        """
+        from .store_components.asset import Asset
+
+        assets = []
+        for link in self.data_links():
+            asset = Asset(href=link, type="data")
+            assets.append(asset)
+        return assets
+
+    def get_data_assets(self) -> List[Asset]:
+        """Get data assets from this granule.
+
+        Returns:
+            List of data assets
+        """
+        from .store_components.asset import get_data_assets
+
+        return get_data_assets(self.get_assets())
+
+    def get_thumbnail_assets(self) -> List[Asset]:
+        """Get thumbnail assets from this granule.
+
+        Returns:
+            List of thumbnail assets
+        """
+        from .store_components.asset import get_thumbnail_assets
+
+        return get_thumbnail_assets(self.get_assets())
+
+    def get_browse_assets(self) -> List[Asset]:
+        """Get browse assets from this granule.
+
+        Returns:
+            List of browse assets
+        """
+        from .store_components.asset import get_browse_assets
+
+        return get_browse_assets(self.get_assets())
+
+    def filter_assets(self, asset_filter: Union[AssetFilter, callable]) -> List[Asset]:
+        """Filter assets using a filter object or lambda.
+
+        Args:
+            asset_filter: AssetFilter object or callable predicate
+
+        Returns:
+            Filtered list of assets
+        """
+        assets = self.get_assets()
+
+        if callable(asset_filter):
+            return [asset for asset in assets if asset_filter(asset)]
+        elif isinstance(asset_filter, AssetFilter):
+            from .store_components.asset import filter_assets
+
+            return filter_assets(assets, asset_filter)
+        else:
+            return assets
+
+    def to_stac(self) -> Dict[str, Any]:
+        """Convert granule to STAC Item format.
+
+        Returns:
+            Dictionary representing a STAC Item
+        """
+        # Extract temporal extent
+        temporal = self["umm"].get("TemporalExtent", {})
+        if "RangeDateTime" in temporal:
+            range_dt = temporal["RangeDateTime"]
+            start = range_dt.get("BeginningDateTime")
+            end = range_dt.get("EndingDateTime")
+            datetime_str = f"{start}/{end}" if start or end else None
+        else:
+            datetime_str = None
+
+        # Extract spatial extent (simplified as bbox)
+        bbox = None
+        spatial = self["umm"].get("SpatialExtent", {})
+        if "HorizontalSpatialDomain" in spatial:
+            geometry = spatial["HorizontalSpatialDomain"].get("Geometry", {})
+            if "BoundingRectangles" in geometry:
+                rect = geometry["BoundingRectangles"][0]
+                bbox = [
+                    rect.get("WestBoundingCoordinate", -180),
+                    rect.get("SouthBoundingCoordinate", -90),
+                    rect.get("EastBoundingCoordinate", 180),
+                    rect.get("NorthBoundingCoordinate", 90),
+                ]
+
+        # Extract geometry (simplified as point from bbox center)
+        geometry = None
+        if bbox:
+            geometry = {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [bbox[0], bbox[1]],
+                        [bbox[0], bbox[3]],
+                        [bbox[2], bbox[3]],
+                        [bbox[2], bbox[1]],
+                        [bbox[0], bbox[1]],
+                    ]
+                ],
+            }
+
+        # Build properties
+        properties = {
+            "datetime": datetime_str,
+            "collection": self["umm"]["CollectionReference"].get("ShortName"),
+        }
+
+        # Build assets from data links
+        assets = {}
+        data_links = self.data_links()
+        for i, link in enumerate(data_links):
+            asset_key = f"data_{i}"
+            assets[asset_key] = {
+                "href": link,
+                "type": "application/octet-stream",
+                "roles": ["data"],
+            }
+
+        # Build links
+        links_list = []
+        for i, link in enumerate(data_links):
+            links_list.append(
+                {
+                    "rel": "data",
+                    "href": link,
+                    "type": "application/octet-stream",
+                }
+            )
+
+        stac_item = {
+            "type": "Feature",
+            "id": self["meta"]["concept-id"],
+            "geometry": geometry,
+            "bbox": bbox,
+            "properties": properties,
+            "assets": assets,
+            "links": links_list,
+        }
+
+        return stac_item
+
+    def to_umm(self) -> Dict[str, Any]:
+        """Return the original UMM (Unified Metadata Model) representation.
+
+        Returns:
+            Dictionary containing the original UMM metadata
+        """
+        return dict(self["umm"])

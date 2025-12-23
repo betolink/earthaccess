@@ -1,6 +1,7 @@
 """Store package for earthaccess data access operations."""
 
-from .credentials import CredentialManager, AuthContext, infer_provider_from_url
+from ..main_store import EarthAccessFile, Store, _open_files
+from .credentials import AuthContext, CredentialManager, infer_provider_from_url
 from .filesystems import FileSystemFactory
 
 __all__ = [
@@ -8,4 +9,7 @@ __all__ = [
     "AuthContext",
     "infer_provider_from_url",
     "FileSystemFactory",
+    "Store",
+    "EarthAccessFile",
+    "_open_files",
 ]

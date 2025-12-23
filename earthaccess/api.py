@@ -10,7 +10,6 @@ from typing_extensions import (
     Any,
     Dict,
     List,
-    Mapping,
     Optional,
     Union,
     deprecated,
@@ -21,16 +20,15 @@ from earthaccess.exceptions import LoginStrategyUnavailable, ServiceOutage
 from earthaccess.services import DataServices
 
 from .auth import Auth
+from .main_store import Store
 from .results import DataCollection, DataGranule
 from .search import CollectionQuery, DataCollections, DataGranules, GranuleQuery
-from .store import Store
-from .target_filesystem import TargetLocation
 from .system import PROD, System
+from .target_filesystem import TargetLocation
 from .utils import _validation as validate
 
 if TYPE_CHECKING:
     # Type checking stubs to help the type checker understand __getattr__ behavior
-    from typing import Any as _Any
 
     _auth: Auth
     _store: Optional[Store]

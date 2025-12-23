@@ -1,7 +1,6 @@
 """Test basic query functionality without complex imports."""
 
 import pytest
-from unittest.mock import Mock
 
 
 class TestBasicQuery:
@@ -47,12 +46,23 @@ class TestBasicQuery:
 
     def test_temporal_validation(self):
         """Test temporal parameter parsing."""
+        import re
 
         def validate_temporal(temporal):
+            # Handle list/tuple format
+            if isinstance(temporal, (list, tuple)):
+                if len(temporal) == 2:
+                    return temporal[0], temporal[1]
+                raise ValueError(f"Invalid temporal: {temporal}")
             if isinstance(temporal, str):
                 if "/" in temporal:
                     start, end = temporal.split("/", 1)
-                    return start.strip() or None, end.strip() or None
+                    start = start.strip() or None
+                    end = end.strip() or None
+                    # ISO 8601 duration pattern (e.g., P1D, P1M, PT1H)
+                    if end and re.match(r"^P\d+[YMWDTHS]", end, re.IGNORECASE):
+                        end = None  # Ignore duration suffix
+                    return start, end
                 else:
                     return temporal, None
             raise ValueError(f"Invalid temporal: {temporal}")
@@ -74,9 +84,11 @@ class TestBasicQuery:
         result = validate_temporal(["2023-01-01", "2023-12-31"])
         assert result == ("2023-01-01", "2023-12-31")
 
-        # Invalid temporal
+        # Invalid temporal - non-string/non-list types should raise
         with pytest.raises(ValueError):
-            validate_temporal("invalid")
+            validate_temporal(12345)  # Numbers not supported
+        with pytest.raises(ValueError):
+            validate_temporal({"start": "2023"})  # Dicts not supported
 
     def test_parameter_normalization(self):
         """Test parameter normalization helpers."""

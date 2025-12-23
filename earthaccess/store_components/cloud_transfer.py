@@ -1,25 +1,22 @@
-"""
-Cloud-to-cloud transfer functionality for earthaccess.
+"""Cloud-to-cloud transfer functionality for earthaccess.
 
 Provides optimized transfers between cloud providers using
 server-side copy operations where possible.
 """
 
 import logging
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import fsspec
 import s3fs
 
 from ..auth import Auth
 from ..parallel import get_executor
-from ..results import DataGranule
 from ..target_filesystem import TargetLocation
 
 if TYPE_CHECKING:
-    from .store_components.credentials import CredentialManager
-
-logger = logging.getLogger(__name__)
+    from ..results import DataGranule
+    from .credentials import AuthContext, CredentialManager
 
 
 class CloudTransfer:
@@ -104,8 +101,8 @@ class CloudTransfer:
         """Parse target to URL string."""
         if isinstance(target, str):
             return target
-        elif hasattr(target, "url"):
-            return target.url
+        elif hasattr(target, "path"):
+            return target.path
         else:
             raise ValueError(f"Invalid target type: {type(target)}")
 
@@ -136,7 +133,7 @@ class CloudTransfer:
         overwrite: bool,
     ) -> List[str]:
         """Perform S3-to-S3 server-side copies."""
-        from .store_components.credentials import infer_provider_from_url
+        from .credentials import infer_provider_from_url
 
         # Get source and target credentials
         source_provider = self._infer_provider_from_granules(granules)
@@ -157,6 +154,9 @@ class CloudTransfer:
         source_s3fs = self._get_s3_fs_from_context(source_fs)
         target_s3fs = self._get_s3_fs_from_context(target_fs)
 
+        # Parse target bucket once
+        tgt_bucket, tgt_prefix = self._parse_s3_url(target_url)
+
         transferred = []
 
         def copy_file(source_url: str) -> str:
@@ -165,20 +165,33 @@ class CloudTransfer:
                 # Parse S3 paths
                 src_bucket, src_key = self._parse_s3_url(source_url)
                 # Create target key preserving structure
-                target_key = self._create_target_key(source_url, target_url, src_key)
-                tgt_bucket, _ = self._parse_s3_url(target_url)
+                target_key = self._create_target_key(source_url, src_key)
+
+                # Build full target path
+                if tgt_prefix:
+                    full_target_path = f"{tgt_prefix}/{target_key}"
+                else:
+                    full_target_path = target_key
+
+                # Check if target exists and overwrite is False
+                if not overwrite and target_s3fs.exists(
+                    f"{tgt_bucket}/{full_target_path}"
+                ):
+                    self._logger.warning(
+                        f"Target exists, skipping: {tgt_bucket}/{full_target_path}"
+                    )
+                    return f"s3://{tgt_bucket}/{full_target_path}"
 
                 # Perform server-side copy
-                copy_result = source_s3fs.copy(src_key, tgt_bucket, target_key)
+                source_s3fs.copy(
+                    f"{src_bucket}/{src_key}", f"{tgt_bucket}/{full_target_path}"
+                )
 
-                if copy_result:
-                    transferred.append(target_url + "/" + target_key)
-                    self._logger.debug(
-                        f"Copied {source_url} -> {target_url}/{target_key}"
-                    )
-                    return target_url + "/" + target_key
-                else:
-                    raise Exception(f"Copy failed for {source_url}")
+                transferred.append(f"s3://{tgt_bucket}/{full_target_path}")
+                self._logger.debug(
+                    f"Copied {source_url} -> s3://{tgt_bucket}/{full_target_path}"
+                )
+                return f"s3://{tgt_bucket}/{full_target_path}"
 
             except Exception as e:
                 self._logger.error(f"Failed to copy {source_url}: {e}")
@@ -211,7 +224,7 @@ class CloudTransfer:
     ) -> List[str]:
         """Download from HTTPS and upload to S3."""
         # Get target credentials
-        from .store_components.credentials import infer_provider_from_url
+        from .credentials import infer_provider_from_url
 
         target_provider = infer_provider_from_url(target_url)
 
@@ -223,22 +236,39 @@ class CloudTransfer:
         )
         target_s3fs = self._get_s3_fs_from_context(target_context)
 
+        # Parse target bucket once
+        tgt_bucket, tgt_prefix = self._parse_s3_url(target_url)
+
         transferred = []
 
         def download_and_upload(source_url: str) -> str:
             """Download from HTTPS and upload to S3."""
             try:
                 # Use fsspec for download
-                with fsspec.open(source_url, "rb") as src:
-                    # Create target key
-                    target_key = self._create_target_key(
-                        source_url, target_url, source_url
-                    )
-                    tgt_bucket, _ = self._parse_s3_url(target_url)
+                src_file = fsspec.open(source_url, "rb")
+                with src_file as src:
+                    # Create target key - extract filename from URL
+                    source_key = source_url.split("/")[-1]
+                    target_key = self._create_target_key(source_url, source_key)
+
+                    # Build full target path
+                    if tgt_prefix:
+                        full_target_path = f"{tgt_prefix}/{target_key}"
+                    else:
+                        full_target_path = target_key
+
+                    # Check if target exists and overwrite is False
+                    if not overwrite and target_s3fs.exists(
+                        f"{tgt_bucket}/{full_target_path}"
+                    ):
+                        self._logger.warning(
+                            f"Target exists, skipping: {tgt_bucket}/{full_target_path}"
+                        )
+                        return f"s3://{tgt_bucket}/{full_target_path}"
 
                     # Upload to S3
                     with target_s3fs.open(
-                        target_bucket + "/" + target_key, "wb"
+                        f"{tgt_bucket}/{full_target_path}", "wb"
                     ) as dst:
                         # Copy in chunks to handle large files
                         while True:
@@ -247,11 +277,11 @@ class CloudTransfer:
                                 break
                             dst.write(chunk)
 
-                    transferred.append(target_url + "/" + target_key)
+                    transferred.append(f"s3://{tgt_bucket}/{full_target_path}")
                     self._logger.debug(
-                        f"Uploaded {source_url} -> {target_url}/{target_key}"
+                        f"Uploaded {source_url} -> s3://{tgt_bucket}/{full_target_path}"
                     )
-                    return target_url + "/" + target_key
+                    return f"s3://{tgt_bucket}/{full_target_path}"
 
             except Exception as e:
                 self._logger.error(f"Failed to transfer {source_url}: {e}")
@@ -263,7 +293,7 @@ class CloudTransfer:
             # Use direct access if available, otherwise HTTP
             try:
                 urls.extend(granule.data_links(access="direct"))
-            except:
+            except Exception:
                 urls.extend(granule.data_links(access="onprem"))
 
         executor = get_executor(
@@ -294,9 +324,9 @@ class CloudTransfer:
             try:
                 # Use fsspec for generic transfer
                 with fsspec.open(source_url, "rb") as src:
-                    target_key = self._create_target_key(
-                        source_url, target_url, source_url
-                    )
+                    # Create target key - extract filename from URL
+                    source_key = source_url.split("/")[-1]
+                    target_key = self._create_target_key(source_url, source_key)
                     full_target = target_url + "/" + target_key
 
                     # Check if target exists
@@ -339,7 +369,7 @@ class CloudTransfer:
         self, granules: List[DataGranule]
     ) -> Optional[str]:
         """Infer provider from granules."""
-        from .store_components.credentials import infer_provider_from_url
+        from .credentials import infer_provider_from_url
 
         providers = set()
         for granule in granules:
@@ -358,27 +388,42 @@ class CloudTransfer:
         return s3fs.S3FileSystem(**context.s3_credentials.to_dict())
 
     def _parse_s3_url(self, url: str) -> Tuple[str, str]:
-        """Parse S3 URL into bucket and key."""
+        """Parse S3 URL into bucket and key.
+
+        Args:
+            url: S3 URL (e.g., "s3://bucket/path/to/file" or "s3://bucket")
+
+        Returns:
+            Tuple of (bucket, key) where key may be empty string
+        """
         if not url.startswith("s3://"):
             raise ValueError(f"Not an S3 URL: {url}")
 
-        # Remove s3:// and split
+        # Remove s3:// prefix
         path = url[5:]
-        bucket, key = path.split("/", 1)
+
+        # Split into bucket and key (key may be empty)
+        if "/" in path:
+            bucket, key = path.split("/", 1)
+        else:
+            bucket = path
+            key = ""
 
         return bucket, key
 
-    def _create_target_key(
-        self, source_url: str, target_url: str, source_key: str
-    ) -> str:
-        """Create target key preserving directory structure."""
-        if "/" in source_key:
-            # Preserve relative path
-            _, filename = source_key.rsplit("/", 1)
-            return filename
-        else:
-            # Just filename
-            return source_key
+    def _create_target_key(self, source_url: str, source_key: str) -> str:
+        """Create target key preserving directory structure.
+
+        Args:
+            source_url: Full source URL
+            source_key: Source key (already parsed without bucket)
+
+        Returns:
+            Target key path
+        """
+        # source_key is already just the key part without the bucket
+        # Return it as-is to preserve the directory structure
+        return source_key
 
     def get_transfer_estimate(
         self,
@@ -406,7 +451,7 @@ class CloudTransfer:
         file_count = sum(len(g.data_links()) for g in granules)
 
         # Size estimation (if available from metadata)
-        estimated_size = 0
+        estimated_size: Union[int, float] = 0
         for granule in granules:
             try:
                 # Try to get size from metadata
@@ -443,7 +488,11 @@ class TransferError(Exception):
     """Raised when a transfer operation fails."""
 
     def __init__(
-        self, message: str, source_url: str, target_url: str, cause: Exception = None
+        self,
+        message: str,
+        source_url: str,
+        target_url: str,
+        cause: Optional[Exception] = None,
     ):
         super().__init__(message)
         self.source_url = source_url

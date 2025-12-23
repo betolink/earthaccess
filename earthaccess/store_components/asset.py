@@ -1,5 +1,4 @@
-"""
-Asset access and filtering for earthaccess granules.
+"""Asset access and filtering for earthaccess granules.
 
 Provides Asset and AssetFilter dataclasses with comprehensive
 filtering capabilities and enhanced granule operations.
@@ -7,10 +6,10 @@ filtering capabilities and enhanced granule operations.
 
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
 
 if TYPE_CHECKING:
-    from ..store_components.credentials import CredentialManager
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -46,8 +45,13 @@ class Asset:
 
     def is_data(self) -> bool:
         """Check if asset is a data file."""
-        data_roles = {"data", "science-data", "metadata", "browse"}
-        return bool(self.roles.intersection(data_roles))
+        data_types = {"data", "science-data"}
+        data_roles = {"data", "science-data"}
+        if self.type in data_types:
+            return True
+        if self.roles and any(role in data_roles for role in self.roles):
+            return True
+        return False
 
     def is_thumbnail(self) -> bool:
         """Check if asset is a thumbnail."""
@@ -82,18 +86,6 @@ class Asset:
             checksum=self.checksum,
             roles=self.roles.union({role}),
         )
-
-    def filter_by_roles(
-        self, include_roles: Set[str], exclude_roles: Set[str] = None
-    ) -> bool:
-        """Check if asset passes role filtering."""
-        if exclude_roles and self.roles.intersection(exclude_roles):
-            return False
-
-        if include_roles and not self.roles.issuperset(include_roles):
-            return False
-
-        return True
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert asset to dictionary representation."""
@@ -149,6 +141,32 @@ class AssetFilter:
     # Filename pattern filters
     filename_patterns: Optional[List[str]] = None
     exclude_filename_patterns: Optional[List[str]] = None
+
+    def __post_init__(self) -> None:
+        """Convert mutable collections to immutable for frozen dataclass."""
+        # Convert lists to tuples for immutability
+        if self.content_types is not None and isinstance(self.content_types, list):
+            object.__setattr__(self, "content_types", tuple(self.content_types))
+        if self.exclude_content_types is not None and isinstance(
+            self.exclude_content_types, list
+        ):
+            object.__setattr__(
+                self, "exclude_content_types", tuple(self.exclude_content_types)
+            )
+        if self.bands is not None and isinstance(self.bands, list):
+            object.__setattr__(self, "bands", tuple(self.bands))
+        if self.exclude_bands is not None and isinstance(self.exclude_bands, list):
+            object.__setattr__(self, "exclude_bands", tuple(self.exclude_bands))
+        if self.filename_patterns is not None and isinstance(
+            self.filename_patterns, list
+        ):
+            object.__setattr__(self, "filename_patterns", tuple(self.filename_patterns))
+        if self.exclude_filename_patterns is not None and isinstance(
+            self.exclude_filename_patterns, list
+        ):
+            object.__setattr__(
+                self, "exclude_filename_patterns", tuple(self.exclude_filename_patterns)
+            )
 
     def copy(self, **kwargs: Any) -> "AssetFilter":
         """Create new AssetFilter with updated parameters.
@@ -255,13 +273,18 @@ class AssetFilter:
                 # Both present, combine with AND (intersection for sets, list for others)
                 if isinstance(values1, set) and isinstance(values2, set):
                     result_dict[key] = list(values1.intersection(values2))
-                else:
+                elif isinstance(values1, (list, tuple)) and isinstance(
+                    values2, (list, tuple)
+                ):
                     result_dict[key] = list(set(values1) & set(values2))
+                else:
+                    # For non-iterable types (min_size, max_size, etc.), use the second filter
+                    result_dict[key] = values2
             elif values1 is not None:
                 result_dict[key] = values1
             elif values2 is not None:
                 result_dict[key] = values2
-            # If both None, keep None
+            # If both None, skip
 
         return AssetFilter(**result_dict)
 
@@ -297,7 +320,6 @@ def filter_assets(
 
 def _asset_matches_filter(asset: Asset, filter_dict: Dict[str, Any]) -> bool:
     """Check if a single asset matches the filter criteria."""
-
     # Content type filtering
     if "content_types" in filter_dict:
         content_types = set(filter_dict["content_types"])
@@ -328,7 +350,7 @@ def _asset_matches_filter(asset: Asset, filter_dict: Dict[str, Any]) -> bool:
 
     if "exclude_bands" in filter_dict:
         exclude_bands = set(filter_dict["exclude_bands"])
-        if asset.bands and asset.bands.intersection(exclude_bands):
+        if asset.bands and set(asset.bands) & exclude_bands:
             return False
 
     # Size filtering
@@ -386,7 +408,7 @@ def get_data_assets(assets: List[Asset]) -> List[Asset]:
     Returns:
         List of data assets
     """
-    data_filter = AssetFilter.content_type_filter(["data", "science-data"])
+    data_filter = AssetFilter(content_types=["data", "science-data"])
     return filter_assets(assets, data_filter)
 
 
@@ -399,7 +421,7 @@ def get_thumbnail_assets(assets: List[Asset]) -> List[Asset]:
     Returns:
         List of thumbnail assets
     """
-    thumbnail_filter = AssetFilter.role_filter(include_roles={"thumbnail"})
+    thumbnail_filter = AssetFilter(include_roles=set(["thumbnail"]))
     return filter_assets(assets, thumbnail_filter)
 
 
@@ -412,7 +434,7 @@ def get_browse_assets(assets: List[Asset]) -> List[Asset]:
     Returns:
         List of browse assets
     """
-    browse_filter = AssetFilter.role_filter(include_roles={"browse"})
+    browse_filter = AssetFilter(include_roles=set(["browse"]))
     return filter_assets(assets, browse_filter)
 
 
@@ -426,7 +448,7 @@ def get_assets_by_band(assets: List[Asset], bands: List[str]) -> List[Asset]:
     Returns:
         List of assets matching the bands
     """
-    band_filter = AssetFilter.band_filter(bands=bands)
+    band_filter = AssetFilter(bands=bands)
     return filter_assets(assets, band_filter)
 
 
@@ -443,5 +465,5 @@ def get_assets_by_size_range(
     Returns:
         List of assets within size range
     """
-    size_filter = AssetFilter.size_filter(min_size=min_size, max_size=max_size)
+    size_filter = AssetFilter(min_size=min_size, max_size=max_size)
     return filter_assets(assets, size_filter)

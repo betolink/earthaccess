@@ -1,8 +1,8 @@
 """Unit tests for cloud transfer functionality."""
 
-import pytest
 from unittest.mock import Mock, patch
 
+import pytest
 from earthaccess.store_components.cloud_transfer import CloudTransfer, TransferError
 
 
@@ -43,7 +43,7 @@ class TestCloudTransfer:
         transfer = CloudTransfer(mock_auth, mock_credential_manager)
 
         location = Mock()
-        location.url = "s3://bucket/key"
+        location.path = "s3://bucket/key"
 
         result = transfer._parse_target(location)
         assert result == "s3://bucket/key"
@@ -113,11 +113,9 @@ class TestCloudTransfer:
         transfer = CloudTransfer(mock_auth, mock_credential_manager)
 
         source_key = "path/to/file.nc"
-        target_url = "s3://bucket/target/"
+        source_url = "s3://bucket/path/to/file.nc"
 
-        result = transfer._create_target_key(
-            "s3://source/" + source_key, target_url, source_key
-        )
+        result = transfer._create_target_key(source_url, source_key)
         assert result == "path/to/file.nc"  # Preserves path structure
 
     def test_create_target_key_filename_only(self, mock_auth, mock_credential_manager):
@@ -125,14 +123,12 @@ class TestCloudTransfer:
         transfer = CloudTransfer(mock_auth, mock_credential_manager)
 
         source_key = "file.nc"
-        target_url = "s3://bucket/"
+        source_url = "s3://bucket/file.nc"
 
-        result = transfer._create_target_key(
-            "s3://source/" + source_key, target_url, source_key
-        )
+        result = transfer._create_target_key(source_url, source_key)
         assert result == "file.nc"  # Just filename
 
-    @patch("earthaccess.store_components.cloud_transfer.infer_provider_from_url")
+    @patch("earthaccess.store_components.credentials.infer_provider_from_url")
     def test_infer_provider_from_granules(
         self, mock_infer, mock_auth, mock_credential_manager
     ):
@@ -159,7 +155,12 @@ class TestCloudTransfer:
 
         granule1 = Mock()
         granule1.data_links.return_value = ["s3://source/file.nc"]
-        granule1.get.return_value = {"meta": {"granule-size": 1000000000}}  # 1GB
+        # Mock the dict-like get method properly
+        granule1.get.side_effect = (
+            lambda key, default=None: {"granule-size": 1000000000}
+            if key == "meta"
+            else default
+        )
         granules = [granule1]
 
         estimate = transfer.get_transfer_estimate(granules, "s3://target/", "s3_to_s3")
@@ -208,3 +209,19 @@ class TestCloudTransfer:
 
         assert transfer.auth == mock_auth
         assert transfer.credential_manager == mock_credential_manager
+
+    def test_parse_s3_url_with_key(self, mock_auth, mock_credential_manager):
+        """Test parsing S3 URL with key."""
+        transfer = CloudTransfer(mock_auth, mock_credential_manager)
+
+        bucket, key = transfer._parse_s3_url("s3://my-bucket/path/to/file.nc")
+        assert bucket == "my-bucket"
+        assert key == "path/to/file.nc"
+
+    def test_parse_s3_url_without_key(self, mock_auth, mock_credential_manager):
+        """Test parsing S3 URL without key."""
+        transfer = CloudTransfer(mock_auth, mock_credential_manager)
+
+        bucket, key = transfer._parse_s3_url("s3://my-bucket")
+        assert bucket == "my-bucket"
+        assert key == ""

@@ -1,5 +1,4 @@
-"""
-Credential management for earthaccess.
+"""Credential management for earthaccess.
 
 Provides centralized credential management with caching and expiration handling.
 Follows SOLID principles with single responsibility for credential operations.
@@ -8,7 +7,7 @@ Follows SOLID principles with single responsibility for credential operations.
 import datetime
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, Optional, Union, Mapping
+from typing import TYPE_CHECKING, Any, Dict, Mapping, Optional, Union
 
 if TYPE_CHECKING:
     from ..auth import Auth
@@ -272,20 +271,22 @@ def infer_provider_from_url(url: str) -> Optional[str]:
         return None
 
     # Known bucket prefixes to provider mapping
+    # Note: Patterns should match bucket name prefixes without trailing hyphen
+    # to support both "bucket-name" and "bucket" style naming
     BUCKET_PROVIDER_MAP = {
-        "podaac-": "POCLOUD",
-        "nsidc-cumulus-": "NSIDC_CPRD",
-        "lp-prod-": "LPCLOUD",
-        "gesdisc-cumulus-": "GES_DISC",
-        "ghrc-cumulus-": "GHRC_DAAC",
-        "ornldaac-cumulus-": "ORNL_CLOUD",
-        "asf-cumulus-": "ASF",
-        "gesdisc-ecostress-": "GES_DISC",
-        "obdaac-": "OB_DAAC",
-        "laads-": "LAADS",
-        "eclipse-": "NSIDC_ECS",
-        "noaa-": "NOAA_NCEI",
-        "usgs-": "USGS_EROS",
+        "podaac": "POCLOUD",
+        "nsidc-cumulus": "NSIDC_CPRD",
+        "lp-prod": "LPCLOUD",
+        "gesdisc-cumulus": "GES_DISC",
+        "ghrc-cumulus": "GHRC_DAAC",
+        "ornldaac-cumulus": "ORNL_CLOUD",
+        "asf-cumulus": "ASF",
+        "gesdisc-ecostress": "GES_DISC",
+        "obdaac": "OB_DAAC",
+        "laads": "LAADS",
+        "eclipse": "NSIDC_ECS",
+        "noaa": "NOAA_NCEI",
+        "usgs": "USGS_EROS",
     }
 
     # Extract bucket name

@@ -1,11 +1,8 @@
 """Test results base classes with minimal type constraints."""
 
 import pytest
-from unittest.mock import Mock
-
 from earthaccess.store_components.results import (
     ResultsBase,
-    LazyResultsBase,
     StreamingExecutor,
 )
 
@@ -112,6 +109,11 @@ class TestStreamingExecutor:
             def __init__(self, items):
                 self.items = items
 
+            def pages(self, page_size=100):
+                """Yield pages of items."""
+                for i in range(0, len(self.items), page_size):
+                    yield self.items[i : i + page_size]
+
             def map(self, func):
                 return [func(x) for x in self.items]
 
@@ -131,6 +133,11 @@ class TestStreamingExecutor:
         class MockLazyResults:
             def __init__(self, items):
                 self.items = items
+
+            def pages(self, page_size=100):
+                """Yield pages of items."""
+                for i in range(0, len(self.items), page_size):
+                    yield self.items[i : i + page_size]
 
             def map(self, func):
                 return [func(x) for x in self.items]

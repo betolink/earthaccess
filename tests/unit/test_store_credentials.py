@@ -1,13 +1,13 @@
 """Unit tests for credential management."""
 
 import datetime
-import pytest
 from unittest.mock import Mock
 
+import pytest
 from earthaccess.store.credentials import (
-    S3Credentials,
     AuthContext,
     CredentialManager,
+    S3Credentials,
     infer_provider_from_url,
 )
 
@@ -206,7 +206,7 @@ class TestCredentialManager:
             "accessKeyId": "AKID123",
             "secretAccessKey": "SECRET456",
             "sessionToken": "TOKEN789",
-            "expiration": "2024-12-31T23:59:59Z",
+            "expiration": "2099-12-31T23:59:59Z",  # Future date for testing
         }
         return auth
 
@@ -341,7 +341,7 @@ class TestCredentialManager:
         manager = CredentialManager(mock_auth)
 
         # Add credentials to cache
-        creds = manager.get_credentials("POCLOUD")
+        manager.get_credentials("POCLOUD")
 
         status = manager.cache_status()
 

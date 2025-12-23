@@ -5,8 +5,19 @@ interfaces and lazy evaluation capabilities.
 """
 
 import logging
-from abc import ABC, abstractmethod
-from typing import Any, Dict, Iterator, List, Optional, TypeVar
+from abc import abstractmethod
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    TypeVar,
+)
+
+if TYPE_CHECKING:
+    from ..store_components.asset import AssetFilter
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +25,7 @@ T = TypeVar("T")
 R = TypeVar("R")
 
 
-class ResultsBase(ABC, List[T]):
+class ResultsBase:
     """Base class for all result types with common functionality.
 
     Provides lazy evaluation capabilities and method chaining
@@ -28,12 +39,11 @@ class ResultsBase(ABC, List[T]):
             items: Optional initial list of items
             **kwargs: Additional parameters for subclasses
         """
-        super().__init__(items or [])
+        self._items = items or []
         self._lazy_params: Dict[str, Any] = kwargs
         self._logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
 
-    @abstractmethod
-    def pages(self, page_size: int = 100) -> Iterator[List[T]]:
+    def pages(self, page_size: int = 100):
         """Iterator over pages of results.
 
         Args:
@@ -42,56 +52,54 @@ class ResultsBase(ABC, List[T]):
         Yields:
             Lists of items for each page
         """
-        pass
+        for i in range(0, len(self._items), page_size):
+            yield list(self._items[i : i + page_size])
 
-    def __iter__(self) -> Iterator[T]:
+    def __iter__(self):
         """Iterate over all items."""
-        return iter(self)
+        return iter(self._items)
 
     def __len__(self) -> int:
         """Return number of items."""
-        return len(self)
+        return len(self._items)
 
     def __repr__(self) -> str:
         """String representation."""
-        return f"<{self.__class__.__name__} with {len(self)} items>"
+        return f"<{self.__class__.__name__} with {len(self._items)} items>"
 
-    def __getitem__(self, index: int) -> T:
-        """Get item by index."""
-        return super().__getitem__(index)
+    def __getitem__(self, index):
+        """Get item by index or slice."""
+        return self._items[index]
 
-    def get_all(self) -> List[T]:
+    def get_all(self):
         """Get all items as list (eager evaluation).
 
         Returns:
             List of all items
         """
-        if isinstance(self._items, list):
-            return self._items.copy()
-        else:
-            return list(self)
+        return list(self._items)
 
     def matched(self) -> int:
         """Return number of matched items."""
-        return len(self)
+        return len(self._items)
 
     def count(self) -> int:
         """Alias for matched() for compatibility."""
         return self.matched()
 
-    def first(self) -> Optional[T]:
+    def first(self):
         """Get first item or None if empty."""
-        return self[0] if len(self) > 0 else None
+        return self._items[0] if len(self._items) > 0 else None
 
-    def last(self) -> Optional[T]:
+    def last(self):
         """Get last item or None if empty."""
-        return self[-1] if len(self) > 0 else None
+        return self._items[-1] if len(self._items) > 0 else None
 
-    def preview(self, limit: int = 10) -> List[T]:
+    def preview(self, limit: int = 10):
         """Get preview of first N items."""
-        return self[:limit]
+        return self._items[:limit]
 
-    def filter(self, predicate) -> "ResultsBase[T]":
+    def filter(self, predicate):
         """Filter items by predicate.
 
         Args:
@@ -100,13 +108,10 @@ class ResultsBase(ABC, List[T]):
         Returns:
             New ResultsBase with filtered items
         """
-        filtered_items = [item for item in self if predicate(item)]
+        filtered_items = [item for item in self._items if predicate(item)]
+        return ConcreteResultsBase(filtered_items)
 
-        # Create new instance of same class with filtered items
-        result_class = type(self)
-        return result_class(filtered_items)
-
-    def map(self, func) -> "ResultsBase[R]":
+    def map(self, func):
         """Apply function to each item.
 
         Args:
@@ -115,15 +120,108 @@ class ResultsBase(ABC, List[T]):
         Returns:
             New ResultsBase with mapped items
         """
-        mapped_items = [func(item) for item in self]
+        mapped_items = [func(item) for item in self._items]
+        return ConcreteResultsBase(mapped_items)
 
-        # Create new instance of appropriate class
-        # For now, return same type with mapped items
-        result_class = type(self)
-        return result_class(mapped_items)
+    def open(
+        self,
+        asset_filter: Optional["AssetFilter"] = None,
+        **kwargs: Any,
+    ):
+        """Open data files from results with optional asset filtering.
+
+        This is a placeholder for subclasses to implement. Subclasses should
+        override this method to provide actual file opening functionality
+        based on their specific data types.
+
+        Args:
+            asset_filter: Optional AssetFilter to select specific assets
+            **kwargs: Additional parameters passed to the file opening implementation
+
+        Returns:
+            Depends on subclass implementation (e.g., xarray datasets, file handles)
+
+        Raises:
+            NotImplementedError: If not implemented by subclass
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__}.open() must be implemented by subclass"
+        )
+
+    def download(
+        self,
+        asset_filter: Optional["AssetFilter"] = None,
+        local_path: Optional[str] = None,
+        threads: int = 8,
+        **kwargs: Any,
+    ):
+        """Download data files from results with optional asset filtering.
+
+        This is a placeholder for subclasses to implement. Subclasses should
+        override this method to provide actual download functionality based on
+        their specific data types.
+
+        Args:
+            asset_filter: Optional AssetFilter to select specific assets
+            local_path: Optional local directory path for downloads
+            threads: Number of concurrent download threads
+            **kwargs: Additional parameters passed to the download implementation
+
+        Returns:
+            Depends on subclass implementation (e.g., list of downloaded paths)
+
+        Raises:
+            NotImplementedError: If not implemented by subclass
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__}.download() must be implemented by subclass"
+        )
+
+    def process(
+        self,
+        func: Callable,
+        asset_filter: Optional["AssetFilter"] = None,
+        **kwargs: Any,
+    ):
+        """Process items with optional asset filtering.
+
+        This is a placeholder for subclasses to implement. Subclasses should
+        override this method to provide custom processing based on their
+        specific data types and asset structures.
+
+        Args:
+            func: Processing function to apply to each item/asset
+            asset_filter: Optional AssetFilter to select specific assets
+            **kwargs: Additional parameters for processing
+
+        Returns:
+            Depends on subclass implementation
+
+        Raises:
+            NotImplementedError: If not implemented by subclass
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__}.process() must be implemented by subclass"
+        )
 
 
-class LazyResultsBase(ResultsBase[T]):
+class ConcreteResultsBase(ResultsBase):
+    """Concrete implementation of ResultsBase for testing and simple use."""
+
+    def pages(self, page_size: int = 100):
+        """Iterator over pages of results.
+
+        Args:
+            page_size: Number of items per page
+
+        Yields:
+            Lists of items for each page
+        """
+        for i in range(0, len(self._items), page_size):
+            yield list(self._items[i : i + page_size])
+
+
+class LazyResultsBase(ResultsBase):
     """Base class for lazy-evaluated results.
 
     Inherits from ResultsBase but adds lazy evaluation
@@ -135,7 +233,7 @@ class LazyResultsBase(ResultsBase[T]):
         super().__init__(items, **kwargs)
         self._fetched_all: bool = False
 
-    def get_all(self) -> List[T]:
+    def get_all(self):
         """Get all items, fetching if needed.
 
         Override to implement lazy fetching logic.
@@ -147,7 +245,7 @@ class LazyResultsBase(ResultsBase[T]):
 
         return super().get_all()
 
-    def _fetch_all(self) -> List[T]:
+    def _fetch_all(self):
         """Fetch all items from backend.
 
         Must be implemented by subclasses for specific
@@ -155,7 +253,7 @@ class LazyResultsBase(ResultsBase[T]):
         """
         raise NotImplementedError("Subclasses must implement _fetch_all()")
 
-    def pages(self, page_size: int = 100) -> Iterator[List[T]]:
+    def pages(self, page_size: int = 100):
         """Iterator over pages with lazy evaluation."""
         if not self._fetched_all:
             # Don't have total count yet, need to fetch progressively
@@ -165,7 +263,7 @@ class LazyResultsBase(ResultsBase[T]):
             return super().pages(page_size)
 
     @abstractmethod
-    def _lazy_pages(self, page_size: int) -> Iterator[List[T]]:
+    def _lazy_pages(self, page_size: int):
         """Lazy page fetching logic.
 
         Must be implemented by subclasses.
@@ -200,9 +298,9 @@ class StreamingExecutor:
 
     def map(
         self,
-        func: callable,
-        results: "LazyResultsBase[T]",
-    ) -> Iterator[R]:
+        func: Callable,
+        results,
+    ):
         """Apply function to items from results with streaming.
 
         Args:
@@ -274,9 +372,9 @@ class StreamingExecutor:
 
     def process_and_collect(
         self,
-        func: callable,
-        results: "LazyResultsBase[T]",
-    ) -> List[R]:
+        func: Callable,
+        results,
+    ):
         """Process all items and collect results (eager version).
 
         Args:

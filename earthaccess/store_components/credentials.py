@@ -271,20 +271,22 @@ def infer_provider_from_url(url: str) -> Optional[str]:
         return None
 
     # Known bucket prefixes to provider mapping
+    # Note: Patterns should match bucket name prefixes without trailing hyphen
+    # to support both "bucket-name" and "bucket" style naming
     BUCKET_PROVIDER_MAP = {
-        "podaac-": "POCLOUD",
-        "nsidc-cumulus-": "NSIDC_CPRD",
-        "lp-prod-": "LPCLOUD",
-        "gesdisc-cumulus-": "GES_DISC",
-        "ghrc-cumulus-": "GHRC_DAAC",
-        "ornldaac-cumulus-": "ORNL_CLOUD",
-        "asf-cumulus-": "ASF",
-        "gesdisc-ecostress-": "GES_DISC",
-        "obdaac-": "OB_DAAC",
-        "laads-": "LAADS",
-        "eclipse-": "NSIDC_ECS",
-        "noaa-": "NOAA_NCEI",
-        "usgs-": "USGS_EROS",
+        "podaac": "POCLOUD",
+        "nsidc-cumulus": "NSIDC_CPRD",
+        "lp-prod": "LPCLOUD",
+        "gesdisc-cumulus": "GES_DISC",
+        "ghrc-cumulus": "GHRC_DAAC",
+        "ornldaac-cumulus": "ORNL_CLOUD",
+        "asf-cumulus": "ASF",
+        "gesdisc-ecostress": "GES_DISC",
+        "obdaac": "OB_DAAC",
+        "laads": "LAADS",
+        "eclipse": "NSIDC_ECS",
+        "noaa": "NOAA_NCEI",
+        "usgs": "USGS_EROS",
     }
 
     # Extract bucket name
