@@ -3,13 +3,23 @@
 This package contains modular components for data access operations:
 - file_wrapper: EarthAccessFile class and related utilities
 - download: Download operations for HTTP and S3
+- access: S3 access probing and strategy utilities
 - _store_legacy: Store class (legacy monolith, being refactored)
 """
 
 # Re-export Store from legacy module for backward compatibility
 from ._store_legacy import Store
 
-# Export new modular components
+# Export access utilities
+from .access import (
+    AccessMethod,
+    determine_access_method,
+    extract_s3_credentials_endpoint,
+    get_data_links,
+    probe_s3_access,
+)
+
+# Export download components
 from .download import (
     DEFAULT_CHUNK_SIZE,
     clone_session,
@@ -18,6 +28,8 @@ from .download import (
     download_file,
     download_granules,
 )
+
+# Export file wrapper components
 from .file_wrapper import (
     EarthAccessFile,
     get_url_granule_mapping,
@@ -36,6 +48,12 @@ _get_url_granule_mapping = get_url_granule_mapping
 __all__ = [
     # Legacy exports
     "Store",
+    # Access utilities
+    "AccessMethod",
+    "probe_s3_access",
+    "determine_access_method",
+    "extract_s3_credentials_endpoint",
+    "get_data_links",
     # File wrapper exports
     "EarthAccessFile",
     "make_instance",
