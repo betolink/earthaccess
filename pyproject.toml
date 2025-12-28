@@ -61,6 +61,9 @@ kerchunk = [
   "xarray >=2025.04.0",
   "zarr >=3.1.1",
 ]
+geo = [
+  "shapely >=2.0",
+]
 virtualizarr = [
   "numpy >=1.26.4",
   "zarr >=3.1.1",

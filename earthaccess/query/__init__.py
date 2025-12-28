@@ -9,10 +9,19 @@ Example:
     >>> from earthaccess.query import GranuleQuery
     >>> query = GranuleQuery().short_name("ATL03").temporal("2020-01", "2020-02")
     >>> cmr_params = query.to_cmr()
+
+    Using a geometry file:
+    >>> query = GranuleQuery().short_name("ATL03").polygon(file="boundary.geojson")
 """
 
 from .base import QueryBase
 from .collection_query import CollectionQuery
+from .geometry import (
+    MAX_POLYGON_POINTS,
+    load_and_simplify_polygon,
+    read_geometry_file,
+    simplify_geometry,
+)
 from .granule_query import GranuleQuery
 from .stac_query import StacItemQuery
 from .types import BoundingBox, DateRange, Point, PointLike, Polygon, PolygonLike
@@ -31,4 +40,9 @@ __all__ = [
     "PolygonLike",
     "ValidationError",
     "ValidationResult",
+    # Geometry utilities
+    "MAX_POLYGON_POINTS",
+    "load_and_simplify_polygon",
+    "read_geometry_file",
+    "simplify_geometry",
 ]

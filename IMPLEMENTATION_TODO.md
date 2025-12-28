@@ -1,7 +1,7 @@
 # Earthaccess Next-Gen Implementation TODO
 
 **Branch:** `nextgen`
-**Status:** Phases 1-7 Complete + Store Package Refactoring - 586 Tests Passing
+**Status:** Phases 1-7 Complete + Store Package Refactoring + Geometry File Support - 617 Tests Passing
 **Last Updated:** 2025-12-28
 
 ## Executive Summary
@@ -13,7 +13,7 @@ The implementation is divided into 8 phases spanning ~12-14 weeks, combining the
 **Total Acceptance Criteria:** 63 across all phases
 **Completed Criteria:** 63/63 (100%)
 **Phases Complete:** 7/8 (87%)
-**Tests Passing:** 586/586 (100%)
+**Tests Passing:** 617/617 (100%)
 **Estimated Effort:** 12-14 weeks
 
 ---
@@ -59,7 +59,7 @@ Establish the auth-decoupled query system that enables flexible query constructi
 - [x] `validate()` returns all errors, not just the first
 - [x] `to_cmr()` and `to_stac()` produce correct output
 - [x] CQL2 filters are generated for cloud_coverage and similar parameters
-- [ ] Geometry files are auto-simplified to <300 points
+- [x] Geometry files are auto-simplified to <300 points
 - [x] `search_data(query=query)` works
 - [x] Legacy `search_data(short_name=...)` still works
 - [x] All existing tests pass (50 tests in test_query.py)
@@ -1167,6 +1167,6 @@ These could be further refactored but are more complex due to state dependencies
 
 ### Total Test Summary
 
-**All 586 unit tests pass:**
+**All 617 unit tests pass:**
 - Original tests: 533
 - New store package tests: 48 (file_wrapper: 19, download: 14, access: 15)

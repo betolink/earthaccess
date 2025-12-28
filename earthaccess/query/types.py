@@ -6,9 +6,13 @@ These types are designed to be compatible with both CMR and STAC query formats.
 
 import datetime as dt
 from dataclasses import dataclass
-from typing import List, Optional, Sequence, Tuple, Union
+from pathlib import Path
+from typing import TYPE_CHECKING, List, Optional, Sequence, Tuple, Union
 
 from typing_extensions import SupportsFloat, TypeAlias
+
+if TYPE_CHECKING:
+    pass
 
 # Basic type aliases
 FloatLike: TypeAlias = Union[str, SupportsFloat]
@@ -321,6 +325,39 @@ class Polygon:
         """
         points = tuple((float(lon), float(lat)) for lon, lat in coordinates)
         return cls(coordinates=points)
+
+    @classmethod
+    def from_file(
+        cls,
+        file_path: Union[str, Path],
+        max_points: int = 300,
+    ) -> "Polygon":
+        """Create a Polygon from a geometry file.
+
+        Reads geometry from GeoJSON, Shapefile, KML, or WKT files and
+        automatically simplifies complex geometries to meet CMR's point
+        limit requirements (<300 points).
+
+        Args:
+            file_path: Path to geometry file (.geojson, .json, .shp, .kml, .wkt)
+            max_points: Maximum number of points allowed (default: 300 for CMR)
+
+        Returns:
+            A new Polygon instance with simplified coordinates
+
+        Raises:
+            FileNotFoundError: If file does not exist
+            ValueError: If geometry cannot be processed
+            ImportError: If required dependencies are not installed
+
+        Examples:
+            >>> poly = Polygon.from_file("boundary.geojson")
+            >>> poly = Polygon.from_file("study_area.shp", max_points=200)
+        """
+        from .geometry import load_and_simplify_polygon
+
+        coords = load_and_simplify_polygon(file_path, max_points=max_points)
+        return cls.from_coords(coords)
 
 
 # Type alias for spatial types

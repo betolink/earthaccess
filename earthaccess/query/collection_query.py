@@ -3,6 +3,7 @@
 This module provides the CollectionQuery class for building collection search queries.
 """
 
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Union
 
 from typing_extensions import Self
@@ -288,16 +289,56 @@ class CollectionQuery(QueryBase):
         self._spatial = Point.from_coords(lon, lat)
         return self
 
-    def polygon(self, coordinates: Sequence[PointLike]) -> Self:
+    def polygon(
+        self,
+        coordinates: Optional[Sequence[PointLike]] = None,
+        *,
+        file: Optional[Union[str, Path]] = None,
+        max_points: int = 300,
+    ) -> Self:
         """Filter by a polygonal area.
 
+        Can accept either coordinate tuples or a geometry file path. When using
+        a file, complex geometries are automatically simplified to meet CMR's
+        point limit requirements.
+
         Args:
-            coordinates: List of (lon, lat) tuples
+            coordinates: List of (lon, lat) tuples forming the polygon.
+                Cannot be used together with 'file'.
+            file: Path to geometry file (.geojson, .json, .shp, .kml, .wkt).
+                Cannot be used together with 'coordinates'.
+            max_points: Maximum points for file-based geometries (default: 300).
+                Only used when 'file' is specified.
 
         Returns:
             self for method chaining
+
+        Raises:
+            ValueError: If both coordinates and file are provided.
+            ImportError: If file is provided but shapely is not installed.
+
+        Examples:
+            Using coordinates:
+            >>> query = CollectionQuery().keyword("temperature").polygon([
+            ...     (-10, -10), (10, -10), (10, 10), (-10, 10), (-10, -10)
+            ... ])
+
+            Using a geometry file:
+            >>> query = CollectionQuery().keyword("temperature").polygon(
+            ...     file="boundary.geojson"
+            ... )
         """
-        self._spatial = Polygon.from_coords(coordinates)
+        if coordinates is not None and file is not None:
+            raise ValueError(
+                "Cannot specify both 'coordinates' and 'file'. Use one or the other."
+            )
+        if coordinates is None and file is None:
+            raise ValueError("Must specify either 'coordinates' or 'file'.")
+
+        if file is not None:
+            self._spatial = Polygon.from_file(file, max_points=max_points)
+        else:
+            self._spatial = Polygon.from_coords(coordinates)  # type: ignore[arg-type]
         return self
 
     def fields(self, fields: Optional[List[str]] = None) -> Self:
