@@ -37,7 +37,6 @@ from tenacity import (
 )
 from typing_extensions import deprecated
 
-from ..auth import SessionWithHeaderRedirection
 from ..search import DataCollections, DataGranule
 from .daac import DAAC_TEST_URLS, find_provider
 
@@ -308,7 +307,7 @@ class Store:
         session = fsspec.filesystem("https", client_kwargs=client_kwargs)
         return session
 
-    def get_requests_session(self) -> SessionWithHeaderRedirection:
+    def get_requests_session(self) -> requests.Session:
         """Returns a requests HTTPS session with bearer tokens that are used by CMR.
 
         This HTTPS session can be used to download granules if we want to use a direct,
@@ -912,7 +911,7 @@ class Store:
             )
 
     def _clone_session_in_local_thread(
-        self, original_session: SessionWithHeaderRedirection
+        self, original_session: requests.Session
     ) -> None:
         """Clone the original session and store it in the local thread context.
 
@@ -920,13 +919,13 @@ class Store:
         from the provided original session. The new session is stored in a thread-local storage.
 
         Parameters:
-            original_session (SessionWithHeaderRedirection): The session to be cloned.
+            original_session (requests.Session): The session to be cloned.
 
         Returns:
             None
         """
         if not hasattr(self.thread_locals, "local_thread_session"):
-            local_thread_session = SessionWithHeaderRedirection()
+            local_thread_session = self.auth.get_session()  # type: ignore
             local_thread_session.headers.update(original_session.headers)
             local_thread_session.cookies.update(original_session.cookies)
             local_thread_session.auth = original_session.auth

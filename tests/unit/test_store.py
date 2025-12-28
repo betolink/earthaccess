@@ -13,6 +13,9 @@ from earthaccess import Auth, Store
 from earthaccess.auth import SessionWithHeaderRedirection
 from earthaccess.store import EarthAccessFile, _open_files
 
+# Default EDL hostname for tests
+TEST_EDL_HOSTNAME = "urs.earthdata.nasa.gov"
+
 
 class TestStoreSessions(unittest.TestCase):
     @responses.activate
@@ -158,9 +161,10 @@ class TestStoreSessions(unittest.TestCase):
                         responses.GET, url, body=f"Content of file {i + 1}", status=200
                     )
 
+                edl_hostname = "urs.earthdata.nasa.gov"
                 mock_auth = MagicMock()
                 mock_auth.authenticated = True
-                mock_auth.system.edl_hostname = "urs.earthdata.nasa.gov"
+                mock_auth.system.edl_hostname = edl_hostname
                 responses.add(
                     responses.GET,
                     "https://urs.earthdata.nasa.gov/profile",
@@ -168,7 +172,7 @@ class TestStoreSessions(unittest.TestCase):
                     status=200,
                 )
 
-                original_session = SessionWithHeaderRedirection()
+                original_session = SessionWithHeaderRedirection(edl_hostname)
                 original_session.cookies.set("sessionid", "mocked-session-cookie")
                 mock_auth.get_session.return_value = original_session
 
@@ -181,7 +185,7 @@ class TestStoreSessions(unittest.TestCase):
                 def mock_clone_session_in_local_thread(original_session):
                     """Mock session cloning to track cloned sessions."""
                     if not hasattr(store.thread_locals, "local_thread_session"):
-                        session = SessionWithHeaderRedirection()
+                        session = SessionWithHeaderRedirection(edl_hostname)
                         session.cookies.update(original_session.cookies)
                         cloned_sessions.add(id(session))
                         store.thread_locals.local_thread_session = session
@@ -230,7 +234,7 @@ class TestStoreSessions(unittest.TestCase):
         # Mock auth
         mock_auth = MagicMock()
         mock_auth.authenticated = True
-        mock_auth.system.edl_hostname = "urs.earthdata.nasa.gov"
+        mock_auth.system.edl_hostname = TEST_EDL_HOSTNAME
         responses.add(
             responses.GET,
             "https://urs.earthdata.nasa.gov/profile",
@@ -238,7 +242,7 @@ class TestStoreSessions(unittest.TestCase):
             status=200,
         )
 
-        original_session = SessionWithHeaderRedirection()
+        original_session = SessionWithHeaderRedirection(TEST_EDL_HOSTNAME)
         original_session.cookies.set("sessionid", "mocked-session-cookie")
         mock_auth.get_session.return_value = original_session
 
@@ -275,7 +279,7 @@ class TestStoreSessions(unittest.TestCase):
         # Mock auth
         mock_auth = MagicMock()
         mock_auth.authenticated = True
-        mock_auth.system.edl_hostname = "urs.earthdata.nasa.gov"
+        mock_auth.system.edl_hostname = TEST_EDL_HOSTNAME
         responses.add(
             responses.GET,
             "https://urs.earthdata.nasa.gov/profile",
@@ -283,7 +287,7 @@ class TestStoreSessions(unittest.TestCase):
             status=200,
         )
 
-        original_session = SessionWithHeaderRedirection()
+        original_session = SessionWithHeaderRedirection(TEST_EDL_HOSTNAME)
         original_session.cookies.set("sessionid", "mocked-session-cookie")
         mock_auth.get_session.return_value = original_session
 

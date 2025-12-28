@@ -284,6 +284,7 @@ class TestSessionCloning:
         original.headers = {"Authorization": "Bearer token123"}
         original.cookies = {"session": "abc123"}
         original.auth = ("user", "pass")
+        original.hooks = {"response": []}
 
         cloned = clone_session(original)
 
@@ -299,6 +300,7 @@ class TestSessionCloning:
         original.headers = {}
         original.cookies = {}
         original.auth = None
+        original.hooks = {"response": []}
 
         cloned = clone_session(original)
 

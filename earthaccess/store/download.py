@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import List, Optional, Union
 
 import fsspec
+import requests
 from tenacity import (
     retry,
     retry_if_exception_type,
@@ -17,7 +18,6 @@ from tenacity import (
     wait_exponential,
 )
 
-from ..auth import SessionWithHeaderRedirection
 from .parallel import get_executor
 from .target import TargetLocation
 
@@ -36,8 +36,8 @@ __all__ = [
 
 
 def clone_session(
-    original_session: SessionWithHeaderRedirection,
-) -> SessionWithHeaderRedirection:
+    original_session: requests.Session,
+) -> requests.Session:
     """Clone a session for use in a worker thread.
 
     Creates a new session instance that replicates the headers, cookies,
@@ -49,10 +49,12 @@ def clone_session(
     Returns:
         A new session with the same configuration.
     """
-    cloned = SessionWithHeaderRedirection()
+    cloned = requests.Session()
     cloned.headers.update(original_session.headers)
     cloned.cookies.update(original_session.cookies)
     cloned.auth = original_session.auth
+    # Copy response hooks from original session
+    cloned.hooks["response"] = list(original_session.hooks.get("response", []))
     return cloned
 
 
@@ -65,7 +67,7 @@ def clone_session(
 def download_file(
     url: str,
     directory: Union[Path, TargetLocation],
-    session: SessionWithHeaderRedirection,
+    session: requests.Session,
     *,
     chunk_size: int = DEFAULT_CHUNK_SIZE,
 ) -> Path:
@@ -184,7 +186,7 @@ def download_cloud_file(
 def download_granules(
     urls: List[str],
     directory: Union[Path, TargetLocation],
-    session: SessionWithHeaderRedirection,
+    session: requests.Session,
     *,
     max_workers: Optional[int] = None,
     show_progress: bool = True,

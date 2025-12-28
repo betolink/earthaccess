@@ -74,6 +74,11 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Fixed
 
+- No longer erroneously strip authorization header for valid hosts. The
+  `SessionWithHeaderRedirection` class now uses a response hook instead of a
+  hardcoded allowlist of hosts, ensuring credentials are only sent to the EDL
+  host during redirects.
+  ([#1130](https://github.com/nsidc/earthaccess/issues/1130)) (@chuckwondo)
 - Ignore environment variables `EARTHDATA_USERNAME` and `EARTHDATA_PASSWORD`
   when `EARTHDATA_TOKEN` is set
   ([#1121](https://github.com/nsidc/earthaccess/issues/1121)) (@chuckwondo)
