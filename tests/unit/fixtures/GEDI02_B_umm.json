@@ -1,0 +1,205 @@
+{
+  "meta": {
+    "concept-type": "granule",
+    "concept-id": "G2164246777-LPCLOUD",
+    "revision-id": 4,
+    "native-id": "GEDI02_B_2019108002012_O01959_01_T03909_02_003_01_V002",
+    "collection-concept-id": "C2142776747-LPCLOUD",
+    "provider-id": "LPCLOUD",
+    "format": "application/echo10+xml",
+    "revision-date": "2024-06-11T16:39:34.106Z"
+  },
+  "umm": {
+    "TemporalExtent": {
+      "RangeDateTime": {
+        "BeginningDateTime": "2019-04-18T00:20:12.000Z",
+        "EndingDateTime": "2019-04-18T01:52:53.000Z"
+      }
+    },
+    "OrbitCalculatedSpatialDomains": [
+      {
+        "BeginOrbitNumber": 1959,
+        "EndOrbitNumber": 1959
+      }
+    ],
+    "GranuleUR": "GEDI02_B_2019108002012_O01959_01_T03909_02_003_01_V002",
+    "AdditionalAttributes": [
+      {
+        "Name": "identifier_product_doi",
+        "Values": [
+          "10.5067/GEDI/GEDI02_B.002"
+        ]
+      },
+      {
+        "Name": "identifier_product_doi_authority",
+        "Values": [
+          "https://doi.org"
+        ]
+      },
+      {
+        "Name": "Reference_Ground_Track",
+        "Values": [
+          "3909"
+        ]
+      },
+      {
+        "Name": "SEGMENT_NUMBER",
+        "Values": [
+          "01"
+        ]
+      }
+    ],
+    "MeasuredParameters": [
+      {
+        "ParameterName": "Level2B"
+      }
+    ],
+    "SpatialExtent": {
+      "HorizontalSpatialDomain": {
+        "Geometry": {
+          "GPolygons": [
+            {
+              "Boundary": {
+                "Points": [
+                  {
+                    "Longitude": 80.3302671214,
+                    "Latitude": -4.6459691487
+                  },
+                  {
+                    "Longitude": 82.4953794073,
+                    "Latitude": -1.5858244175
+                  },
+                  {
+                    "Longitude": 83.6814118126,
+                    "Latitude": 0.0987901632
+                  },
+                  {
+                    "Longitude": 83.6402279084,
+                    "Latitude": 0.1277767863
+                  },
+                  {
+                    "Longitude": 82.4542052313,
+                    "Latitude": -1.5568021223
+                  },
+                  {
+                    "Longitude": 80.2890335089,
+                    "Latitude": -4.6168623465
+                  },
+                  {
+                    "Longitude": 80.3302671214,
+                    "Latitude": -4.6459691487
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "ProviderDates": [
+      {
+        "Date": "2021-02-22T19:16:30.675Z",
+        "Type": "Insert"
+      },
+      {
+        "Date": "2021-09-16T13:36:07.965Z",
+        "Type": "Update"
+      }
+    ],
+    "CollectionReference": {
+      "ShortName": "GEDI02_B",
+      "Version": "002"
+    },
+    "PGEVersionClass": {
+      "PGEVersion": "003"
+    },
+    "RelatedUrls": [
+      {
+        "URL": "https://data.lpdaac.earthdatacloud.nasa.gov/lp-prod-protected/GEDI02_B.002/GEDI02_B_2019108002012_O01959_01_T03909_02_003_01_V002/GEDI02_B_2019108002012_O01959_01_T03909_02_003_01_V002.h5",
+        "Type": "GET DATA",
+        "Description": "Download GEDI02_B_2019108002012_O01959_01_T03909_02_003_01_V002.h5"
+      },
+      {
+        "URL": "s3://lp-prod-protected/GEDI02_B.002/GEDI02_B_2019108002012_O01959_01_T03909_02_003_01_V002/GEDI02_B_2019108002012_O01959_01_T03909_02_003_01_V002.h5",
+        "Type": "GET DATA VIA DIRECT ACCESS",
+        "Description": "This link provides direct download access via S3 to the granule"
+      },
+      {
+        "URL": "https://doi.org/10.5067/GEDI/GEDI02_B.001 ",
+        "Type": "VIEW RELATED INFORMATION",
+        "Description": "The Landing Page for this file may be accessed directly from this link",
+        "MimeType": "text/html"
+      },
+      {
+        "URL": "https://data.lpdaac.earthdatacloud.nasa.gov/lp-prod-protected/GEDI02_B.002/GEDI02_B_2019108002012_O01959_01_T03909_02_003_01_V002/GEDI02_B_2019108002012_O01959_01_T03909_02_003_01_V002.cmr.xml",
+        "Type": "VIEW RELATED INFORMATION",
+        "Description": "Download GEDI02_B_2019108002012_O01959_01_T03909_02_003_01_V002.cmr.xml"
+      },
+      {
+        "URL": "s3://lp-prod-protected/GEDI02_B.002/GEDI02_B_2019108002012_O01959_01_T03909_02_003_01_V002/GEDI02_B_2019108002012_O01959_01_T03909_02_003_01_V002.cmr.xml",
+        "Type": "VIEW RELATED INFORMATION",
+        "Description": "This link provides direct download access via S3 to the granule"
+      },
+      {
+        "URL": "https://data.lpdaac.earthdatacloud.nasa.gov/s3credentials",
+        "Type": "VIEW RELATED INFORMATION",
+        "Description": "api endpoint to retrieve temporary credentials valid for same-region direct s3 access"
+      },
+      {
+        "URL": "https://data.lpdaac.earthdatacloud.nasa.gov/lp-prod-public/GEDI02_B.002/GEDI02_B_2019108002012_O01959_01_T03909_02_003_01_V002/GEDI02_B_2019108002012_O01959_01_T03909_02_003_01_V002.png",
+        "Type": "GET RELATED VISUALIZATION",
+        "Description": "Download GEDI02_B_2019108002012_O01959_01_T03909_02_003_01_V002.png"
+      },
+      {
+        "URL": "s3://lp-prod-public/GEDI02_B.002/GEDI02_B_2019108002012_O01959_01_T03909_02_003_01_V002/GEDI02_B_2019108002012_O01959_01_T03909_02_003_01_V002.png",
+        "Type": "GET RELATED VISUALIZATION",
+        "Description": "This link provides direct download access via S3 to the granule"
+      }
+    ],
+    "Projects": [
+      {
+        "ShortName": "Not provided",
+        "Campaigns": [
+          "GEDI"
+        ]
+      }
+    ],
+    "DataGranule": {
+      "DayNightFlag": "Unspecified",
+      "Identifiers": [
+        {
+          "Identifier": "GEDI02_B_2019108002012_O01959_01_T03909_02_003_01_V002",
+          "IdentifierType": "ProducerGranuleId"
+        }
+      ],
+      "ProductionDateTime": "2021-02-21T14:45:08.000Z",
+      "ArchiveAndDistributionInformation": [
+        {
+          "Name": "Not provided",
+          "Size": 16.5413,
+          "SizeUnit": "MB"
+        }
+      ]
+    },
+    "Platforms": [
+      {
+        "ShortName": "ISS",
+        "Instruments": [
+          {
+            "ShortName": "GEDI",
+            "ComposedOf": [
+              {
+                "ShortName": "LIDAR"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "MetadataSpecification": {
+      "URL": "https://cdn.earthdata.nasa.gov/umm/granule/v1.6.6",
+      "Name": "UMM-G",
+      "Version": "1.6.6"
+    }
+  }
+}

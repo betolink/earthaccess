@@ -793,14 +793,16 @@ class DataGranule(CustomDict):
             if suffix:
                 return suffix
 
+        # For visualization links, use "browse" as the key when filename matches granule ID
+        # This prevents browse images from being named "data"
+        if url_type == "GET RELATED VISUALIZATION":
+            if base_name == granule_id or not base_name:
+                return "browse"
+            return base_name
+
         # If filename matches granule ID, use "data" as the key
         if base_name == granule_id:
             return "data"
-
-        # For visualization links, extract meaningful name from filename
-        if url_type == "GET RELATED VISUALIZATION":
-            # Use the filename without extension
-            return base_name if base_name else "thumbnail"
 
         # Otherwise, use the base filename as the key
         return base_name if base_name else "data"

@@ -2,8 +2,10 @@ import contextlib
 import json
 import logging
 import os.path
+from pathlib import Path
 
 import earthaccess
+import pytest
 import responses
 from earthaccess.results import DataCollection
 from earthaccess.search import DataCollections
@@ -754,3 +756,208 @@ def test_extract_asset_key_netcdf_with_extension():
     # Key should be the filename without extension, or "data" if it matches granule ID
     asset_key = list(stac["assets"].keys())[0]
     assert ".nc" not in asset_key  # Extension should be removed
+
+
+# =============================================================================
+# Parametrized Tests for Multi-File Collections (Real CMR Data)
+# =============================================================================
+
+
+def load_fixture(fixture_name: str) -> dict:
+    """Load a UMM JSON fixture file."""
+    fixture_path = Path(__file__).parent / "fixtures" / fixture_name
+    with open(fixture_path) as f:
+        return json.load(f)
+
+
+@pytest.mark.parametrize(
+    "fixture_file,expected_keys,description",
+    [
+        pytest.param(
+            "HLSL30_umm.json",
+            [
+                "B01",
+                "B02",
+                "B03",
+                "B04",
+                "B05",
+                "B06",
+                "B07",
+                "B09",
+                "B10",
+                "B11",
+                "Fmask",
+                "VZA",
+                "VAA",
+                "SAA",
+                "SZA",
+            ],
+            "HLS Landsat 30m multi-band COGs",
+            id="HLSL30",
+        ),
+        pytest.param(
+            "HLSS30_umm.json",
+            [
+                "B01",
+                "B02",
+                "B03",
+                "B04",
+                "B05",
+                "B06",
+                "B07",
+                "B08",
+                "B09",
+                "B10",
+                "B11",
+                "B12",
+                "B8A",
+                "Fmask",
+                "VZA",
+                "VAA",
+                "SAA",
+                "SZA",
+            ],
+            "HLS Sentinel 30m multi-band COGs",
+            id="HLSS30",
+        ),
+        pytest.param(
+            "GEDI02_B_umm.json",
+            ["data"],
+            "GEDI L2B single HDF5 file",
+            id="GEDI02_B",
+        ),
+    ],
+)
+def test_multifile_collection_asset_extraction(
+    fixture_file, expected_keys, description
+):
+    """Test STAC asset naming extracts meaningful keys from various collections.
+
+    This test uses real CMR UMM responses to verify that asset keys are
+    properly extracted from multi-file granules.
+    """
+    from earthaccess.results import DataGranule
+
+    # Load fixture data
+    fixture_data = load_fixture(fixture_file)
+
+    # Determine cloud_hosted from provider
+    provider = fixture_data["meta"].get("provider-id", "")
+    cloud_hosted = provider in ("LPCLOUD", "POCLOUD", "ORNL_CLOUD", "GES_DISC")
+
+    # Create DataGranule from fixture
+    granule = DataGranule(fixture_data, cloud_hosted=cloud_hosted)
+
+    # Convert to STAC
+    stac = granule.to_stac()
+
+    # Check that all expected asset keys are present
+    asset_keys = list(stac["assets"].keys())
+    for expected_key in expected_keys:
+        assert expected_key in asset_keys, (
+            f"Expected asset key '{expected_key}' not found. "
+            f"Got: {asset_keys}. Collection: {description}"
+        )
+
+    # For multi-band data, verify no generic "data_N" keys are present
+    if len(expected_keys) > 1:
+        generic_keys = [k for k in asset_keys if k.startswith("data_")]
+        assert len(generic_keys) == 0, (
+            f"Found generic keys {generic_keys} instead of meaningful names. "
+            f"Collection: {description}"
+        )
+
+
+@pytest.mark.parametrize(
+    "fixture_file,description",
+    [
+        pytest.param("HLSL30_umm.json", "HLS Landsat 30m", id="HLSL30"),
+        pytest.param("HLSS30_umm.json", "HLS Sentinel 30m", id="HLSS30"),
+        pytest.param("EMITL2ARFL_umm.json", "EMIT L2A Reflectance", id="EMITL2ARFL"),
+        pytest.param("GEDI02_B_umm.json", "GEDI L2B", id="GEDI02_B"),
+    ],
+)
+def test_s3_and_https_assets_grouped(fixture_file, description):
+    """Test that S3 and HTTPS versions of the same file are grouped together.
+
+    For cloud-hosted data, S3 URLs should be the primary href, with HTTPS
+    as an alternate access method in the same asset.
+    """
+    from earthaccess.results import DataGranule
+
+    # Load fixture data
+    fixture_data = load_fixture(fixture_file)
+
+    # Create DataGranule (cloud_hosted=True for grouping behavior)
+    granule = DataGranule(fixture_data, cloud_hosted=True)
+
+    # Convert to STAC
+    stac = granule.to_stac()
+    assets = stac["assets"]
+
+    # Count how many assets have both S3 and HTTPS versions
+    assets_with_alternate = 0
+    for key, asset in assets.items():
+        href = asset.get("href", "")
+        if href.startswith("s3://"):
+            # S3 is primary, check for HTTPS alternate
+            if "alternate" in asset:
+                alt_href = asset["alternate"].get("href", "")
+                if alt_href.startswith("https://"):
+                    assets_with_alternate += 1
+
+    # For cloud-hosted data with both S3 and HTTPS URLs, we expect grouping
+    # (At minimum, data assets should have alternates)
+    data_assets = [
+        k for k in assets.keys() if not k.startswith("thumbnail") and k != "browse"
+    ]
+    if data_assets:
+        assert assets_with_alternate > 0, (
+            f"Expected S3 assets to have HTTPS alternates. Collection: {description}"
+        )
+
+
+@pytest.mark.parametrize(
+    "fixture_file",
+    [
+        pytest.param("HLSL30_umm.json", id="HLSL30"),
+        pytest.param("HLSS30_umm.json", id="HLSS30"),
+        pytest.param("EMITL2ARFL_umm.json", id="EMITL2ARFL"),
+        pytest.param("GEDI02_B_umm.json", id="GEDI02_B"),
+        pytest.param("GEDI_L4A_umm.json", id="GEDI_L4A"),
+    ],
+)
+def test_stac_item_structure_from_fixtures(fixture_file):
+    """Test that STAC items generated from real CMR data have valid structure."""
+    from earthaccess.results import DataGranule
+
+    # Load fixture data
+    fixture_data = load_fixture(fixture_file)
+
+    # Create DataGranule
+    provider = fixture_data["meta"].get("provider-id", "")
+    cloud_hosted = provider in ("LPCLOUD", "POCLOUD", "ORNL_CLOUD", "GES_DISC")
+    granule = DataGranule(fixture_data, cloud_hosted=cloud_hosted)
+
+    # Convert to STAC
+    stac = granule.to_stac()
+
+    # Verify required STAC Item fields
+    assert "type" in stac
+    assert stac["type"] == "Feature"
+    assert "stac_version" in stac
+    assert "id" in stac
+    assert "geometry" in stac
+    assert "bbox" in stac
+    assert "properties" in stac
+    assert "datetime" in stac["properties"]
+    assert "links" in stac
+    assert "assets" in stac
+
+    # Verify at least one asset exists
+    assert len(stac["assets"]) > 0
+
+    # Verify each asset has required fields
+    for key, asset in stac["assets"].items():
+        assert "href" in asset, f"Asset '{key}' missing 'href'"
+        assert "roles" in asset, f"Asset '{key}' missing 'roles'"
