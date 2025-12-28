@@ -1,15 +1,28 @@
-"""Earthaccess Store package.
+"""Internal store package for NASA Earthdata access.
 
-This package contains modular components for data access operations:
-- file_wrapper: EarthAccessFile class and related utilities
-- download: Download operations for HTTP and S3
-- access: S3 access probing and strategy utilities
-- _store_legacy: Store class (legacy monolith, being refactored)
+This package provides internal components for data access operations.
+Users should NOT import from this package directly - use the top-level
+earthaccess API instead:
+
+    >>> import earthaccess
+    >>> earthaccess.login()
+    >>> granules = earthaccess.search_data(short_name="ATL06", count=5)
+    >>> files = earthaccess.open(granules)  # Stream granules
+    >>> paths = earthaccess.download(granules, "./data")  # Download granules
+
+Internal Modules:
+    store: Store class (internal, used by earthaccess.open/download)
+    file_wrapper: EarthAccessFile class and file handling utilities
+    download: Download operations for HTTP and S3
+    access: S3 access probing and strategy determination
+
+Note:
+    The Store class is an internal implementation detail. It is instantiated
+    automatically by earthaccess when needed. Users should not create Store
+    instances directly.
 """
 
-# Re-export Store from legacy module for backward compatibility
-from ._store_legacy import Store
-
+# Internal Store class (not part of public API, but exported for internal use)
 # Export access utilities
 from .access import (
     AccessMethod,
@@ -38,6 +51,7 @@ from .file_wrapper import (
     open_files,
     optimal_block_size,
 )
+from .store import Store
 
 # Backward compatibility aliases (private names used in legacy code)
 _is_interactive = is_interactive

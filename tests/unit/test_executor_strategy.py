@@ -20,7 +20,7 @@ class TestExecutorAwareSessionStrategy(unittest.TestCase):
         mock_session.request.return_value.cookies = {}
         self.mock_auth.get_session.return_value = mock_session
 
-    @patch("earthaccess.store._store_legacy.requests.Session")
+    @patch("earthaccess.store.store.requests.Session")
     def test_executor_type_detection(self, mock_requests_session):
         """Test that executor types are correctly detected and session strategies selected."""
         # Mock the requests session to avoid actual HTTP calls
@@ -69,7 +69,7 @@ class TestExecutorAwareSessionStrategy(unittest.TestCase):
         self.assertEqual(store._current_executor_type, "threads")
         self.assertTrue(store._use_session_cloning())
 
-    @patch("earthaccess.store._store_legacy.requests.Session")
+    @patch("earthaccess.store.store.requests.Session")
     def test_session_strategy_consistency(self, mock_requests_session):
         """Test that session strategy is consistent across different executor types."""
         mock_requests_session.return_value.request.return_value = Mock(status_code=200)
@@ -94,7 +94,7 @@ class TestExecutorAwareSessionStrategy(unittest.TestCase):
                 f"Executor {executor} should use per-worker authentication",
             )
 
-    @patch("earthaccess.store._store_legacy.requests.Session")
+    @patch("earthaccess.store.store.requests.Session")
     def test_download_method_sets_executor_type(self, mock_requests_session):
         """Test that download methods correctly set executor type."""
         mock_requests_session.return_value.request.return_value = Mock(status_code=200)

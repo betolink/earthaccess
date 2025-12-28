@@ -1,8 +1,19 @@
-"""Legacy Store class - being refactored into modular components.
+"""Internal store module for NASA Earthdata access.
 
-This module contains the Store class which is the main interface for
-downloading and opening granules. It's being incrementally refactored
-to use the new modular components in the store package.
+This module provides the Store class, an internal implementation for downloading
+and streaming granules from NASA's Earthdata cloud (S3) or on-premises (HTTPS)
+archives.
+
+Users should NOT import from this module directly. Use the top-level API:
+
+    >>> import earthaccess
+    >>> earthaccess.login()
+    >>> granules = earthaccess.search_data(short_name="ATL06", count=5)
+    >>> files = earthaccess.open(granules)  # Stream granules
+    >>> paths = earthaccess.download(granules, "./data")  # Download granules
+
+Note:
+    The Store class is instantiated automatically by earthaccess when needed.
 """
 
 import datetime
@@ -44,8 +55,29 @@ from .file_wrapper import (
 logger = logging.getLogger(__name__)
 
 
-class Store(object):
-    """Store class to access granules on-prem or in the cloud."""
+class Store:
+    """Internal data access class for NASA Earthdata granules.
+
+    This class is an internal implementation detail of earthaccess. Users should
+    NOT instantiate this class directly. Instead, use the top-level API functions:
+
+        >>> import earthaccess
+        >>> earthaccess.login()
+        >>> granules = earthaccess.search_data(short_name="ATL06", count=5)
+        >>> files = earthaccess.open(granules)  # Stream granules
+        >>> paths = earthaccess.download(granules, "./data")  # Download granules
+
+    The Store class handles:
+        - Authentication and session management
+        - S3 credential caching with automatic refresh
+        - Direct S3 access when running in AWS us-west-2
+        - HTTPS fallback for out-of-region access
+        - Parallel download/open operations
+
+    Note:
+        This class is instantiated automatically by the earthaccess module.
+        Direct instantiation is not supported as part of the public API.
+    """
 
     def __init__(
         self,
