@@ -1,7 +1,7 @@
 # Earthaccess Next-Gen Implementation TODO
 
 **Branch:** `nextgen`
-**Status:** Phases 1-7 Complete - 292 Tests Passing
+**Status:** Phases 1-7 Complete + Store Package Refactoring - 581 Tests Passing
 **Last Updated:** 2025-12-28
 
 ## Executive Summary
@@ -13,7 +13,7 @@ The implementation is divided into 8 phases spanning ~12-14 weeks, combining the
 **Total Acceptance Criteria:** 63 across all phases
 **Completed Criteria:** 61/63 (97%)
 **Phases Complete:** 7/8 (87%)
-**Tests Passing:** 292/292 (100%)
+**Tests Passing:** 581/581 (100%)
 **Estimated Effort:** 12-14 weeks
 
 ---
@@ -1074,3 +1074,99 @@ The earthaccess next-gen refactoring has successfully completed the first 5 phas
 - **Production-ready** (all 5 phases fully functional)
 
 The foundation is now ready for phases 6-8, which are optional enhancements that build on this stable foundation.
+
+## Store Package Refactoring
+
+**Date:** 2025-12-28
+**Status:** In Progress
+**Objective:** Break down monolithic store.py (1,209 lines) into modular package
+
+### Commits Made
+
+| Commit | Message |
+|--------|---------|
+| b2a053f | refactor(store): Create store package with file_wrapper module |
+| bb64533 | feat(store): Add download module with TDD tests |
+| 1ac74c9 | refactor(store): Remove duplicate code from _store_legacy.py |
+| d4dadae | feat(store): Add access module with S3 probing utilities |
+
+### Store Package Structure
+
+```
+earthaccess/store/                    # Total: ~1,800 lines
+├── __init__.py              (75 lines)  - Package exports with backward compat
+├── file_wrapper.py         (226 lines)  - EarthAccessFile, helpers
+├── download.py             (285 lines)  - Download operations
+├── access.py               (185 lines)  - S3 probing utilities
+└── _store_legacy.py      (1,045 lines)  - Store class (reduced from 1,209)
+```
+
+### Modules Created
+
+#### 1. file_wrapper.py (Committed)
+Extracted from Store:
+- `EarthAccessFile` - Proxy class wrapping fsspec files with granule metadata
+- `make_instance` - Pickle deserialization function
+- `optimal_block_size` - Block size calculation (4-16MB based on file size)
+- `is_interactive` - Detect Jupyter/REPL sessions
+- `open_files` - Parallel file opening with executor
+- `get_url_granule_mapping` - URL to granule mapping
+
+#### 2. download.py (Committed)
+New download operations:
+- `download_file` - HTTP download with retry, OpenDAP support
+- `download_cloud_file` - S3 download with TargetLocation support
+- `download_granules` - Parallel batch HTTP download
+- `download_cloud_granules` - Parallel batch S3 download
+- `clone_session` - Thread-safe session cloning
+- `DEFAULT_CHUNK_SIZE` - 1MB constant
+
+#### 3. access.py (Committed)
+S3 access probing utilities:
+- `AccessMethod` - Enum (DIRECT, EXTERNAL)
+- `probe_s3_access` - Test S3 connectivity with small read
+- `determine_access_method` - Choose best access for granule
+- `extract_s3_credentials_endpoint` - Parse RelatedUrls for S3 creds
+- `get_data_links` - Collect URLs from granules
+
+### New Tests
+
+| Module | Tests | Status |
+|--------|-------|--------|
+| test_store_file_wrapper.py | 19 | ✅ Committed |
+| test_store_download.py | 14 | ✅ Committed |
+| test_store_access.py | 15 | ✅ Committed |
+| **Total New Store Tests** | **48** | |
+
+### Code Reduction Progress
+
+- Original `store.py`: **1,209 lines**
+- Current `_store_legacy.py`: **1,045 lines** (-164 lines extracted)
+- New modular code: **~700 lines** across 4 modules
+- Better organized, testable, and maintainable
+
+### Design Principles Applied
+
+1. **TDD**: Tests written before/alongside implementation
+2. **SOLID**: Single responsibility per module
+3. **Backward Compatibility**: Original API signatures unchanged
+4. **Dependency Injection**: FileSystemFactory pattern ready
+5. **Docstrings**: All public functions documented with examples
+
+### What Remains in _store_legacy.py
+
+The Store class with methods tightly coupled to instance state:
+- `__init__`, session management
+- `get_s3_filesystem`, `get_fsspec_session`, `get_requests_session`
+- `open()` / `_open()` - dispatches to _open_granules, _open_urls
+- `get()` / `_get()` - dispatches to _get_granules, _get_urls
+- S3 credentials caching, executor type tracking
+- `_download_file`, `_download_onprem_granules`, `_open_urls_https`
+
+These could be further refactored but are more complex due to state dependencies.
+
+### Total Test Summary
+
+**All 581 unit tests pass:**
+- Original tests: 533
+- New store package tests: 48 (file_wrapper: 19, download: 14, access: 15)
