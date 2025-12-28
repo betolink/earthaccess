@@ -1,3 +1,47 @@
+"""earthaccess: A Python library for NASA Earthdata.
+
+earthaccess simplifies the discovery and access of NASA Earth science data
+from the cloud and on-premises archives.
+
+Quick Start:
+    ```python
+    import earthaccess
+
+    # Authenticate with NASA Earthdata Login
+    earthaccess.login()
+
+    # Search for data
+    granules = earthaccess.search_data(
+        short_name="ATL06",
+        temporal=("2023-01", "2023-02"),
+        bounding_box=(-180, -90, 180, 90),
+    )
+
+    # Download data
+    files = earthaccess.download(granules, "./data")
+
+    # Or stream data directly (no download)
+    files = earthaccess.open(granules)
+    ```
+
+Key Features:
+    - **Authentication**: Seamless login with NASA Earthdata Login
+    - **Search**: Find datasets (collections) and data files (granules)
+    - **Access**: Download or stream data from cloud or on-premises archives
+    - **Cloud-native**: Direct S3 access when running in AWS us-west-2
+    - **Virtual datasets**: Create virtual Zarr datasets using VirtualiZarr
+
+Main Functions:
+    - `login()`: Authenticate with Earthdata Login
+    - `search_datasets()`: Search for collections/datasets
+    - `search_data()`: Search for granules/files
+    - `download()`: Download granules to local or cloud storage
+    - `open()`: Stream granules as file-like objects
+    - `open_virtual_dataset()`: Create virtual Zarr datasets
+
+For more information, see https://earthaccess.readthedocs.io/
+"""
+
 import logging
 import threading
 from importlib.metadata import version

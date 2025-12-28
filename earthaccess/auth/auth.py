@@ -117,7 +117,44 @@ SessionWithHeaderRedirection = _create_earthdata_session
 
 
 class Auth(object):
-    """Authentication class for operations that require Earthdata login (EDL)."""
+    """Authentication class for operations that require Earthdata login (EDL).
+
+    This class handles authentication with NASA's Earthdata Login service,
+    providing access to restricted datasets and cloud resources.
+
+    Note:
+        Users should typically use `earthaccess.login()` rather than
+        instantiating this class directly.
+
+    Attributes:
+        authenticated (bool): Whether the user is currently authenticated.
+        token (dict): The current EDL token, if authenticated.
+        system (System): The Earthdata system (PROD or UAT).
+
+    Examples:
+        Using the top-level API (recommended):
+        ```python
+        import earthaccess
+
+        auth = earthaccess.login()
+        if auth.authenticated:
+            print("Successfully logged in!")
+        ```
+
+        Getting S3 credentials for direct data access:
+        ```python
+        auth = earthaccess.login()
+        creds = auth.get_s3_credentials(daac="PODAAC")
+        print(creds["accessKeyId"])
+        ```
+
+        Getting an authenticated requests session:
+        ```python
+        auth = earthaccess.login()
+        session = auth.get_session()
+        response = session.get("https://some-earthdata-url.nasa.gov/data")
+        ```
+    """
 
     def __init__(self) -> None:
         # Maybe all these predefined URLs should be in a constants.py file
@@ -208,7 +245,30 @@ class Auth(object):
             endpoint: Getting the credentials directly from the S3Credentials URL.
 
         Returns:
-            A Python dictionary with the temporary AWS S3 credentials.
+            A Python dictionary with the temporary AWS S3 credentials containing:
+            - accessKeyId: AWS access key ID
+            - secretAccessKey: AWS secret access key
+            - sessionToken: AWS session token
+            - expiration: Token expiration timestamp
+
+        Examples:
+            Get credentials by DAAC:
+            ```python
+            auth = earthaccess.login()
+            creds = auth.get_s3_credentials(daac="NSIDC")
+            ```
+
+            Get credentials by provider:
+            ```python
+            creds = auth.get_s3_credentials(provider="POCLOUD")
+            ```
+
+            Get credentials from a specific endpoint:
+            ```python
+            creds = auth.get_s3_credentials(
+                endpoint="https://data.lpdaac.earthdatacloud.nasa.gov/s3credentials"
+            )
+            ```
         """
         if self.authenticated:
             session = _create_earthdata_session(
@@ -263,7 +323,20 @@ class Auth(object):
             bearer_token: whether to include bearer token
 
         Returns:
-            class Session instance with Auth and bearer token headers
+            A requests Session instance with Auth and bearer token headers.
+
+        Examples:
+            Get an authenticated session for custom requests:
+            ```python
+            auth = earthaccess.login()
+            session = auth.get_session()
+            response = session.get("https://cmr.earthdata.nasa.gov/search/collections")
+            ```
+
+            Get a session without bearer token (uses basic auth on redirects):
+            ```python
+            session = auth.get_session(bearer_token=False)
+            ```
         """
         user, pwd = getattr(self, "username", None), getattr(self, "password", None)
         auth = (user, pwd) if user and pwd else None

@@ -412,6 +412,31 @@ def login(
     Raises:
         LoginAttemptFailure: If the NASA Earthdata Login service rejects
             credentials.
+
+    Examples:
+        Login using the default strategy (tries environment, netrc, then interactive):
+        ```python
+        import earthaccess
+
+        auth = earthaccess.login()
+        print(auth.authenticated)  # True if login succeeded
+        ```
+
+        Login using environment variables:
+        ```python
+        # Set EARTHDATA_USERNAME and EARTHDATA_PASSWORD, or EARTHDATA_TOKEN
+        auth = earthaccess.login(strategy="environment")
+        ```
+
+        Login interactively and save credentials to .netrc:
+        ```python
+        auth = earthaccess.login(strategy="interactive", persist=True)
+        ```
+
+        Login to the UAT (User Acceptance Testing) environment:
+        ```python
+        auth = earthaccess.login(system=earthaccess.UAT)
+        ```
     """
     # Set the underlying Auth object's earthdata system,
     # before triggering the getattr function for `__auth__`.
@@ -459,7 +484,7 @@ def download(
     max_workers: Optional[int] = None,
     parallel: Union[str, bool, None] = None,
 ) -> List[Path]:
-    """Retrieves data granules from a remote storage system. Provide the optional `path` argument to prevent repeated downloads.
+    """Retrieves data granules from a remote storage system.
 
        * If we run this in the cloud, we will be using S3 to move data to `path`.
        * If we run it outside AWS (us-west-2 region) and the dataset is cloud hosted,
@@ -480,12 +505,44 @@ def download(
         show_progress: whether or not to display a progress bar. If not specified, defaults to `True` for interactive sessions
             (i.e., in a notebook or a python REPL session), otherwise `False`.
         max_workers: Maximum number of worker threads for parallel processing. If not specified, defaults to the value of `threads`.
+        parallel: Executor type for parallel downloads. Options: "threads" (default), "serial", "dask", "lithops".
 
     Returns:
         List of downloaded files
 
     Raises:
         Exception: A file download failed.
+
+    Examples:
+        Download granules to a local directory:
+        ```python
+        import earthaccess
+
+        earthaccess.login()
+        granules = earthaccess.search_data(short_name="ATL06", count=3)
+        files = earthaccess.download(granules, "./data")
+        print(files)  # [PosixPath('data/ATL06_file1.h5'), ...]
+        ```
+
+        Download to a cloud storage location:
+        ```python
+        from earthaccess import TargetLocation
+
+        files = earthaccess.download(
+            granules,
+            TargetLocation("s3://my-bucket/data", storage_options={"profile": "my-aws-profile"})
+        )
+        ```
+
+        Download a single granule:
+        ```python
+        files = earthaccess.download(granules[0], "./data")
+        ```
+
+        Download with custom parallelization:
+        ```python
+        files = earthaccess.download(granules, "./data", threads=16)
+        ```
     """
     provider = _normalize_location(str(provider))
 
@@ -539,14 +596,46 @@ def open(
         granules: a list of granule instances **or** list of URLs, e.g. `s3://some-granule`.
             If a list of URLs is passed, we need to specify the data provider.
         provider: e.g. POCLOUD, NSIDC_CPRD, etc.
+        credentials_endpoint: S3 credentials endpoint for obtaining temporary AWS credentials.
         show_progress: whether or not to display a progress bar. If not specified, defaults to `True` for interactive sessions
             (i.e., in a notebook or a python REPL session), otherwise `False`.
         max_workers: Maximum number of worker threads for parallel processing. If not specified, defaults to 8.
         open_kwargs: Additional keyword arguments to pass to `fsspec.open`, such as `cache_type` and `block_size`.
             Defaults to using `blockcache` with a block size determined by the file size (4 to 16MB).
+        parallel: Executor type for parallel file opening. Options: "threads" (default), "serial", "dask", "lithops".
 
     Returns:
         A list of "file pointers" to remote (i.e. s3 or https) files.
+
+    Examples:
+        Open granules and load with xarray:
+        ```python
+        import earthaccess
+        import xarray as xr
+
+        earthaccess.login()
+        granules = earthaccess.search_data(short_name="MUR-JPL-L4-GLOB-v4.1", count=3)
+        files = earthaccess.open(granules)
+
+        # Open with xarray
+        ds = xr.open_mfdataset(files, engine="h5netcdf")
+        ```
+
+        Open granules for streaming access:
+        ```python
+        files = earthaccess.open(granules)
+        for f in files:
+            data = f.read(1024)  # Read first 1KB
+            print(f"File size: {f.size} bytes")
+        ```
+
+        Open with custom fsspec options:
+        ```python
+        files = earthaccess.open(
+            granules,
+            open_kwargs={"cache_type": "all", "block_size": 8 * 1024 * 1024}
+        )
+        ```
     """
     store = earthaccess.__store__
     if store is None:
@@ -569,8 +658,9 @@ def get_s3_credentials(
     provider: Optional[str] = None,
     results: Optional[List[DataGranule]] = None,
 ) -> Dict[str, Any]:
-    """Returns temporary (1 hour) credentials for direct access to NASA S3 buckets. We can
-    use the daac name, the provider, or a list of results from earthaccess.search_data().
+    """Returns temporary (1 hour) credentials for direct access to NASA S3 buckets.
+
+    We can use the daac name, the provider, or a list of results from earthaccess.search_data().
     If we use results, earthaccess will use the metadata on the response to get the credentials,
     which is useful for missions that do not use the same endpoint as their DAACs, e.g. SWOT.
 
@@ -580,7 +670,40 @@ def get_s3_credentials(
         results: List of results from search_data()
 
     Returns:
-        a dictionary with S3 credentials for the DAAC or provider
+        A dictionary with S3 credentials for the DAAC or provider containing:
+        - accessKeyId: AWS access key
+        - secretAccessKey: AWS secret key
+        - sessionToken: AWS session token
+        - expiration: Credential expiration time
+
+    Examples:
+        Get credentials by DAAC:
+        ```python
+        import earthaccess
+
+        earthaccess.login()
+        creds = earthaccess.get_s3_credentials(daac="PODAAC")
+        print(creds["accessKeyId"])
+        ```
+
+        Get credentials from search results (recommended for dataset-specific endpoints):
+        ```python
+        granules = earthaccess.search_data(short_name="SWOT_L2_LR_SSH_Expert_2.0", count=1)
+        creds = earthaccess.get_s3_credentials(results=granules)
+        ```
+
+        Use credentials with boto3:
+        ```python
+        import boto3
+
+        creds = earthaccess.get_s3_credentials(daac="NSIDC")
+        s3 = boto3.client(
+            "s3",
+            aws_access_key_id=creds["accessKeyId"],
+            aws_secret_access_key=creds["secretAccessKey"],
+            aws_session_token=creds["sessionToken"],
+        )
+        ```
     """
     daac = _normalize_location(daac)
     provider = _normalize_location(provider)
@@ -601,8 +724,39 @@ def get_s3_credentials(
 def collection_query() -> CollectionQuery:
     """Returns a query builder instance for NASA collections (datasets).
 
+    This function returns a CMR-based query builder for searching NASA
+    data collections. For the new earthaccess-native query builders with
+    additional features like validation and STAC conversion, use
+    `earthaccess.CollectionQuery` directly.
+
     Returns:
-        a query builder instance for data collections.
+        A query builder instance for data collections.
+
+    Examples:
+        Search for cloud-hosted collections:
+        ```python
+        import earthaccess
+
+        earthaccess.login()
+        query = earthaccess.collection_query()
+        collections = query.keyword("temperature").cloud_hosted(True).get(10)
+        for c in collections:
+            print(c["umm"]["ShortName"])
+        ```
+
+        Search by DAAC:
+        ```python
+        query = earthaccess.collection_query()
+        collections = query.daac("PODAAC").get(5)
+        ```
+
+        Using the new query builders (recommended):
+        ```python
+        from earthaccess import CollectionQuery
+
+        query = CollectionQuery().keyword("temperature").cloud_hosted(True)
+        results = earthaccess.search_datasets(query=query)
+        ```
     """
     auth = earthaccess.__auth__
     if auth and isinstance(auth, Auth) and auth.authenticated:
@@ -615,8 +769,39 @@ def collection_query() -> CollectionQuery:
 def granule_query() -> GranuleQuery:
     """Returns a query builder instance for data granules.
 
+    This function returns a CMR-based query builder for searching NASA
+    data granules. For the new earthaccess-native query builders with
+    additional features like validation and STAC conversion, use
+    `earthaccess.GranuleQuery` directly.
+
     Returns:
-        a query builder instance for data granules.
+        A query builder instance for data granules.
+
+    Examples:
+        Search for granules by short name:
+        ```python
+        import earthaccess
+
+        earthaccess.login()
+        query = earthaccess.granule_query()
+        granules = query.short_name("ATL06").temporal("2023-01", "2023-02").get(10)
+        for g in granules:
+            print(g["umm"]["GranuleUR"])
+        ```
+
+        Search with spatial constraints:
+        ```python
+        query = earthaccess.granule_query()
+        granules = query.short_name("MUR-JPL-L4-GLOB-v4.1").bounding_box(-180, -90, 180, 90).get(5)
+        ```
+
+        Using the new query builders (recommended):
+        ```python
+        from earthaccess import GranuleQuery
+
+        query = GranuleQuery().short_name("ATL06").temporal("2023-01", "2023-02")
+        results = earthaccess.search_data(query=query)
+        ```
     """
     auth = earthaccess.__auth__
     if auth and isinstance(auth, Auth) and auth.authenticated:
@@ -708,6 +893,9 @@ def get_s3_filesystem(
 ) -> s3fs.S3FileSystem:
     """Return an `s3fs.S3FileSystem` for direct access when running within the AWS us-west-2 region.
 
+    This function returns an authenticated S3 filesystem that can be used to read
+    NASA Earthdata files directly from S3 when running in AWS us-west-2 region.
+
     Parameters:
         daac: Any DAAC short name e.g. NSIDC, GES_DISC
         provider: Each DAAC can have a cloud provider.
@@ -719,6 +907,36 @@ def get_s3_filesystem(
 
     Returns:
         An authenticated s3fs session valid for 1 hour.
+
+    Examples:
+        Get filesystem by DAAC:
+        ```python
+        import earthaccess
+
+        earthaccess.login()
+        fs = earthaccess.get_s3_filesystem(daac="PODAAC")
+        files = fs.ls("podaac-ops-cumulus-protected/")
+        ```
+
+        Get filesystem from search results (recommended):
+        ```python
+        granules = earthaccess.search_data(short_name="MUR-JPL-L4-GLOB-v4.1", count=1)
+        fs = earthaccess.get_s3_filesystem(results=granules)
+
+        # Read data directly
+        with fs.open(granules[0].data_links(access="direct")[0]) as f:
+            data = f.read(1024)
+        ```
+
+        Use with xarray for direct S3 access:
+        ```python
+        import xarray as xr
+
+        fs = earthaccess.get_s3_filesystem(results=granules)
+        s3_urls = [g.data_links(access="direct")[0] for g in granules]
+        files = [fs.open(url) for url in s3_urls]
+        ds = xr.open_mfdataset(files, engine="h5netcdf")
+        ```
     """
     daac = _normalize_location(daac)
     provider = _normalize_location(provider)
@@ -749,8 +967,29 @@ def get_s3_filesystem(
 def get_edl_token() -> str:
     """Returns the current token used for EDL.
 
+    This token can be used for authenticated requests to NASA Earthdata services.
+
     Returns:
-        EDL token
+        EDL token (access_token string)
+
+    Raises:
+        RuntimeError: If not authenticated or token is not available.
+
+    Examples:
+        Get the token for custom API requests:
+        ```python
+        import earthaccess
+        import requests
+
+        earthaccess.login()
+        token = earthaccess.get_edl_token()
+
+        # Use token in custom requests
+        response = requests.get(
+            "https://cmr.earthdata.nasa.gov/search/collections",
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        ```
     """
     auth = earthaccess.__auth__
     if auth is None:
@@ -766,6 +1005,39 @@ def get_edl_token() -> str:
 
 
 def auth_environ() -> Dict[str, str]:
+    """Returns a dictionary with EDL credentials for environment variable export.
+
+    This is useful for passing credentials to subprocess calls or for setting
+    environment variables that other tools may use for authentication.
+
+    Returns:
+        A dictionary containing EARTHDATA_USERNAME and EARTHDATA_PASSWORD.
+
+    Raises:
+        RuntimeError: If not authenticated with earthaccess.login() first.
+
+    Examples:
+        Set environment variables for subprocess:
+        ```python
+        import os
+        import earthaccess
+
+        earthaccess.login()
+        env = earthaccess.auth_environ()
+        os.environ.update(env)
+        # Now subprocess calls can use EARTHDATA_USERNAME and EARTHDATA_PASSWORD
+        ```
+
+        Pass to subprocess:
+        ```python
+        import subprocess
+
+        result = subprocess.run(
+            ["some_tool", "--arg"],
+            env={**os.environ, **earthaccess.auth_environ()}
+        )
+        ```
+    """
     auth = earthaccess.__auth__
     if auth is None:
         raise RuntimeError(
