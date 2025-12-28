@@ -1,7 +1,7 @@
 # Earthaccess Next-Gen Implementation TODO
 
 **Branch:** `nextgen`
-**Status:** Phases 1-7 Complete + Store Package Refactoring + Geometry File Support - 617 Tests Passing
+**Status:** Phases 1-7 Complete + Package Reorganization Complete - 625 Tests Passing
 **Last Updated:** 2025-12-28
 
 ## Executive Summary
@@ -13,7 +13,7 @@ The implementation is divided into 8 phases spanning ~12-14 weeks, combining the
 **Total Acceptance Criteria:** 63 across all phases
 **Completed Criteria:** 63/63 (100%)
 **Phases Complete:** 7/8 (87%)
-**Tests Passing:** 617/617 (100%)
+**Tests Passing:** 625/625 (100%)
 **Estimated Effort:** 12-14 weeks
 
 ---
@@ -660,7 +660,7 @@ Enable cloud-native virtual dataset access using VirtualiZarr, allowing users to
 | 7 | ✅ Complete | 2025-12-28 | 2025-12-28 | 24 | SearchResults + Results |
 | 8 | Not Started | - | - | - | VirtualiZarr |
 
-**TOTAL: 292 tests passing across Phases 1-7**
+**TOTAL: 625 tests passing across Phases 1-7**
 
 ---
 
@@ -1167,6 +1167,133 @@ These could be further refactored but are more complex due to state dependencies
 
 ### Total Test Summary
 
-**All 617 unit tests pass:**
-- Original tests: 533
+**All 625 unit tests pass:**
+- Original tests: 569
 - New store package tests: 48 (file_wrapper: 19, download: 14, access: 15)
+- Additional tests from reorganization: 8
+
+## Progress Update - Package Reorganization Complete
+
+**Date:** 2025-12-28
+**Commit:** 201bb4d
+**Status:** Package Reorganization Complete
+**Test Coverage:** 625 tests passing
+
+### What Was Accomplished
+
+Major package reorganization to create a clean, modular structure with only `api.py` and `__init__.py` at the top level:
+
+- ✅ **Moved query/ → search/query/** - Query builders now under search package
+- ✅ **Removed credentials_store/** - Consolidated into auth/ and store/
+- ✅ **Removed 15 top-level shim files** - auth.py, daac.py, parallel.py, streaming.py, etc.
+- ✅ **Created store/distributed.py** - Pickleable worker contexts for distributed execution
+- ✅ **Updated all imports** - Internal and test imports use new paths
+- ✅ **625 tests passing** - All unit tests pass
+
+### Final Package Structure
+
+```
+earthaccess/
+├── __init__.py              # Main exports
+├── api.py                   # Public API functions
+├── py.typed                 # PEP 561 marker
+├── auth/                    # Authentication package
+│   ├── __init__.py
+│   ├── auth.py              # Auth class
+│   ├── credentials.py       # S3Credentials, HTTPHeaders, AuthContext, CredentialManager
+│   └── system.py            # PROD, UAT, System
+├── exceptions/              # Exception classes
+│   └── __init__.py
+├── formatting/              # HTML formatters
+│   ├── __init__.py
+│   └── css/
+├── search/                  # Search package (consolidated)
+│   ├── __init__.py          # Exports query + result classes
+│   ├── queries.py           # DataCollections, DataGranules (cmr-based)
+│   ├── results.py           # DataCollection, DataGranule, SearchResults
+│   ├── services.py          # DataServices
+│   └── query/               # Query builders (earthaccess-native)
+│       ├── __init__.py
+│       ├── base.py
+│       ├── collection_query.py
+│       ├── granule_query.py
+│       ├── geometry.py
+│       ├── stac_query.py
+│       ├── types.py
+│       └── validation.py
+├── stac/                    # STAC converters
+│   ├── __init__.py
+│   └── converters.py
+├── store/                   # Storage package
+│   ├── __init__.py
+│   ├── access.py            # S3 probing utilities
+│   ├── assets.py            # Asset, AssetFilter
+│   ├── daac.py              # DAAC configuration
+│   ├── distributed.py       # DistributedWorkerContext, DistributedStreamingIterator
+│   ├── download.py          # Download operations
+│   ├── file_wrapper.py      # EarthAccessFile
+│   ├── filesystems.py       # FileSystemFactory
+│   ├── parallel.py          # Executor abstraction
+│   ├── store.py             # Store class
+│   ├── streaming.py         # Streaming utilities
+│   └── target.py            # TargetFilesystem
+├── utils/                   # Utility functions
+│   ├── _search.py
+│   └── _validation.py
+└── virtual/                 # Virtual datasets
+    ├── __init__.py
+    ├── dmrpp.py             # DMR++ parsing
+    └── kerchunk.py          # Kerchunk integration
+```
+
+### Key Changes
+
+1. **Import Path Changes**
+   - `from earthaccess.query import X` → `from earthaccess.search import X`
+   - `from earthaccess.credentials_store import X` → `from earthaccess.auth import X` or `from earthaccess.store import X`
+   - Internal imports use new paths (e.g., `earthaccess.store.daac`)
+
+2. **CMR Imports Renamed**
+   - `CollectionQuery` → `CmrCollectionQuery` (for cmr-based queries)
+   - `GranuleQuery` → `CmrGranuleQuery` (for cmr-based queries)
+   - `ServiceQuery` → `CmrServiceQuery`
+   - New earthaccess-native `GranuleQuery` and `CollectionQuery` in `search.query`
+
+3. **Public API Unchanged**
+   - `earthaccess.login()`, `earthaccess.search_data()`, etc. all work unchanged
+   - All exports from `earthaccess/__init__.py` preserved
+
+### Files Removed (Top-Level Shims)
+
+- `earthaccess/auth.py` → `earthaccess/auth/auth.py`
+- `earthaccess/system.py` → `earthaccess/auth/system.py`
+- `earthaccess/daac.py` → `earthaccess/store/daac.py`
+- `earthaccess/assets.py` → `earthaccess/store/assets.py`
+- `earthaccess/parallel.py` → `earthaccess/store/parallel.py`
+- `earthaccess/streaming.py` → `earthaccess/store/streaming.py`
+- `earthaccess/target_filesystem.py` → `earthaccess/store/target.py`
+- `earthaccess/formatters.py` → `earthaccess/formatting/__init__.py`
+- `earthaccess/exceptions.py` → `earthaccess/exceptions/__init__.py`
+- `earthaccess/dmrpp_zarr.py` → `earthaccess/virtual/dmrpp.py`
+- `earthaccess/kerchunk.py` → `earthaccess/virtual/kerchunk.py`
+- `earthaccess/results.py` → `earthaccess/search/results.py`
+- `earthaccess/search.py` → `earthaccess/search/queries.py`
+- `earthaccess/services.py` → `earthaccess/search/services.py`
+- `earthaccess/widgets.py` → Removed (unused)
+- `earthaccess/credentials_store/` → Consolidated into auth/ and store/
+
+### CHANGELOG Updated
+
+Added breaking change documentation with migration notes.
+
+### What's Next
+
+1. **Phase 8: VirtualiZarr Integration** (optional/low priority)
+   - `open_virtual_mfdataset()` with DataGranules and SearchResults
+   - Icechunk persistence
+   - Parallel DMR++ parsing
+
+2. **Future Work**
+   - Remove `python-cmr` dependency (replace cmr-based queries with earthaccess-native)
+   - Consider renaming `search/queries.py` to `search/executors.py`
+   - Documentation updates
