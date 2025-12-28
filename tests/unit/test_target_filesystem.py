@@ -4,7 +4,7 @@ import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from earthaccess.target_filesystem import (
+from earthaccess.store.target import (
     FsspecFilesystem,
     LocalFilesystem,
     TargetFilesystem,

@@ -21,11 +21,17 @@ from .api import (
     search_services,
     status,
 )
-from .assets import Asset, AssetFilter
 from .auth import Auth
-from .dmrpp_zarr import open_virtual_dataset, open_virtual_mfdataset
-from .kerchunk import consolidate_metadata
-from .query import (
+from .auth.system import PROD, UAT
+from .search import (
+    DataCollection,
+    DataCollections,
+    DataGranule,
+    DataGranules,
+    DataServices,
+    SearchResults,
+)
+from .search.query import (
     BoundingBox,
     CollectionQuery,
     DateRange,
@@ -33,12 +39,10 @@ from .query import (
     Point,
     Polygon,
 )
-from .results import SearchResults
-from .search import DataCollection, DataCollections, DataGranule, DataGranules
-from .services import DataServices
 from .store import Store
-from .system import PROD, UAT
-from .target_filesystem import TargetLocation
+from .store.assets import Asset, AssetFilter
+from .store.target import TargetLocation
+from .virtual import consolidate_metadata, open_virtual_dataset, open_virtual_mfdataset
 
 logger = logging.getLogger(__name__)
 

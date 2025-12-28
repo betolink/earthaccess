@@ -6,8 +6,8 @@ from unittest.mock import patch
 import earthaccess
 import pytest
 import responses
+from earthaccess.auth import PROD, UAT
 from earthaccess.exceptions import ServiceOutage
-from earthaccess.system import PROD, UAT
 
 logger = logging.getLogger(__name__)
 

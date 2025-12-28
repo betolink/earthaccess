@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 if TYPE_CHECKING:
-    from earthaccess.results import DataCollection, DataGranule
+    from earthaccess.search import DataCollection, DataGranule
 
 
 # =============================================================================
@@ -233,7 +233,7 @@ def stac_item_to_data_granule(
         >>> print(granule.data_links())
     """
     # Import here to avoid circular imports
-    from earthaccess.results import DataGranule
+    from earthaccess.search import DataGranule
 
     # Extract temporal information
     props = stac_item.get("properties", {})
@@ -302,7 +302,7 @@ def stac_collection_to_data_collection(
         >>> print(collection.short_name())
     """
     # Import here to avoid circular imports
-    from earthaccess.results import DataCollection
+    from earthaccess.search import DataCollection
 
     # Extract extent information
     extent = stac_collection.get("extent", {})

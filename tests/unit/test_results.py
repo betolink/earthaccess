@@ -15,8 +15,7 @@ from pathlib import Path
 import earthaccess
 import pytest
 import responses
-from earthaccess.results import DataCollection
-from earthaccess.search import DataCollections
+from earthaccess.search import DataCollection, DataCollections
 
 logging.basicConfig()
 logging.getLogger("vcr").setLevel(logging.ERROR)
@@ -336,7 +335,7 @@ def test_collection_to_stac():
 
 def test_granule_to_dict():
     """Test that DataGranule.to_dict returns a plain dictionary."""
-    from earthaccess.results import DataGranule
+    from earthaccess.search import DataGranule
 
     granule = DataGranule(
         {
@@ -383,7 +382,7 @@ def test_granule_to_dict():
 
 def test_granule_to_stac():
     """Test that DataGranule.to_stac returns a valid STAC Item structure."""
-    from earthaccess.results import DataGranule
+    from earthaccess.search import DataGranule
 
     granule = DataGranule(
         {
@@ -461,7 +460,7 @@ def test_granule_to_stac():
 
 def test_granule_to_stac_with_s3_links():
     """Test STAC conversion with S3 direct access links."""
-    from earthaccess.results import DataGranule
+    from earthaccess.search import DataGranule
 
     granule = DataGranule(
         {
@@ -520,7 +519,7 @@ def test_collection_to_stac_minimal():
 
 def test_extract_asset_key_from_band_filename():
     """Test extracting asset key from HLS-style band filenames."""
-    from earthaccess.results import DataGranule
+    from earthaccess.search import DataGranule
 
     granule = DataGranule(
         {
@@ -570,7 +569,7 @@ def test_extract_asset_key_from_band_filename():
 
 def test_extract_asset_key_s3_and_https_grouping():
     """Test that S3 and HTTPS versions of the same file are grouped together."""
-    from earthaccess.results import DataGranule
+    from earthaccess.search import DataGranule
 
     granule = DataGranule(
         {
@@ -611,7 +610,7 @@ def test_extract_asset_key_s3_and_https_grouping():
 
 def test_extract_asset_key_thumbnail():
     """Test that thumbnail/browse assets get proper naming."""
-    from earthaccess.results import DataGranule
+    from earthaccess.search import DataGranule
 
     granule = DataGranule(
         {
@@ -647,7 +646,7 @@ def test_extract_asset_key_thumbnail():
 
 def test_extract_asset_key_single_data_file():
     """Test that single data files use the filename as key."""
-    from earthaccess.results import DataGranule
+    from earthaccess.search import DataGranule
 
     granule = DataGranule(
         {
@@ -679,7 +678,7 @@ def test_extract_asset_key_single_data_file():
 
 def test_extract_asset_key_netcdf_with_extension():
     """Test that file extensions are removed from asset keys."""
-    from earthaccess.results import DataGranule
+    from earthaccess.search import DataGranule
 
     granule = DataGranule(
         {
@@ -784,7 +783,7 @@ def test_multifile_collection_asset_extraction(
     This test uses real CMR UMM responses to verify that asset keys are
     properly extracted from multi-file granules.
     """
-    from earthaccess.results import DataGranule
+    from earthaccess.search import DataGranule
 
     # Load fixture data
     fixture_data = load_fixture(fixture_file)
@@ -831,7 +830,7 @@ def test_s3_and_https_assets_grouped(fixture_file, description):
     For cloud-hosted data, S3 URLs should be the primary href, with HTTPS
     as an alternate access method in the same asset.
     """
-    from earthaccess.results import DataGranule
+    from earthaccess.search import DataGranule
 
     # Load fixture data
     fixture_data = load_fixture(fixture_file)
@@ -877,7 +876,7 @@ def test_s3_and_https_assets_grouped(fixture_file, description):
 )
 def test_stac_item_structure_from_fixtures(fixture_file):
     """Test that STAC items generated from real CMR data have valid structure."""
-    from earthaccess.results import DataGranule
+    from earthaccess.search import DataGranule
 
     # Load fixture data
     fixture_data = load_fixture(fixture_file)

@@ -4,8 +4,8 @@ These tests verify that Asset and AssetFilter work correctly with
 real DataGranule instances and demonstrate common use cases.
 """
 
-from earthaccess.assets import Asset, AssetFilter, filter_assets
-from earthaccess.results import DataGranule
+from earthaccess.search import DataGranule
+from earthaccess.store.assets import Asset, AssetFilter, filter_assets
 
 
 class TestDataGranuleAssets:

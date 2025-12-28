@@ -38,12 +38,8 @@ from tenacity import (
 from typing_extensions import deprecated
 
 from ..auth import SessionWithHeaderRedirection
-from ..credentials_store import DefaultFileSystemFactory, FileSystemFactory
-from ..daac import DAAC_TEST_URLS, find_provider
-from ..parallel import get_executor
-from ..results import DataGranule
-from ..search import DataCollections
-from ..target_filesystem import TargetLocation
+from ..search import DataCollections, DataGranule
+from .daac import DAAC_TEST_URLS, find_provider
 
 # Import from new modular components
 from .file_wrapper import (
@@ -51,6 +47,9 @@ from .file_wrapper import (
     is_interactive as _is_interactive,
     open_files as _open_files,
 )
+from .filesystems import DefaultFileSystemFactory, FileSystemFactory
+from .parallel import get_executor
+from .target import TargetLocation
 
 logger = logging.getLogger(__name__)
 

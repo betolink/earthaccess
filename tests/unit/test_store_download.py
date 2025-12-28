@@ -224,7 +224,7 @@ class TestDownloadWithTargetLocation:
     def test_download_file_with_target_location(self) -> None:
         """Test download_file works with TargetLocation."""
         from earthaccess.store.download import download_file
-        from earthaccess.target_filesystem import TargetLocation
+        from earthaccess.store.target import TargetLocation
 
         # Create a mock TargetLocation with mock filesystem
         mock_filesystem = Mock()

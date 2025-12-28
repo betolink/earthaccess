@@ -1,3 +1,6 @@
+"""Exception classes for earthaccess."""
+
+
 class LoginStrategyUnavailable(Exception):
     """The selected login strategy was skipped.
 
@@ -45,3 +48,11 @@ class ServiceOutage(Exception):
     """
 
     pass
+
+
+__all__ = [
+    "LoginStrategyUnavailable",
+    "LoginAttemptFailure",
+    "DownloadFailure",
+    "ServiceOutage",
+]

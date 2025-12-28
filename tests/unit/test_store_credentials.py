@@ -1,4 +1,4 @@
-"""TDD Tests for earthaccess.credentials_store.credentials module.
+"""TDD Tests for earthaccess.auth.credentials module.
 
 These tests define the expected behavior of credential classes before
 implementation, following TDD principles. Tests are independent and
@@ -15,7 +15,7 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock
 
 import pytest
-from earthaccess.credentials_store.credentials import (
+from earthaccess.auth.credentials import (
     AuthContext,
     CredentialManager,
     HTTPHeaders,

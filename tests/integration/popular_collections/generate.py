@@ -3,7 +3,7 @@
 from pathlib import Path
 
 import requests
-from earthaccess.daac import DAACS
+from earthaccess.store.daac import DAACS
 
 THIS_DIR = Path(__file__).parent
 

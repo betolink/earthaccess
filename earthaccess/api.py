@@ -17,18 +17,23 @@ from typing_extensions import (
 
 import earthaccess
 from earthaccess.exceptions import LoginStrategyUnavailable, ServiceOutage
-from earthaccess.services import DataServices
+from earthaccess.search import (
+    CollectionQuery,
+    DataCollection,
+    DataCollections,
+    DataGranule,
+    DataGranules,
+    DataServices,
+    GranuleQuery,
+)
 
-from .auth import Auth
-from .query import (
+from .auth import PROD, Auth, System
+from .search.query import (
     CollectionQuery as NewCollectionQuery,
     GranuleQuery as NewGranuleQuery,
 )
-from .results import DataCollection, DataGranule
-from .search import CollectionQuery, DataCollections, DataGranules, GranuleQuery
 from .store import Store
-from .system import PROD, System
-from .target_filesystem import TargetLocation
+from .store.target import TargetLocation
 from .utils import _validation as validate
 
 if TYPE_CHECKING:

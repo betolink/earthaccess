@@ -6,7 +6,7 @@ Tests consolidated using parametrization where appropriate.
 import datetime as dt
 
 import pytest
-from earthaccess.query import (
+from earthaccess.search.query import (
     BoundingBox,
     CollectionQuery,
     DateRange,

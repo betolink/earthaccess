@@ -8,9 +8,8 @@ import pickle
 from unittest.mock import Mock
 
 import pytest
-from earthaccess.credentials_store import (
-    AuthContext,
-    S3Credentials,
+from earthaccess.auth.credentials import AuthContext, S3Credentials
+from earthaccess.store.distributed import (
     StreamingIterator,
     WorkerContext,
     process_granule_in_worker,
@@ -110,7 +109,7 @@ class TestWorkerContextSerialization:
         wrong_object = {"not": "a WorkerContext"}
         serialized = pickle.dumps(wrong_object)
 
-        with pytest.raises(ValueError, match="not WorkerContext"):
+        with pytest.raises(ValueError, match="not DistributedWorkerContext"):
             WorkerContext.from_bytes(serialized)
 
 

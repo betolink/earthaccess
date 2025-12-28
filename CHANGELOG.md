@@ -7,6 +7,25 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** Reorganized internal package structure to a modular architecture.
+  The top-level `earthaccess/` directory now contains only `api.py` and `__init__.py`,
+  with all code organized into logical sub-packages:
+  - `earthaccess.auth` - Authentication (Auth, credentials, system)
+  - `earthaccess.search` - Search queries and results (includes query builders)
+  - `earthaccess.store` - Data access and storage
+  - `earthaccess.exceptions` - Exception classes
+  - `earthaccess.formatting` - HTML formatters
+  - `earthaccess.virtual` - Virtual dataset utilities (DMR++, Kerchunk)
+
+  **Migration notes:**
+  - `from earthaccess.query import GranuleQuery` → `from earthaccess.search import GranuleQuery`
+  - `from earthaccess.query import BoundingBox` → `from earthaccess.search import BoundingBox`
+  - Internal imports like `from earthaccess.daac import DAACS` → `from earthaccess.store.daac import DAACS`
+  - The public API (`earthaccess.login()`, `earthaccess.search_data()`, etc.) is unchanged.
+  ([@betolink](https://github.com/betolink))
+
 ### Added
 
 - Added `GranuleQuery` and `CollectionQuery` classes for building search queries

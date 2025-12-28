@@ -5,7 +5,7 @@ Tests are consolidated using parametrization where appropriate.
 """
 
 import pytest
-from earthaccess.assets import Asset, AssetFilter, filter_assets
+from earthaccess.store.assets import Asset, AssetFilter, filter_assets
 
 # =============================================================================
 # Asset Creation Tests

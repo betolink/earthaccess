@@ -8,8 +8,8 @@ import json
 from pathlib import Path
 
 import pytest
-from earthaccess.query import GranuleQuery, Polygon
-from earthaccess.query.geometry import (
+from earthaccess.search.query import GranuleQuery, Polygon
+from earthaccess.search.query.geometry import (
     MAX_POLYGON_POINTS,
     _count_points,
     extract_polygon_coords,
@@ -257,7 +257,7 @@ class TestSimplifyGeometry:
         try:
             monkeypatch.setattr("builtins.__import__", mock_import)
             # Need to reimport to get fresh module state
-            from earthaccess.query import geometry
+            from earthaccess.search.query import geometry
 
             with pytest.raises(ImportError, match="shapely is required"):
                 geometry._check_shapely()

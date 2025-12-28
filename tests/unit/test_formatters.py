@@ -1,9 +1,9 @@
-from earthaccess.formatters import (
+from earthaccess.formatting import (
     STATIC_FILES,
     _load_static_files,
     _repr_granule_html,
 )
-from earthaccess.results import DataGranule
+from earthaccess.search import DataGranule
 
 
 def test_load_static_files():

@@ -4,7 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import Mock, patch
 
 import pytest
-from earthaccess.parallel import (
+from earthaccess.store.parallel import (
     SerialExecutor,
     ThreadPoolExecutorWrapper,
     get_executor,
@@ -158,7 +158,7 @@ class TestGetExecutor:
         with pytest.raises(ValueError, match="Invalid parallel argument"):
             get_executor(123)  # type: ignore
 
-    @patch("earthaccess.parallel.DaskDelayedExecutor")
+    @patch("earthaccess.store.parallel.DaskDelayedExecutor")
     def test_dask_string_available(self, mock_dask_executor):
         """Test 'dask' string when dask is available."""
         mock_executor = Mock()
@@ -168,8 +168,8 @@ class TestGetExecutor:
         assert executor is mock_executor
         mock_dask_executor.assert_called_once_with(max_workers=None, show_progress=True)
 
-    @patch("earthaccess.parallel.DaskDelayedExecutor")
-    @patch("earthaccess.parallel.warnings")
+    @patch("earthaccess.store.parallel.DaskDelayedExecutor")
+    @patch("earthaccess.store.parallel.warnings")
     def test_dask_string_unavailable(self, mock_warnings, mock_dask_executor):
         """Test 'dask' string when dask is unavailable."""
         mock_dask_executor.side_effect = ImportError("Dask not available")

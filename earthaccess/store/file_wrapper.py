@@ -12,8 +12,8 @@ import fsspec
 import earthaccess
 
 from ..auth import Auth
-from ..parallel import get_executor
-from ..results import DataGranule
+from ..search import DataGranule
+from .parallel import get_executor
 
 __all__ = [
     "EarthAccessFile",

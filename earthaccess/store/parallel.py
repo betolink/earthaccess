@@ -621,7 +621,7 @@ def execute_with_credentials(
         Iterable of items to process
     credentials_context : AuthContext
         The credentials context to distribute to workers. Should be an AuthContext
-        from earthaccess.credentials_store.credentials
+        from earthaccess.auth.credentials
     *args
         Additional positional arguments to pass to func
     **kwargs
@@ -635,7 +635,7 @@ def execute_with_credentials(
     Examples:
     --------
     >>> from earthaccess.parallel import get_executor, execute_with_credentials
-    >>> from earthaccess.credentials_store.credentials import AuthContext
+    >>> from earthaccess.auth.credentials import AuthContext
     >>>
     >>> # Create auth context from authenticated auth
     >>> auth_context = AuthContext.from_auth(earthaccess.__auth__)

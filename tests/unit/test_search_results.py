@@ -6,7 +6,7 @@ iteration through large CMR result sets.
 
 from unittest.mock import Mock, patch
 
-from earthaccess.results import DataGranule, SearchResults
+from earthaccess.search import DataGranule, SearchResults
 
 
 class TestSearchResultsCreation:
@@ -151,7 +151,7 @@ class TestSearchResultsExport:
 
     def test_search_results_importable_from_results(self) -> None:
         """Test SearchResults can be imported from results module."""
-        from earthaccess.results import SearchResults
+        from earthaccess.search import SearchResults
 
         assert SearchResults is not None
 
@@ -212,7 +212,7 @@ class TestAPIIntegrationWithSearchResults:
 
         assert SearchResults is not None
         # Verify it's the same class
-        from earthaccess.results import SearchResults as ResultsSearchResults
+        from earthaccess.search import SearchResults as ResultsSearchResults
 
         assert SearchResults is ResultsSearchResults
 

@@ -190,7 +190,7 @@ class AuthContext:
         Raises:
             ValueError: If no credentials available to reconstruct
         """
-        from earthaccess.auth import Auth
+        from earthaccess.auth.auth import Auth
 
         if not any([self.s3_credentials, self.http_headers, self.urs_token]):
             raise ValueError("No credentials available to reconstruct Auth")

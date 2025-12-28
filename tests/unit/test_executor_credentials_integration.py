@@ -7,12 +7,12 @@ for using credentials with parallel executors in real-world scenarios.
 import datetime
 from typing import Any
 
-from earthaccess.credentials_store.credentials import (
+from earthaccess.auth.credentials import (
     AuthContext,
     HTTPHeaders,
     S3Credentials,
 )
-from earthaccess.parallel import (
+from earthaccess.store.parallel import (
     SerialExecutor,
     ThreadPoolExecutorWrapper,
     execute_with_credentials,

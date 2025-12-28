@@ -1,3 +1,5 @@
+"""Output formatting and display utilities."""
+
 from typing import Any, List
 from uuid import uuid4
 
@@ -9,7 +11,9 @@ STATIC_FILES = ["iso_bootstrap4.0.0min.css", "styles.css"]
 def _load_static_files() -> List[str]:
     """Load styles."""
     return [
-        importlib_resources.files("earthaccess.css").joinpath(fname).read_text("utf8")
+        importlib_resources.files("earthaccess.formatting.css")
+        .joinpath(fname)
+        .read_text("utf8")
         for fname in STATIC_FILES
     ]
 
@@ -58,3 +62,11 @@ def _repr_granule_html(granule: Any) -> str:
       </div>
     </div>
     """
+
+
+__all__ = [
+    "STATIC_FILES",
+    "_load_static_files",
+    "_repr_collection_html",
+    "_repr_granule_html",
+]

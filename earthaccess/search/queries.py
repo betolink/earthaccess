@@ -1,3 +1,9 @@
+"""Query classes for CMR search.
+
+This module provides the DataCollections and DataGranules classes for building
+queries against NASA's Common Metadata Repository (CMR).
+"""
+
 import datetime as dt
 import logging
 from inspect import getmembers, ismethod
@@ -17,12 +23,11 @@ from typing_extensions import (
     override,
 )
 
-from cmr import CollectionQuery, GranuleQuery
-
-from .auth import Auth
-from .daac import find_provider, find_provider_by_shortname
-from .results import DataCollection, DataGranule
-from .utils._search import get_results
+from cmr import CollectionQuery as CmrCollectionQuery, GranuleQuery as CmrGranuleQuery
+from earthaccess.auth import Auth
+from earthaccess.search.results import DataCollection, DataGranule
+from earthaccess.store.daac import find_provider, find_provider_by_shortname
+from earthaccess.utils._search import get_results
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +35,7 @@ FloatLike: TypeAlias = Union[str, SupportsFloat]
 PointLike: TypeAlias = Tuple[FloatLike, FloatLike]
 
 
-class DataCollections(CollectionQuery):
+class DataCollections(CmrCollectionQuery):
     """Placeholder.
 
     ???+ Info
@@ -417,7 +422,7 @@ class DataCollections(CollectionQuery):
         return super().temporal(date_from, date_to, exclude_boundary)
 
 
-class DataGranules(GranuleQuery):
+class DataGranules(CmrGranuleQuery):
     """A Granule oriented client for NASA CMR.
 
     API: https://cmr.earthdata.nasa.gov/search/site/docs/search/api.html

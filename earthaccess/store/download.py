@@ -18,8 +18,8 @@ from tenacity import (
 )
 
 from ..auth import SessionWithHeaderRedirection
-from ..parallel import get_executor
-from ..target_filesystem import TargetLocation
+from .parallel import get_executor
+from .target import TargetLocation
 
 logger = logging.getLogger(__name__)
 

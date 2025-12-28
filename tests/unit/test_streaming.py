@@ -6,7 +6,7 @@ import time
 from typing import List
 
 import pytest
-from earthaccess.streaming import (
+from earthaccess.store.streaming import (
     AuthContext,
     StreamingExecutor,
     StreamingIterator,

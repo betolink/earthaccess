@@ -56,7 +56,7 @@ class TestStoreSessions(unittest.TestCase):
 
     @responses.activate
     def test_store_can_create_s3_fsspec_session(self):
-        from earthaccess.daac import DAACS
+        from earthaccess.store.daac import DAACS
 
         custom_endpoints = [
             "https://archive.swot.podaac.earthdata.nasa.gov/s3credentials",
@@ -205,7 +205,7 @@ class TestStoreSessions(unittest.TestCase):
                         store, "_download_file", side_effect=mock_download_file
                     ):
                         # Test multi-threaded download
-                        from earthaccess.parallel import ThreadPoolExecutorWrapper
+                        from earthaccess.store.parallel import ThreadPoolExecutorWrapper
 
                         executor = ThreadPoolExecutorWrapper(
                             max_workers=n_threads, show_progress=False

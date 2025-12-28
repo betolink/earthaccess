@@ -11,14 +11,9 @@ import datetime
 from unittest.mock import Mock, patch
 
 import pytest
-from earthaccess.credentials_store import (
-    AuthContext,
-    DefaultFileSystemFactory,
-    HTTPHeaders,
-    S3Credentials,
-    StreamingIterator,
-    WorkerContext,
-)
+from earthaccess.auth.credentials import AuthContext, HTTPHeaders, S3Credentials
+from earthaccess.store.distributed import StreamingIterator, WorkerContext
+from earthaccess.store.filesystems import DefaultFileSystemFactory
 
 
 class TestAuthContextCreationFromAuth:
@@ -133,9 +128,7 @@ class TestFileSystemFactoryWithCredentials:
             expiration_time=future_time,
         )
 
-        with patch(
-            "earthaccess.credentials_store.filesystems.s3fs.S3FileSystem"
-        ) as mock_s3fs:
+        with patch("earthaccess.store.filesystems.s3fs.S3FileSystem") as mock_s3fs:
             factory.create_s3_filesystem(credentials)
 
             # Verify s3fs was called
@@ -150,9 +143,7 @@ class TestFileSystemFactoryWithCredentials:
             cookies={},
         )
 
-        with patch(
-            "earthaccess.credentials_store.filesystems.fsspec.filesystem"
-        ) as mock_fsspec:
+        with patch("earthaccess.store.filesystems.fsspec.filesystem") as mock_fsspec:
             factory.create_https_filesystem(headers)
 
             # Verify fsspec was called

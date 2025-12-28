@@ -1,9 +1,14 @@
-"""Streaming context and iterator for distributed granule operations.
+"""Distributed execution context for granule operations.
 
 This module provides serializable context objects for worker processes in
 distributed execution environments (Dask, Ray, multiprocessing). These classes
 ensure that all necessary authentication and credential information is properly
 serialized and reconstructed in worker processes.
+
+Key components:
+- DistributedWorkerContext: Pickleable context for distributed workers
+- DistributedStreamingIterator: Iterator that yields chunks with worker context
+- process_granule_in_worker: Helper for processing granules in workers
 """
 
 from __future__ import annotations
@@ -12,11 +17,11 @@ from dataclasses import dataclass
 from pickle import dumps, loads
 from typing import Any, List, Optional
 
-from .credentials import AuthContext
+from earthaccess.auth.credentials import AuthContext
 
 
 @dataclass(frozen=True)
-class WorkerContext:
+class DistributedWorkerContext:
     """Serializable context for worker process execution.
 
     This class bundles all credential and configuration information needed
@@ -46,22 +51,22 @@ class WorkerContext:
             Pickled bytes representation of the context
 
         Example:
-            >>> context = WorkerContext(auth_context=auth_ctx)
+            >>> context = DistributedWorkerContext(auth_context=auth_ctx)
             >>> serialized = context.to_bytes()
             >>> # Send to worker and reconstruct
-            >>> context2 = WorkerContext.from_bytes(serialized)
+            >>> context2 = DistributedWorkerContext.from_bytes(serialized)
         """
         return dumps(self)
 
     @classmethod
-    def from_bytes(cls, data: bytes) -> WorkerContext:
+    def from_bytes(cls, data: bytes) -> DistributedWorkerContext:
         """Deserialize a worker context from bytes.
 
         Parameters:
             data: Pickled bytes representation
 
         Returns:
-            Reconstructed WorkerContext instance
+            Reconstructed DistributedWorkerContext instance
 
         Raises:
             ValueError: If bytes cannot be unpickled or don't contain valid context
@@ -70,11 +75,13 @@ class WorkerContext:
             context = loads(data)
             if not isinstance(context, cls):
                 raise ValueError(
-                    f"Deserialized object is not WorkerContext, got {type(context)}"
+                    f"Deserialized object is not DistributedWorkerContext, got {type(context)}"
                 )
             return context
         except Exception as e:
-            raise ValueError(f"Failed to deserialize WorkerContext: {e}") from e
+            raise ValueError(
+                f"Failed to deserialize DistributedWorkerContext: {e}"
+            ) from e
 
     def reconstruct_auth(self) -> Any:
         """Reconstruct Auth object in worker process.
@@ -96,7 +103,7 @@ class WorkerContext:
         return self.auth_context.to_auth()
 
 
-class StreamingIterator:
+class DistributedStreamingIterator:
     """Iterator for parallel streaming operations on multiple granules.
 
     This class enables chunking granules for parallel processing while
@@ -137,12 +144,12 @@ class StreamingIterator:
         self.config = config
         self._index = 0
 
-    def __iter__(self) -> StreamingIterator:
+    def __iter__(self) -> DistributedStreamingIterator:
         """Return iterator object (self)."""
         self._index = 0
         return self
 
-    def __next__(self) -> tuple[list[Any], WorkerContext]:
+    def __next__(self) -> tuple[list[Any], DistributedWorkerContext]:
         """Get next chunk of granules with worker context.
 
         Returns:
@@ -160,7 +167,7 @@ class StreamingIterator:
         self._index = chunk_end
 
         # Create worker context with current credentials and config
-        worker_context = WorkerContext(
+        worker_context = DistributedWorkerContext(
             auth_context=self.auth_context,
             config=self.config,
         )
@@ -177,7 +184,7 @@ class StreamingIterator:
 
         return math.ceil(len(self.granules) / self.chunk_size)
 
-    def chunks(self) -> List[tuple[list[Any], WorkerContext]]:
+    def chunks(self) -> List[tuple[list[Any], DistributedWorkerContext]]:
         """Eagerly evaluate all chunks into a list.
 
         This is useful for frameworks that need all work upfront
@@ -187,24 +194,24 @@ class StreamingIterator:
             List of (granule_chunk, worker_context) tuples
 
         Example:
-            >>> iterator = StreamingIterator(granules, auth_context)
+            >>> iterator = DistributedStreamingIterator(granules, auth_context)
             >>> all_chunks = iterator.chunks()
             >>> results = dask_client.compute(*[process(chunk, ctx) for chunk, ctx in all_chunks])
         """
         return list(self)
 
-    def with_config(self, config: dict) -> StreamingIterator:
+    def with_config(self, config: dict) -> DistributedStreamingIterator:
         """Create new iterator with additional worker configuration.
 
-        The configuration is passed through WorkerContext to workers.
+        The configuration is passed through DistributedWorkerContext to workers.
 
         Parameters:
             config: Configuration dictionary for workers
 
         Returns:
-            New StreamingIterator with same granules/chunk_size but with config
+            New DistributedStreamingIterator with same granules/chunk_size but with config
         """
-        return StreamingIterator(
+        return DistributedStreamingIterator(
             self.granules,
             self.auth_context,
             self.chunk_size,
@@ -214,7 +221,7 @@ class StreamingIterator:
 
 def process_granule_in_worker(
     granule: Any,
-    worker_context: WorkerContext,
+    worker_context: DistributedWorkerContext,
     operation: Any,
 ) -> Any:
     """Process a granule in a worker process with proper credential setup.
@@ -224,14 +231,15 @@ def process_granule_in_worker(
 
     Parameters:
         granule: DataGranule object to process
-        worker_context: WorkerContext with serialized credentials
+        worker_context: DistributedWorkerContext with serialized credentials
         operation: Callable that performs the actual operation
 
     Returns:
         Result of the operation
 
     Example:
-        >>> def open_file(granule, store, token):
+        >>> def open_file(granule, auth):
+        ...     store = Store(auth)
         ...     return store.open_files([granule])[0]
         >>> result = process_granule_in_worker(granule, ctx, open_file)
     """
@@ -241,3 +249,17 @@ def process_granule_in_worker(
     # Call the operation with reconstructed auth
     # The operation should accept (granule, auth) or similar
     return operation(granule, auth)
+
+
+# Backward compatibility aliases
+WorkerContext = DistributedWorkerContext
+StreamingIterator = DistributedStreamingIterator
+
+__all__ = [
+    "DistributedWorkerContext",
+    "DistributedStreamingIterator",
+    "process_granule_in_worker",
+    # Backward compatibility
+    "WorkerContext",
+    "StreamingIterator",
+]

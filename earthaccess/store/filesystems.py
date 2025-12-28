@@ -11,7 +11,7 @@ from typing import Any, Dict, Optional
 import fsspec
 import s3fs
 
-from .credentials import HTTPHeaders, S3Credentials
+from earthaccess.auth.credentials import HTTPHeaders, S3Credentials
 
 
 class FileSystemFactory(ABC):

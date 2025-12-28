@@ -9,12 +9,11 @@ from unittest.mock import Mock, patch
 
 import pytest
 import s3fs
-from earthaccess.credentials_store import (
+from earthaccess.auth.credentials import HTTPHeaders, S3Credentials
+from earthaccess.store.filesystems import (
     DefaultFileSystemFactory,
     FileSystemFactory,
-    HTTPHeaders,
     MockFileSystemFactory,
-    S3Credentials,
 )
 
 
@@ -67,9 +66,7 @@ class TestDefaultFileSystemFactoryS3:
             region="us-west-2",
         )
 
-        with patch(
-            "earthaccess.credentials_store.filesystems.s3fs.S3FileSystem"
-        ) as mock_s3fs:
+        with patch("earthaccess.store.filesystems.s3fs.S3FileSystem") as mock_s3fs:
             factory.create_s3_filesystem(credentials)
 
             # Verify s3fs.S3FileSystem was called with correct kwargs
@@ -114,9 +111,7 @@ class TestDefaultFileSystemFactoryS3:
             region="eu-west-1",
         )
 
-        with patch(
-            "earthaccess.credentials_store.filesystems.s3fs.S3FileSystem"
-        ) as mock_s3fs:
+        with patch("earthaccess.store.filesystems.s3fs.S3FileSystem") as mock_s3fs:
             factory.create_s3_filesystem(credentials)
 
             # Verify region is passed through
@@ -160,9 +155,7 @@ class TestDefaultFileSystemFactoryHTTPS:
             cookies={},
         )
 
-        with patch(
-            "earthaccess.credentials_store.filesystems.fsspec.filesystem"
-        ) as mock_fsspec:
+        with patch("earthaccess.store.filesystems.fsspec.filesystem") as mock_fsspec:
             factory.create_https_filesystem(headers)
 
             mock_fsspec.assert_called_once_with(
@@ -182,9 +175,7 @@ class TestDefaultFileSystemFactoryHTTPS:
             cookies={"session": "abc123"},
         )
 
-        with patch(
-            "earthaccess.credentials_store.filesystems.fsspec.filesystem"
-        ) as mock_fsspec:
+        with patch("earthaccess.store.filesystems.fsspec.filesystem") as mock_fsspec:
             factory.create_https_filesystem(headers)
 
             mock_fsspec.assert_called_once()
@@ -201,9 +192,7 @@ class TestDefaultFileSystemFactoryHTTPS:
 
         headers = HTTPHeaders(headers={}, cookies={})
 
-        with patch(
-            "earthaccess.credentials_store.filesystems.fsspec.filesystem"
-        ) as mock_fsspec:
+        with patch("earthaccess.store.filesystems.fsspec.filesystem") as mock_fsspec:
             factory.create_https_filesystem(headers)
 
             mock_fsspec.assert_called_once_with(
@@ -220,9 +209,7 @@ class TestDefaultFileSystemFactoryHTTPS:
 
         headers = HTTPHeaders(headers=None, cookies=None)
 
-        with patch(
-            "earthaccess.credentials_store.filesystems.fsspec.filesystem"
-        ) as mock_fsspec:
+        with patch("earthaccess.store.filesystems.fsspec.filesystem") as mock_fsspec:
             factory.create_https_filesystem(headers)
 
             mock_fsspec.assert_called_once()
@@ -237,9 +224,7 @@ class TestDefaultFileSystemFactoryDefault:
         """Should create default HTTPS filesystem without auth."""
         factory = DefaultFileSystemFactory()
 
-        with patch(
-            "earthaccess.credentials_store.filesystems.fsspec.filesystem"
-        ) as mock_fsspec:
+        with patch("earthaccess.store.filesystems.fsspec.filesystem") as mock_fsspec:
             factory.create_default_filesystem()
 
             mock_fsspec.assert_called_once_with("https")
@@ -248,9 +233,7 @@ class TestDefaultFileSystemFactoryDefault:
         """Default filesystem should not require credentials."""
         factory = DefaultFileSystemFactory()
 
-        with patch(
-            "earthaccess.credentials_store.filesystems.fsspec.filesystem"
-        ) as mock_fsspec:
+        with patch("earthaccess.store.filesystems.fsspec.filesystem") as mock_fsspec:
             factory.create_default_filesystem()
 
             # Should complete without error

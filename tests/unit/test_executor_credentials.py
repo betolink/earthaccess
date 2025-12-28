@@ -16,12 +16,16 @@ from typing import Any, List
 from unittest.mock import Mock
 
 import pytest
-from earthaccess.credentials_store.credentials import (
+from earthaccess.auth.credentials import (
     AuthContext,
     HTTPHeaders,
     S3Credentials,
 )
-from earthaccess.parallel import SerialExecutor, ThreadPoolExecutorWrapper, get_executor
+from earthaccess.store.parallel import (
+    SerialExecutor,
+    ThreadPoolExecutorWrapper,
+    get_executor,
+)
 
 
 class TestExecutorWithCredentialContext:

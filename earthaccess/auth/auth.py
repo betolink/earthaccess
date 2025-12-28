@@ -13,9 +13,9 @@ import requests  # type: ignore
 from tinynetrc import Netrc
 from typing_extensions import deprecated
 
-from earthaccess.daac import DAACS
+from earthaccess.auth.system import PROD, System
 from earthaccess.exceptions import LoginAttemptFailure, LoginStrategyUnavailable
-from earthaccess.system import PROD, System
+from earthaccess.store.daac import DAACS
 
 try:
     user_agent = f"earthaccess v{importlib.metadata.version('earthaccess')}"

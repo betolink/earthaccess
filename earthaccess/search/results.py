@@ -1,3 +1,9 @@
+"""Result classes for CMR search results.
+
+This module provides the DataCollection, DataGranule, and SearchResults classes
+for representing and working with NASA CMR search results.
+"""
+
 import json
 import uuid
 from functools import cache
@@ -6,9 +12,8 @@ from typing import Any, Dict, List, Optional, Union
 import requests
 
 import earthaccess
-
-from .formatters import _repr_granule_html
-from .services import DataServices
+from earthaccess.formatting import _repr_granule_html
+from earthaccess.search.services import DataServices
 
 
 @cache
@@ -937,7 +942,7 @@ class DataGranule(CustomDict):
             >>> all_assets = granule.assets()
             >>> data_assets = [a for a in all_assets if a.is_data()]
         """
-        from .assets import Asset
+        from earthaccess.store.assets import Asset
 
         assets_dict = self._build_item_assets()
         return [
@@ -1161,7 +1166,8 @@ class SearchResults:
         results_data = response.json().get("items", [])
 
         # Convert to DataGranule or DataCollection
-        from earthaccess.search import DataGranules
+        # Import here to avoid circular imports
+        from earthaccess.search.queries import DataGranules
 
         if isinstance(self.query, DataGranules):
             # It's a GranuleQuery (DataGranules inherits from GranuleQuery)

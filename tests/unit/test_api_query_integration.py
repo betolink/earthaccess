@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import earthaccess
 import pytest
-from earthaccess.query import CollectionQuery, GranuleQuery
+from earthaccess.search.query import CollectionQuery, GranuleQuery
 
 
 class TestSearchDataWithGranuleQuery:
