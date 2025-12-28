@@ -501,7 +501,9 @@ def test_granule_to_stac():
     # Check assets
     assert "data" in stac["assets"]
     assert stac["assets"]["data"]["href"] == "https://example.com/data.nc"
-    assert "thumbnail" in stac["assets"]
+    # Thumbnail asset uses filename as key (e.g., "browse" from browse.png)
+    assert "browse" in stac["assets"]
+    assert "thumbnail" in stac["assets"]["browse"]["roles"]
 
     # Check CMR-specific properties
     assert stac["properties"]["cmr:concept_id"] == "G123456-TEST"
@@ -559,3 +561,196 @@ def test_collection_to_stac_minimal():
     assert "extent" in stac
     # Default bbox when no spatial info
     assert stac["extent"]["spatial"]["bbox"] == [[-180.0, -90.0, 180.0, 90.0]]
+
+
+# =============================================================================
+# Tests for STAC Asset Naming
+# =============================================================================
+
+
+def test_extract_asset_key_from_band_filename():
+    """Test extracting asset key from HLS-style band filenames."""
+    from earthaccess.results import DataGranule
+
+    granule = DataGranule(
+        {
+            "umm": {
+                "GranuleUR": "HLS.L30.T10SEG.2023001T185019.v2.0",
+                "CollectionReference": {"ShortName": "HLSL30"},
+                "TemporalExtent": {"SingleDateTime": "2023-01-01T00:00:00Z"},
+                "SpatialExtent": {},
+                "RelatedUrls": [
+                    {
+                        "Type": "GET DATA VIA DIRECT ACCESS",
+                        "URL": "s3://lp-prod/HLS.L30.T10SEG.2023001T185019.v2.0.B02.tif",
+                    },
+                    {
+                        "Type": "GET DATA VIA DIRECT ACCESS",
+                        "URL": "s3://lp-prod/HLS.L30.T10SEG.2023001T185019.v2.0.B03.tif",
+                    },
+                    {
+                        "Type": "GET DATA VIA DIRECT ACCESS",
+                        "URL": "s3://lp-prod/HLS.L30.T10SEG.2023001T185019.v2.0.Fmask.tif",
+                    },
+                ],
+            },
+            "meta": {"concept-id": "G123-LP", "provider-id": "LPCLOUD"},
+        },
+        cloud_hosted=True,
+    )
+
+    stac = granule.to_stac()
+
+    # Check that asset keys are meaningful band names, not generic "data_0", "data_1"
+    assert "B02" in stac["assets"], (
+        f"Expected 'B02' key, got: {list(stac['assets'].keys())}"
+    )
+    assert "B03" in stac["assets"], (
+        f"Expected 'B03' key, got: {list(stac['assets'].keys())}"
+    )
+    assert "Fmask" in stac["assets"], (
+        f"Expected 'Fmask' key, got: {list(stac['assets'].keys())}"
+    )
+
+    # Check that generic keys are NOT present
+    assert "data" not in stac["assets"]
+    assert "data_1" not in stac["assets"]
+    assert "data_2" not in stac["assets"]
+
+
+def test_extract_asset_key_s3_and_https_grouping():
+    """Test that S3 and HTTPS versions of the same file are grouped together."""
+    from earthaccess.results import DataGranule
+
+    granule = DataGranule(
+        {
+            "umm": {
+                "GranuleUR": "HLS.L30.T10SEG.2023001T185019.v2.0",
+                "CollectionReference": {"ShortName": "HLSL30"},
+                "TemporalExtent": {"SingleDateTime": "2023-01-01T00:00:00Z"},
+                "SpatialExtent": {},
+                "RelatedUrls": [
+                    {
+                        "Type": "GET DATA VIA DIRECT ACCESS",
+                        "URL": "s3://lp-prod/HLS.L30.T10SEG.2023001T185019.v2.0.B02.tif",
+                    },
+                    {
+                        "Type": "GET DATA",
+                        "URL": "https://data.lpdaac.earthdatacloud.nasa.gov/lp-prod/HLS.L30.T10SEG.2023001T185019.v2.0.B02.tif",
+                    },
+                ],
+            },
+            "meta": {"concept-id": "G123-LP", "provider-id": "LPCLOUD"},
+        },
+        cloud_hosted=True,
+    )
+
+    stac = granule.to_stac()
+
+    # Should have only one B02 asset, not B02 and B02_https
+    assert "B02" in stac["assets"]
+    assert len([k for k in stac["assets"] if k.startswith("B02")]) == 1
+
+    # S3 should be primary href (cloud-hosted)
+    assert stac["assets"]["B02"]["href"].startswith("s3://")
+
+    # HTTPS should be in alternate
+    assert "alternate" in stac["assets"]["B02"]
+    assert stac["assets"]["B02"]["alternate"]["href"].startswith("https://")
+
+
+def test_extract_asset_key_thumbnail():
+    """Test that thumbnail/browse assets get proper naming."""
+    from earthaccess.results import DataGranule
+
+    granule = DataGranule(
+        {
+            "umm": {
+                "GranuleUR": "test_granule",
+                "CollectionReference": {"ShortName": "TestCollection"},
+                "TemporalExtent": {"SingleDateTime": "2023-01-01T00:00:00Z"},
+                "SpatialExtent": {},
+                "RelatedUrls": [
+                    {
+                        "Type": "GET RELATED VISUALIZATION",
+                        "URL": "https://example.com/browse.png",
+                    },
+                    {
+                        "Type": "GET RELATED VISUALIZATION",
+                        "URL": "https://example.com/quicklook.jpg",
+                    },
+                ],
+            },
+            "meta": {"concept-id": "G123-TEST", "provider-id": "TEST"},
+        }
+    )
+
+    stac = granule.to_stac()
+
+    # Thumbnails should be named from filename (without extension)
+    assert "browse" in stac["assets"] or "thumbnail" in stac["assets"]
+    assert (
+        "thumbnail" in stac["assets"]["browse"]["roles"]
+        or "visual" in stac["assets"]["browse"]["roles"]
+    )
+
+
+def test_extract_asset_key_single_data_file():
+    """Test that single data files use the filename as key."""
+    from earthaccess.results import DataGranule
+
+    granule = DataGranule(
+        {
+            "umm": {
+                "GranuleUR": "ATL08_20190221121851_08410203_005_01",
+                "CollectionReference": {"ShortName": "ATL08"},
+                "TemporalExtent": {"SingleDateTime": "2019-02-21T00:00:00Z"},
+                "SpatialExtent": {},
+                "RelatedUrls": [
+                    {
+                        "Type": "GET DATA",
+                        "URL": "https://example.com/ATL08_20190221121851_08410203_005_01.h5",
+                    },
+                ],
+            },
+            "meta": {"concept-id": "G123-NSIDC", "provider-id": "NSIDC_ECS"},
+        }
+    )
+
+    stac = granule.to_stac()
+
+    # Single data file should use filename (without extension) as key
+    # Or just "data" if the filename matches granule ID
+    assert len(stac["assets"]) == 1
+    asset_key = list(stac["assets"].keys())[0]
+    # Either the key is "data" (when filename == granule_id) or the filename
+    assert asset_key in ("data", "ATL08_20190221121851_08410203_005_01")
+
+
+def test_extract_asset_key_netcdf_with_extension():
+    """Test that file extensions are removed from asset keys."""
+    from earthaccess.results import DataGranule
+
+    granule = DataGranule(
+        {
+            "umm": {
+                "GranuleUR": "mur_sst_20230101",
+                "CollectionReference": {"ShortName": "MUR-JPL"},
+                "TemporalExtent": {"SingleDateTime": "2023-01-01T00:00:00Z"},
+                "SpatialExtent": {},
+                "RelatedUrls": [
+                    {
+                        "Type": "GET DATA",
+                        "URL": "https://example.com/mur_sst_20230101.nc",
+                    },
+                ],
+            },
+            "meta": {"concept-id": "G123-PODAAC", "provider-id": "PODAAC"},
+        }
+    )
+
+    stac = granule.to_stac()
+
+    # Key should be the filename without extension, or "data" if it matches granule ID
+    asset_key = list(stac["assets"].keys())[0]
+    assert ".nc" not in asset_key  # Extension should be removed

@@ -741,39 +741,177 @@ class DataGranule(CustomDict):
 
         return links
 
+    def _extract_asset_key(self, url: str, url_type: str = "") -> str:
+        """Extract a meaningful asset key from a URL.
+
+        This method attempts to derive a meaningful name from the URL by:
+        1. Extracting the filename from the URL
+        2. Removing the granule ID prefix if present (to get band/layer suffix)
+        3. Handling special cases like thumbnails via the URL type
+
+        Parameters:
+            url: The URL to extract the key from
+            url_type: The CMR URL type (e.g., "GET DATA", "GET RELATED VISUALIZATION")
+
+        Returns:
+            A meaningful asset key (e.g., "B02", "Fmask", "thumbnail")
+        """
+        # Extract filename from URL
+        filename = url.split("/")[-1] if "/" in url else url
+
+        # Remove file extension for cleaner keys
+        known_extensions = (
+            ".tif",
+            ".tiff",
+            ".nc",
+            ".nc4",
+            ".h5",
+            ".hdf",
+            ".he5",
+            ".zarr",
+            ".png",
+            ".jpg",
+            ".jpeg",
+            ".xml",
+            ".json",
+        )
+        base_name = filename
+        for ext in known_extensions:
+            if filename.lower().endswith(ext):
+                base_name = filename[: -len(ext)]
+                break
+
+        # Get granule ID for prefix removal
+        granule_id = self["umm"].get("GranuleUR", "")
+
+        # Try to extract a suffix after the granule ID (common pattern for multi-band data)
+        # E.g., "HLS.L30.T10SEG.2023001T185019.v2.0.B02.tif" -> "B02"
+        if granule_id and base_name.startswith(granule_id):
+            suffix = base_name[len(granule_id) :]
+            # Remove leading dots or underscores
+            suffix = suffix.lstrip("._-")
+            if suffix:
+                return suffix
+
+        # If filename matches granule ID, use "data" as the key
+        if base_name == granule_id:
+            return "data"
+
+        # For visualization links, extract meaningful name from filename
+        if url_type == "GET RELATED VISUALIZATION":
+            # Use the filename without extension
+            return base_name if base_name else "thumbnail"
+
+        # Otherwise, use the base filename as the key
+        return base_name if base_name else "data"
+
+    def _infer_media_type(self, url: str) -> Optional[str]:
+        """Infer MIME type from file extension.
+
+        Parameters:
+            url: The URL to infer media type from
+
+        Returns:
+            MIME type string or None if unknown
+        """
+        url_lower = url.lower()
+        if url_lower.endswith(".nc") or url_lower.endswith(".nc4"):
+            return "application/x-netcdf"
+        elif url_lower.endswith(".tif") or url_lower.endswith(".tiff"):
+            return "image/tiff; application=geotiff"
+        elif (
+            url_lower.endswith(".hdf")
+            or url_lower.endswith(".h5")
+            or url_lower.endswith(".he5")
+        ):
+            return "application/x-hdf5"
+        elif url_lower.endswith(".zarr"):
+            return "application/vnd+zarr"
+        elif url_lower.endswith(".png"):
+            return "image/png"
+        elif url_lower.endswith(".jpg") or url_lower.endswith(".jpeg"):
+            return "image/jpeg"
+        return None
+
     def _build_item_assets(self) -> Dict[str, Dict[str, Any]]:
-        """Build STAC assets from granule data links."""
+        """Build STAC assets from granule data links.
+
+        This method creates STAC-compatible asset dictionaries with meaningful
+        keys derived from filenames (e.g., "B02", "Fmask" for HLS data).
+        S3 and HTTPS versions of the same file are grouped together, with
+        the preferred access method as primary href and the other as alternate.
+        """
         assets: Dict[str, Dict[str, Any]] = {}
 
-        # Add data assets
-        data_links = self.data_links()
-        for i, link in enumerate(data_links):
-            asset_key = f"data_{i}" if i > 0 else "data"
+        # Group URLs by their asset key
+        # Key: asset_key, Value: {"s3": url, "https": url}
+        asset_groups: Dict[str, Dict[str, str]] = {}
+
+        # Process data links
+        if "RelatedUrls" in self["umm"]:
+            for url_info in self["umm"]["RelatedUrls"]:
+                url = url_info.get("URL", "")
+                url_type = url_info.get("Type", "")
+
+                if not url:
+                    continue
+
+                # Only process data links here
+                if url_type not in ("GET DATA", "GET DATA VIA DIRECT ACCESS"):
+                    continue
+
+                asset_key = self._extract_asset_key(url, url_type)
+
+                if asset_key not in asset_groups:
+                    asset_groups[asset_key] = {}
+
+                if url.startswith("s3://"):
+                    asset_groups[asset_key]["s3"] = url
+                else:
+                    asset_groups[asset_key]["https"] = url
+
+        # Build assets from groups
+        for asset_key, urls in asset_groups.items():
+            # Prefer S3 for cloud-hosted data, HTTPS otherwise
+            if self.cloud_hosted and "s3" in urls:
+                primary_url = urls["s3"]
+                alternate_url = urls.get("https")
+            else:
+                primary_url = urls.get("https") or urls.get("s3", "")
+                alternate_url = urls.get("s3") if "https" in urls else None
+
             asset: Dict[str, Any] = {
-                "href": link,
+                "href": primary_url,
                 "roles": ["data"],
             }
 
-            # Determine if it's direct access (S3)
-            if link.startswith("s3://"):
+            # Add cloud-optimized role for S3 links
+            if primary_url.startswith("s3://"):
                 asset["roles"].append("cloud-optimized")
 
-            # Try to infer media type
-            if link.endswith(".nc") or link.endswith(".nc4"):
-                asset["type"] = "application/x-netcdf"
-            elif link.endswith(".tif") or link.endswith(".tiff"):
-                asset["type"] = "image/tiff; application=geotiff"
-            elif link.endswith(".hdf") or link.endswith(".h5") or link.endswith(".he5"):
-                asset["type"] = "application/x-hdf5"
-            elif link.endswith(".zarr"):
-                asset["type"] = "application/vnd+zarr"
+            # Add HTTPS as alternate if we have both
+            if alternate_url:
+                asset["alternate"] = {"href": alternate_url}
+
+            # Infer media type
+            media_type = self._infer_media_type(primary_url)
+            if media_type:
+                asset["type"] = media_type
 
             assets[asset_key] = asset
 
         # Add browse/thumbnail assets
         viz_links = self.dataviz_links()
-        for i, link in enumerate(viz_links):
-            asset_key = f"thumbnail_{i}" if i > 0 else "thumbnail"
+        for link in viz_links:
+            asset_key = self._extract_asset_key(link, "GET RELATED VISUALIZATION")
+
+            # Handle duplicate keys by appending number
+            if asset_key in assets:
+                counter = 1
+                while f"{asset_key}_{counter}" in assets:
+                    counter += 1
+                asset_key = f"{asset_key}_{counter}"
+
             assets[asset_key] = {
                 "href": link,
                 "roles": ["thumbnail"],
