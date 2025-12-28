@@ -14,6 +14,7 @@ Example:
 from .base import QueryBase
 from .collection_query import CollectionQuery
 from .granule_query import GranuleQuery
+from .stac_query import StacItemQuery
 from .types import BoundingBox, DateRange, Point, PointLike, Polygon, PolygonLike
 from .validation import ValidationError, ValidationResult
 
@@ -21,6 +22,7 @@ __all__ = [
     "QueryBase",
     "GranuleQuery",
     "CollectionQuery",
+    "StacItemQuery",
     "BoundingBox",
     "DateRange",
     "Point",
