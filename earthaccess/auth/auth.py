@@ -86,21 +86,34 @@ class BasicAuthResponseHook:
         return new_r
 
 
-class SessionWithHeaderRedirection(requests.Session):
-    """Requests session that handles EDL authentication during redirects.
+def _create_earthdata_session(
+    edl_hostname: str, auth: tuple[str, str] | None = None
+) -> requests.Session:
+    """Create a requests session configured for Earthdata authentication.
 
-    This session uses a response hook to add EDL credentials only when
-    redirected to the EDL host, avoiding the need for a hardcoded allowlist
-    of hosts and preventing credentials from leaking to untrusted hosts.
+    This function creates a standard requests.Session with:
+    - User-Agent header set to earthaccess version
+    - Response hook for EDL authentication during redirects (if auth provided)
+
+    Parameters:
+        edl_hostname: The EDL hostname (e.g., "urs.earthdata.nasa.gov")
+        auth: Optional tuple of (username, password) for EDL authentication
+
+    Returns:
+        A configured requests.Session instance.
     """
+    session = requests.Session()
+    session.headers.update({"User-Agent": user_agent})
 
-    def __init__(self, edl_hostname: str, auth: tuple[str, str] | None = None) -> None:
-        super().__init__()
-        self.headers.update({"User-Agent": user_agent})
+    if auth:
+        hook = BasicAuthResponseHook(edl_hostname, auth)
+        session.hooks["response"].append(hook)
 
-        if auth:
-            hook = BasicAuthResponseHook(edl_hostname, auth)
-            self.hooks["response"].append(hook)
+    return session
+
+
+# Backward compatibility alias - deprecated
+SessionWithHeaderRedirection = _create_earthdata_session
 
 
 class Auth(object):
@@ -198,7 +211,7 @@ class Auth(object):
             A Python dictionary with the temporary AWS S3 credentials.
         """
         if self.authenticated:
-            session = SessionWithHeaderRedirection(
+            session = _create_earthdata_session(
                 self.system.edl_hostname, (self.username, self.password)
             )
             if endpoint is None:
@@ -254,7 +267,7 @@ class Auth(object):
         """
         user, pwd = getattr(self, "username", None), getattr(self, "password", None)
         auth = (user, pwd) if user and pwd else None
-        session = SessionWithHeaderRedirection(self.system.edl_hostname, auth)
+        session = _create_earthdata_session(self.system.edl_hostname, auth)
 
         if bearer_token and self.token:
             # This will avoid the use of the netrc after we are logged in
@@ -359,7 +372,7 @@ class Auth(object):
         return self.authenticated
 
     def _find_or_create_token(self, username: str, password: str) -> requests.Response:
-        with SessionWithHeaderRedirection(
+        with _create_earthdata_session(
             self.system.edl_hostname, (username, password)
         ) as session:
             return session.post(
