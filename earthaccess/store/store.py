@@ -695,6 +695,20 @@ class Store:
         file: str,
         path: Union[Path, TargetLocation],
     ) -> Path:
+        """Download a single file from S3 to local path or cloud storage.
+
+        Parameters:
+            s3_fs: Authenticated S3 filesystem instance.
+            file: S3 URI of the file to download (e.g., s3://bucket/key).
+            path: Target directory as Path or TargetLocation.
+
+        Returns:
+            Path to the downloaded file.
+
+        Note:
+            Skips download if file already exists at target location.
+            Retries up to 3 times with exponential backoff on failure.
+        """
         # Handle TargetLocation
         if isinstance(path, TargetLocation):
             filesystem = path.get_filesystem()
