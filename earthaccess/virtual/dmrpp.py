@@ -3,13 +3,107 @@ from __future__ import annotations
 import tempfile
 import warnings
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, Union
 from urllib.parse import urlparse
 
 import earthaccess
 
 if TYPE_CHECKING:
     import xarray as xr
+
+# Type alias for parser - either a string name or a VirtualiZarr parser instance
+ParserType = Union[Literal["DMRPPParser", "HDFParser", "NetCDF3Parser"], Any]
+
+# Supported parser names that map to VirtualiZarr parsers
+SUPPORTED_PARSERS = {"DMRPPParser", "HDFParser", "NetCDF3Parser"}
+
+
+def _get_parser(parser: ParserType, group: str | None = None) -> Any:
+    """Get a VirtualiZarr parser instance.
+
+    Parameters:
+        parser:
+            Either a string name matching a VirtualiZarr parser class
+            ("DMRPPParser", "HDFParser", "NetCDF3Parser") or a parser instance.
+        group:
+            Path to the netCDF4 group. Only used for DMRPPParser and HDFParser.
+
+    Returns:
+        A VirtualiZarr parser instance.
+
+    Raises:
+        ValueError: If the parser name is not recognized.
+        ImportError: If the required VirtualiZarr parser is not available.
+    """
+    if not isinstance(parser, str):
+        # User passed a parser instance directly
+        return parser
+
+    if parser not in SUPPORTED_PARSERS:
+        raise ValueError(
+            f"Unknown parser: {parser!r}. "
+            f"Supported parsers are: {', '.join(sorted(SUPPORTED_PARSERS))}. "
+            "You can also pass a VirtualiZarr parser instance directly."
+        )
+
+    try:
+        if parser == "DMRPPParser":
+            from virtualizarr.parsers import DMRPPParser
+
+            return DMRPPParser(group=group)
+        elif parser == "HDFParser":
+            from virtualizarr.parsers import HDFParser
+
+            return HDFParser(group=group)
+        elif parser == "NetCDF3Parser":
+            from virtualizarr.parsers import NetCDF3Parser
+
+            return NetCDF3Parser()
+    except ImportError as e:
+        raise ImportError(
+            f"Failed to import {parser} from virtualizarr. "
+            "Make sure virtualizarr is installed: `pip install earthaccess[virtualizarr]`"
+        ) from e
+
+    # This should never be reached due to the check above
+    raise ValueError(f"Unknown parser: {parser!r}")
+
+
+def _get_urls_for_parser(
+    granules: list[earthaccess.DataGranule],
+    parser: ParserType,
+    access: str,
+) -> list[str]:
+    """Get the appropriate URLs based on the parser type.
+
+    For DMRPPParser, appends '.dmrpp' to data URLs.
+    For other parsers, returns the data URLs directly.
+
+    Parameters:
+        granules:
+            List of granules to get URLs for.
+        parser:
+            The parser being used (string name or instance).
+        access:
+            Access method ("direct" or "indirect").
+
+    Returns:
+        List of URLs appropriate for the parser.
+    """
+    data_urls = [granule.data_links(access=access)[0] for granule in granules]
+
+    # Check if this is a DMRPPParser (either by string name or class name)
+    is_dmrpp = False
+    if isinstance(parser, str):
+        is_dmrpp = parser == "DMRPPParser"
+    else:
+        # Check the class name for parser instances
+        is_dmrpp = type(parser).__name__ == "DMRPPParser"
+
+    if is_dmrpp:
+        return [url + ".dmrpp" for url in data_urls]
+    else:
+        return data_urls
 
 
 def open_virtual_mfdataset(
@@ -21,34 +115,51 @@ def open_virtual_mfdataset(
     load: bool = True,
     reference_dir: str | None = None,
     reference_format: Literal["json", "parquet"] = "json",
+    parser: ParserType = "DMRPPParser",
     **xr_combine_nested_kwargs: Any,
 ) -> xr.Dataset:
     """Open multiple granules as a single virtual xarray Dataset.
 
-    Uses NASA DMR++ metadata files to create a virtual xarray dataset with ManifestArrays. This virtual dataset can be used to create zarr reference files. See [https://virtualizarr.readthedocs.io](https://virtualizarr.readthedocs.io) for more information on virtual xarray datasets.
+    Uses VirtualiZarr to create a virtual xarray dataset with ManifestArrays. This
+    virtual dataset can be used to create zarr reference files. See
+    [https://virtualizarr.readthedocs.io](https://virtualizarr.readthedocs.io) for
+    more information on virtual xarray datasets.
 
-    > WARNING: This feature is current experimental and may change in the future. This feature relies on DMR++ metadata files which may not always be present for your dataset and you may get a `FileNotFoundError`.
+    > WARNING: This feature is experimental and may change in the future.
 
     Parameters:
         granules:
             The granules to open
         group:
-            Path to the netCDF4 group in the given file to open. If None, the root group will be opened. If the DMR++ file does not have groups, this parameter is ignored.
+            Path to the netCDF4 group in the given file to open. If None, the root
+            group will be opened. If the file does not have groups, this parameter
+            is ignored.
         access:
-            The access method to use. One of "direct" or "indirect". Use direct when running on AWS, use indirect when running on a local machine.
+            The access method to use. One of "direct" or "indirect". Use direct when
+            running on AWS, use indirect when running on a local machine.
         preprocess:
             A function to apply to each virtual dataset before combining
         parallel:
             Open the virtual datasets in parallel (using dask.delayed or lithops)
         load:
-            If load is True, earthaccess will serialize the virtual references in order to use lazy indexing on the resulting xarray virtual ds.
+            If load is True, earthaccess will serialize the virtual references in
+            order to use lazy indexing on the resulting xarray virtual ds.
         reference_dir:
-            Directory to store kerchunk references. If None, a temporary directory will be created and deleted after use.
+            Directory to store kerchunk references. If None, a temporary directory
+            will be created and deleted after use.
         reference_format:
-            When load is True, earthaccess will serialize the references using this format, json (default) or parquet.
+            When load is True, earthaccess will serialize the references using this
+            format, json (default) or parquet.
+        parser:
+            The VirtualiZarr parser to use for reading files. Supported string values
+            are "DMRPPParser" (default), "HDFParser", and "NetCDF3Parser". You can also
+            pass a VirtualiZarr parser instance directly. DMRPPParser reads from DMR++
+            sidecar files (appends .dmrpp to data URLs), while HDFParser and NetCDF3Parser
+            read from the actual data files.
         xr_combine_nested_kwargs:
-            Xarray arguments describing how to concatenate the datasets. Keyword arguments for xarray.combine_nested.
-            See [https://docs.xarray.dev/en/stable/generated/xarray.combine_nested.html](https://docs.xarray.dev/en/stable/generated/xarray.combine_nested.html)
+            Xarray arguments describing how to concatenate the datasets. Keyword
+            arguments for xarray.combine_nested. See
+            [https://docs.xarray.dev/en/stable/generated/xarray.combine_nested.html](https://docs.xarray.dev/en/stable/generated/xarray.combine_nested.html)
 
     Returns:
         Concatenated xarray.Dataset
@@ -101,7 +212,6 @@ def open_virtual_mfdataset(
         import xarray as xr
         from obstore.auth.earthdata import NasaEarthdataCredentialProvider
         from obstore.store import HTTPStore, S3Store
-        from virtualizarr.parsers import DMRPPParser
         from virtualizarr.registry import ObjectStoreRegistry
     except ImportError as e:
         raise ImportError(
@@ -111,10 +221,11 @@ def open_virtual_mfdataset(
     if len(granules) == 0:
         raise ValueError("No granules provided. At least one granule is required.")
 
+    # Get collection ID for reference file naming
+    collection_id = granules[0]["meta"]["collection-concept-id"]
+
     parsed_url = urlparse(granules[0].data_links(access=access)[0])
     fs = earthaccess.get_fsspec_https_session()
-    if len(granules):
-        collection_id = granules[0]["meta"]["collection-concept-id"]
 
     if access == "direct":
         credentials_endpoint, region = get_granule_credentials_endpoint_and_region(
@@ -135,19 +246,29 @@ def open_virtual_mfdataset(
         obstore_registry = ObjectStoreRegistry({f"s3://{bucket}": s3_store})
     else:
         domain = parsed_url.netloc
+        # Get auth token, with fallback for when auth is not initialized
+        auth_token = None
+        if earthaccess.__auth__ is not None and earthaccess.__auth__.token is not None:
+            auth_token = earthaccess.__auth__.token.get("access_token")
+
+        if auth_token is None:
+            raise ValueError(
+                "Authentication required. Please run earthaccess.login() first."
+            )
+
         http_store = HTTPStore.from_url(
             f"https://{domain}",
             client_options={
                 "default_headers": {
-                    "Authorization": f"Bearer {earthaccess.__auth__.token['access_token']}",
+                    "Authorization": f"Bearer {auth_token}",
                 },
             },
         )
         obstore_registry = ObjectStoreRegistry({f"https://{domain}": http_store})
 
-    granule_dmrpp_urls = [
-        granule.data_links(access=access)[0] + ".dmrpp" for granule in granules
-    ]
+    # Get the parser instance and appropriate URLs
+    parser_instance = _get_parser(parser, group=group)
+    granule_urls = _get_urls_for_parser(granules, parser, access)
 
     with warnings.catch_warnings():
         warnings.filterwarnings(
@@ -156,9 +277,9 @@ def open_virtual_mfdataset(
             category=UserWarning,
         )
         vmfdataset = vz.open_virtual_mfdataset(
-            urls=granule_dmrpp_urls,
+            urls=granule_urls,
             registry=obstore_registry,
-            parser=DMRPPParser(group=group),
+            parser=parser_instance,
             preprocess=preprocess,
             parallel=parallel,
             combine="nested",
@@ -199,41 +320,69 @@ def open_virtual_dataset(
     granule: earthaccess.DataGranule,
     group: str | None = None,
     access: str = "indirect",
+    load: bool = True,
+    reference_dir: str | None = None,
+    reference_format: Literal["json", "parquet"] = "json",
+    parser: ParserType = "DMRPPParser",
 ) -> xr.Dataset:
     """Open a granule as a single virtual xarray Dataset.
 
-    Uses NASA DMR++ metadata files to create a virtual xarray dataset with ManifestArrays. This virtual dataset can be used to create zarr reference files. See [https://virtualizarr.readthedocs.io](https://virtualizarr.readthedocs.io) for more information on virtual xarray datasets.
+    Uses VirtualiZarr to create a virtual xarray dataset with ManifestArrays. This
+    virtual dataset can be used to create zarr reference files. See
+    [https://virtualizarr.readthedocs.io](https://virtualizarr.readthedocs.io) for
+    more information on virtual xarray datasets.
 
-    > WARNING: This feature is current experimental and may change in the future. This feature relies on DMR++ metadata files which may not always be present for your dataset and you may get a `FileNotFoundError`.
+    > WARNING: This feature is experimental and may change in the future.
 
     Parameters:
         granule:
             The granule to open
         group:
-            Path to the netCDF4 group in the given file to open. If None, the root group will be opened. If the DMR++ file does not have groups, this parameter is ignored.
+            Path to the netCDF4 group in the given file to open. If None, the root
+            group will be opened. If the file does not have groups, this parameter
+            is ignored.
         access:
-            The access method to use. One of "direct" or "indirect". Use direct when running on AWS, use indirect when running on a local machine.
+            The access method to use. One of "direct" or "indirect". Use direct when
+            running on AWS, use indirect when running on a local machine.
+        load:
+            If load is True, earthaccess will serialize the virtual references in
+            order to use lazy indexing on the resulting xarray virtual ds. If False,
+            returns the raw virtual dataset with ManifestArrays.
+        reference_dir:
+            Directory to store kerchunk references. If None, a temporary directory
+            will be created and deleted after use. Only used when load=True.
+        reference_format:
+            When load is True, earthaccess will serialize the references using this
+            format, json (default) or parquet.
+        parser:
+            The VirtualiZarr parser to use for reading files. Supported string values
+            are "DMRPPParser" (default), "HDFParser", and "NetCDF3Parser". You can also
+            pass a VirtualiZarr parser instance directly. DMRPPParser reads from DMR++
+            sidecar files (appends .dmrpp to data URLs), while HDFParser and NetCDF3Parser
+            read from the actual data files.
 
     Returns:
         xarray.Dataset
 
     Examples:
+        Using the default DMRPPParser:
         ```python
         >>> results = earthaccess.search_data(count=2, temporal=("2023"), short_name="SWOT_L2_LR_SSH_Expert_2.0")
-        >>> vds =  earthaccess.open_virtual_dataset(results[0], access="indirect")
+        >>> vds = earthaccess.open_virtual_dataset(results[0], access="indirect")
         >>> vds
         <xarray.Dataset> Size: 149MB
-        Dimensions:                                (num_lines: 9866, num_pixels: 69,
-                                                    num_sides: 2)
-        Coordinates:
-            longitude                              (num_lines, num_pixels) int32 3MB ...
-            latitude                               (num_lines, num_pixels) int32 3MB ...
-            latitude_nadir                         (num_lines) int32 39kB ManifestArr...
-            longitude_nadir                        (num_lines) int32 39kB ManifestArr...
-        Dimensions without coordinates: num_lines, num_pixels, num_sides
-        Data variables: (12/98)
-            height_cor_xover_qual                  (num_lines, num_pixels) uint8 681kB ManifestArray<shape=(9866, 69), dtype=uint8, chunks=(9866, 69...
-        >>> vds.virtualize.to_kerchunk("swot_2023_ref.json", format="json")
+        ...
+        ```
+
+        Getting the raw virtual dataset without loading (for custom serialization):
+        ```python
+        >>> vds = earthaccess.open_virtual_dataset(results[0], access="indirect", load=False)
+        >>> vds.virtualize.to_kerchunk("my_refs.json", format="json")
+        ```
+
+        Using the HDFParser for datasets without DMR++ files:
+        ```python
+        >>> vds = earthaccess.open_virtual_dataset(results[0], parser="HDFParser")
         ```
     """
     return open_virtual_mfdataset(
@@ -242,6 +391,10 @@ def open_virtual_dataset(
         access=access,
         parallel=False,
         preprocess=None,
+        load=load,
+        reference_dir=reference_dir,
+        reference_format=reference_format,
+        parser=parser,
     )
 
 

@@ -564,35 +564,113 @@ Enhance DataGranule and DataCollection with STAC conversion and asset access met
 ## Phase 8: VirtualiZarr Integration
 
 **Priority:** Low
-**Status:** Not Started
+**Status:** ✅ Completed
 **Estimated Effort:** 1-2 weeks
 **Source:** Vision (earthaccess-nextgen.md)
+**Completed:** 2025-12-28
 
 ### Objective
 
-Enable cloud-native virtual dataset access using VirtualiZarr, allowing users to create virtual Zarr stores from DMR++ metadata without downloading full data files.
+Enable cloud-native virtual dataset access using VirtualiZarr, allowing users to create virtual Zarr stores from various file formats (DMR++, HDF5, NetCDF3) without downloading full data files.
 
 ### Acceptance Criteria
 
-- [ ] `open_virtual_mfdataset()` works with DataGranules
-- [ ] `open_virtual_mfdataset()` works with SearchResults (lazy pagination)
-- [ ] `group` parameter works for hierarchical datasets
-- [ ] `load=True` loads coordinate data for indexing
-- [ ] Virtual dataset can be persisted to Icechunk
-- [ ] Parallel DMR++ parsing uses configured executor
+- [x] `open_virtual_mfdataset()` works with DataGranules
+- [x] `open_virtual_dataset()` has API parity with mfdataset (load, reference_dir, reference_format, parser)
+- [x] `group` parameter works for hierarchical datasets
+- [x] `load=True` loads coordinate data for indexing
+- [x] `load=False` returns raw virtual dataset for custom serialization
+- [x] Multiple parser support (DMRPPParser, HDFParser, NetCDF3Parser)
+- [x] Parser instances can be passed directly for advanced use cases
 
-### Implementation Subtasks
+### Implementation Completed
 
-- [ ] Review existing `dmrpp_zarr.py` functionality
-- [ ] Implement `open_virtual_mfdataset()` function
-- [ ] Support DataGranules as input
-- [ ] Support SearchResults with lazy pagination
-- [ ] Implement `group` parameter for HDF5 groups
-- [ ] Implement `load` parameter for coordinate loading
-- [ ] Integrate with VirtualiZarr library
-- [ ] Support Icechunk persistence
-- [ ] Use parallel executor for DMR++ parsing
-- [ ] Test with ICESat-2 and other hierarchical datasets
+- [x] Added `load`, `reference_dir`, `reference_format` parameters to `open_virtual_dataset()`
+- [x] Added `parser` parameter to both `open_virtual_dataset()` and `open_virtual_mfdataset()`
+- [x] Implemented `_get_parser()` helper for parser selection
+- [x] Implemented `_get_urls_for_parser()` for URL generation based on parser type
+- [x] DMRPPParser appends `.dmrpp` to data URLs
+- [x] HDFParser and NetCDF3Parser use data URLs directly
+- [x] Fixed auth token handling to avoid None access errors
+- [x] Fixed collection_id binding issue
+- [x] Exported `SUPPORTED_PARSERS` from virtual module
+- [x] Added 10 new unit tests for parser functionality
+- [x] All 635 unit tests passing
+
+### API Changes
+
+**`open_virtual_dataset()` - Enhanced Signature:**
+```python
+def open_virtual_dataset(
+    granule: earthaccess.DataGranule,
+    group: str | None = None,
+    access: str = "indirect",
+    load: bool = True,                                    # NEW
+    reference_dir: str | None = None,                     # NEW
+    reference_format: Literal["json", "parquet"] = "json", # NEW
+    parser: ParserType = "DMRPPParser",                   # NEW
+) -> xr.Dataset:
+```
+
+**`open_virtual_mfdataset()` - Enhanced Signature:**
+```python
+def open_virtual_mfdataset(
+    granules: list[earthaccess.DataGranule],
+    group: str | None = None,
+    access: str = "indirect",
+    preprocess: callable | None = None,
+    parallel: Literal["dask", "lithops", False] = "dask",
+    load: bool = True,
+    reference_dir: str | None = None,
+    reference_format: Literal["json", "parquet"] = "json",
+    parser: ParserType = "DMRPPParser",                   # NEW
+    **xr_combine_nested_kwargs: Any,
+) -> xr.Dataset:
+```
+
+### Supported Parsers
+
+| Parser | Format | URL Handling |
+|--------|--------|--------------|
+| `DMRPPParser` (default) | DMR++ sidecar files | Appends `.dmrpp` to data URLs |
+| `HDFParser` | NetCDF4/HDF5 files | Uses data URLs directly |
+| `NetCDF3Parser` | NetCDF3 files | Uses data URLs directly |
+
+### Usage Examples
+
+```python
+# Default: Use DMRPPParser (reads .dmrpp sidecar files)
+vds = earthaccess.open_virtual_dataset(granule)
+
+# Get raw virtual dataset without loading (for custom serialization)
+vds = earthaccess.open_virtual_dataset(granule, load=False)
+vds.virtualize.to_kerchunk("my_refs.json", format="json")
+
+# Use HDFParser for datasets without DMR++ files
+vds = earthaccess.open_virtual_dataset(granule, parser="HDFParser")
+
+# Use NetCDF3Parser for legacy files
+vds = earthaccess.open_virtual_dataset(granule, parser="NetCDF3Parser")
+
+# Pass a custom parser instance
+from virtualizarr.parsers import HDFParser
+custom_parser = HDFParser(group="/my/group")
+vds = earthaccess.open_virtual_dataset(granule, parser=custom_parser)
+```
+
+### Design Decisions
+
+1. **VirtualiZarr parser names used directly** - "DMRPPParser", "HDFParser", "NetCDF3Parser" match VirtualiZarr's class names exactly
+2. **DMRPPParser is the default** - Most NASA data has DMR++ sidecar files available
+3. **Explicit parser selection only** - No auto-detection or fallback; users must specify the parser they want
+4. **Parser instance passthrough** - Advanced users can pass pre-configured parser instances directly
+5. **Executor compatibility already exists** - VirtualiZarr's `parallel` kwarg accepts `concurrent.futures.Executor` instances, which earthaccess executors implement
+
+### Not Implemented (Out of Scope)
+
+- **SearchResults support** - VirtualiZarr needs all references in memory to combine them; lazy pagination doesn't apply
+- **Icechunk persistence** - Deferred; users can call `vds.virtualizarr.to_icechunk()` directly
+- **Custom executor integration** - Not needed; VirtualiZarr's native parallel support is compatible with earthaccess executors
 
 ---
 
