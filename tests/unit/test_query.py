@@ -1,4 +1,7 @@
-"""Unit tests for the new query package."""
+"""Unit tests for the new query package.
+
+Tests consolidated using parametrization where appropriate.
+"""
 
 import datetime as dt
 
@@ -13,6 +16,10 @@ from earthaccess.query import (
     ValidationResult,
 )
 
+# =============================================================================
+# Geometry Types Tests (Parametrized)
+# =============================================================================
+
 
 class TestBoundingBox:
     """Tests for BoundingBox type."""
@@ -25,15 +32,18 @@ class TestBoundingBox:
         assert bbox.east == 180
         assert bbox.north == 90
 
-    def test_bounding_box_validation(self):
+    @pytest.mark.parametrize(
+        "west,south,east,north,match",
+        [
+            (-200, 0, 0, 10, "west must be between"),
+            (0, 50, 10, 10, "south.*must be less than or equal to north"),
+        ],
+        ids=["invalid_west", "south_greater_than_north"],
+    )
+    def test_bounding_box_validation(self, west, south, east, north, match):
         """Test that invalid bounding boxes raise errors."""
-        with pytest.raises(ValueError, match="west must be between"):
-            BoundingBox(west=-200, south=0, east=0, north=10)
-
-        with pytest.raises(
-            ValueError, match="south.*must be less than or equal to north"
-        ):
-            BoundingBox(west=0, south=50, east=10, north=10)
+        with pytest.raises(ValueError, match=match):
+            BoundingBox(west=west, south=south, east=east, north=north)
 
     def test_bounding_box_to_cmr(self):
         """Test CMR format conversion."""
@@ -60,13 +70,18 @@ class TestPoint:
         assert pt.lon == -122.4
         assert pt.lat == 37.8
 
-    def test_point_validation(self):
+    @pytest.mark.parametrize(
+        "lon,lat,match",
+        [
+            (200, 0, "lon must be between"),
+            (0, -100, "lat must be between"),
+        ],
+        ids=["invalid_lon", "invalid_lat"],
+    )
+    def test_point_validation(self, lon, lat, match):
         """Test that invalid points raise errors."""
-        with pytest.raises(ValueError, match="lon must be between"):
-            Point(lon=200, lat=0)
-
-        with pytest.raises(ValueError, match="lat must be between"):
-            Point(lon=0, lat=-100)
+        with pytest.raises(ValueError, match=match):
+            Point(lon=lon, lat=lat)
 
     def test_point_to_cmr(self):
         """Test CMR format conversion."""
@@ -88,15 +103,18 @@ class TestPolygon:
         poly = Polygon(coordinates=coords)
         assert len(poly.coordinates) == 5
 
-    def test_polygon_validation(self):
+    @pytest.mark.parametrize(
+        "coords,match",
+        [
+            (((0, 0), (10, 0), (10, 10)), "at least 4 points"),
+            (((0, 0), (10, 0), (10, 10), (0, 10)), "must be closed"),
+        ],
+        ids=["too_few_points", "not_closed"],
+    )
+    def test_polygon_validation(self, coords, match):
         """Test that invalid polygons raise errors."""
-        # Not enough points
-        with pytest.raises(ValueError, match="at least 4 points"):
-            Polygon(coordinates=((0, 0), (10, 0), (10, 10)))
-
-        # Not closed
-        with pytest.raises(ValueError, match="must be closed"):
-            Polygon(coordinates=((0, 0), (10, 0), (10, 10), (0, 10)))
+        with pytest.raises(ValueError, match=match):
+            Polygon(coordinates=coords)
 
     def test_polygon_to_cmr(self):
         """Test CMR format conversion."""
@@ -110,14 +128,37 @@ class TestPolygon:
         assert poly.to_stac() == expected
 
 
+# =============================================================================
+# DateRange Tests
+# =============================================================================
+
+
 class TestDateRange:
     """Tests for DateRange type."""
 
-    def test_date_range_from_strings(self):
+    @pytest.mark.parametrize(
+        "start,end,expected_start,expected_end",
+        [
+            (
+                "2020-01-01",
+                "2020-12-31",
+                dt.datetime(2020, 1, 1, 0, 0, 0),
+                dt.datetime(2020, 12, 31, 23, 59, 59),
+            ),
+            (
+                "2020-01",
+                "2020-02",
+                dt.datetime(2020, 1, 1, 0, 0, 0),
+                dt.datetime(2020, 2, 29, 23, 59, 59),  # 2020 is leap year
+            ),
+        ],
+        ids=["full_date", "month_format"],
+    )
+    def test_date_range_from_strings(self, start, end, expected_start, expected_end):
         """Test creating from date strings."""
-        dr = DateRange.from_dates("2020-01-01", "2020-12-31")
-        assert dr.start == dt.datetime(2020, 1, 1, 0, 0, 0)
-        assert dr.end == dt.datetime(2020, 12, 31, 23, 59, 59)
+        dr = DateRange.from_dates(start, end)
+        assert dr.start == expected_start
+        assert dr.end == expected_end
 
     def test_date_range_from_datetime(self):
         """Test creating from datetime objects."""
@@ -126,12 +167,6 @@ class TestDateRange:
         dr = DateRange.from_dates(start, end)
         assert dr.start == start
         assert dr.end == end
-
-    def test_date_range_month_format(self):
-        """Test YYYY-MM format parsing."""
-        dr = DateRange.from_dates("2020-01", "2020-02")
-        assert dr.start == dt.datetime(2020, 1, 1, 0, 0, 0)
-        assert dr.end == dt.datetime(2020, 2, 29, 23, 59, 59)  # 2020 is leap year
 
     def test_date_range_validation(self):
         """Test that invalid date ranges raise errors."""
@@ -148,7 +183,12 @@ class TestDateRange:
         """Test STAC format conversion."""
         dr = DateRange.from_dates("2020-01-01", "2020-01-31")
         stac_str = dr.to_stac()
-        assert "/" in stac_str  # STAC uses / separator
+        assert "/" in stac_str
+
+
+# =============================================================================
+# Validation Tests
+# =============================================================================
 
 
 class TestValidation:
@@ -176,23 +216,42 @@ class TestValidation:
             result.raise_if_invalid()
 
 
+# =============================================================================
+# GranuleQuery Tests (Parametrized)
+# =============================================================================
+
+
 class TestGranuleQuery:
     """Tests for GranuleQuery class."""
 
-    def test_short_name(self):
-        """Test short_name filter."""
-        q = GranuleQuery().short_name("ATL03")
-        assert q.to_cmr()["short_name"] == "ATL03"
-
-    def test_version(self):
-        """Test version filter."""
-        q = GranuleQuery().version("006")
-        assert q.to_cmr()["version"] == "006"
-
-    def test_concept_id(self):
-        """Test concept_id filter."""
-        q = GranuleQuery().concept_id(["C123", "C456"])
-        assert q.to_cmr()["concept_id"] == ["C123", "C456"]
+    @pytest.mark.parametrize(
+        "method,args,key,expected",
+        [
+            ("short_name", ("ATL03",), "short_name", "ATL03"),
+            ("version", ("006",), "version", "006"),
+            ("concept_id", (["C123", "C456"],), "concept_id", ["C123", "C456"]),
+            ("cloud_cover", (0, 50), "cloud_cover", "0.0,50.0"),
+            ("point", (-122.4, 37.8), "point", "-122.4,37.8"),
+            (
+                "bounding_box",
+                (-180, -90, 180, 90),
+                "bounding_box",
+                "-180.0,-90.0,180.0,90.0",
+            ),
+        ],
+        ids=[
+            "short_name",
+            "version",
+            "concept_id",
+            "cloud_cover",
+            "point",
+            "bounding_box",
+        ],
+    )
+    def test_granule_query_methods(self, method, args, key, expected):
+        """Test GranuleQuery filter methods set correct CMR parameters."""
+        q = getattr(GranuleQuery(), method)(*args)
+        assert q.to_cmr()[key] == expected
 
     def test_temporal(self):
         """Test temporal filter."""
@@ -201,26 +260,11 @@ class TestGranuleQuery:
         assert "temporal" in cmr
         assert "2020-01" in cmr["temporal"]
 
-    def test_bounding_box(self):
-        """Test bounding_box filter."""
-        q = GranuleQuery().bounding_box(-180, -90, 180, 90)
-        assert q.to_cmr()["bounding_box"] == "-180.0,-90.0,180.0,90.0"
-
-    def test_point(self):
-        """Test point filter."""
-        q = GranuleQuery().point(-122.4, 37.8)
-        assert q.to_cmr()["point"] == "-122.4,37.8"
-
     def test_polygon(self):
         """Test polygon filter."""
         coords = [(0, 0), (10, 0), (10, 10), (0, 10), (0, 0)]
         q = GranuleQuery().polygon(coords)
         assert "polygon" in q.to_cmr()
-
-    def test_cloud_cover(self):
-        """Test cloud_cover filter."""
-        q = GranuleQuery().cloud_cover(0, 50)
-        assert q.to_cmr()["cloud_cover"] == "0.0,50.0"
 
     def test_method_chaining(self):
         """Test that methods can be chained."""
@@ -249,17 +293,19 @@ class TestGranuleQuery:
         assert cmr["version"] == "006"
         assert "temporal" in cmr
 
-    def test_to_stac_collections(self):
-        """Test STAC conversion maps short_name to collections."""
-        q = GranuleQuery().short_name("ATL03")
+    @pytest.mark.parametrize(
+        "method,args,stac_key,expected",
+        [
+            ("short_name", ("ATL03",), "collections", ["ATL03"]),
+            ("bounding_box", (-10, 20, 30, 40), "bbox", [-10.0, 20.0, 30.0, 40.0]),
+        ],
+        ids=["collections", "bbox"],
+    )
+    def test_to_stac_conversions(self, method, args, stac_key, expected):
+        """Test STAC conversion for various methods."""
+        q = getattr(GranuleQuery(), method)(*args)
         stac = q.to_stac()
-        assert stac["collections"] == ["ATL03"]
-
-    def test_to_stac_bbox(self):
-        """Test STAC conversion for bounding box."""
-        q = GranuleQuery().bounding_box(-10, 20, 30, 40)
-        stac = q.to_stac()
-        assert stac["bbox"] == [-10.0, 20.0, 30.0, 40.0]
+        assert stac[stac_key] == expected
 
     def test_to_stac_datetime(self):
         """Test STAC conversion for temporal."""
@@ -284,17 +330,24 @@ class TestGranuleQuery:
         assert q1.to_cmr()["short_name"] == "ATL03"
         assert q2.to_cmr()["short_name"] == "ATL06"
 
-    def test_validation(self):
+    @pytest.mark.parametrize(
+        "query_builder,is_valid",
+        [
+            (
+                lambda: GranuleQuery()
+                .short_name("ATL03")
+                .bounding_box(-180, -90, 180, 90),
+                True,
+            ),
+            (lambda: GranuleQuery().bounding_box(-180, -90, 180, 90), False),
+        ],
+        ids=["valid_with_collection", "invalid_spatial_only"],
+    )
+    def test_validation(self, query_builder, is_valid):
         """Test query validation."""
-        # Valid query
-        q = GranuleQuery().short_name("ATL03").bounding_box(-180, -90, 180, 90)
+        q = query_builder()
         result = q.validate()
-        assert result.is_valid
-
-        # Invalid: spatial without collection filter
-        q = GranuleQuery().bounding_box(-180, -90, 180, 90)
-        result = q.validate()
-        assert not result.is_valid
+        assert result.is_valid == is_valid
 
     def test_repr(self):
         """Test string representation."""
@@ -312,38 +365,35 @@ class TestGranuleQuery:
         assert q1 != q3
 
 
+# =============================================================================
+# CollectionQuery Tests (Parametrized)
+# =============================================================================
+
+
 class TestCollectionQuery:
     """Tests for CollectionQuery class."""
 
-    def test_keyword(self):
-        """Test keyword search."""
-        q = CollectionQuery().keyword("sea surface temperature")
-        assert q.to_cmr()["keyword"] == "sea surface temperature"
-
-    def test_cloud_hosted(self):
-        """Test cloud_hosted filter."""
-        q = CollectionQuery().cloud_hosted(True)
-        assert q.to_cmr()["cloud_hosted"] is True
-
-    def test_has_granules(self):
-        """Test has_granules filter."""
-        q = CollectionQuery().has_granules(True)
-        assert q.to_cmr()["has_granules"] is True
-
-    def test_doi(self):
-        """Test DOI filter."""
-        q = CollectionQuery().doi("10.5067/AQR50-3Q7CS")
-        assert q.to_cmr()["doi"] == "10.5067/AQR50-3Q7CS"
-
-    def test_project(self):
-        """Test project filter."""
-        q = CollectionQuery().project("EMIT")
-        assert q.to_cmr()["project"] == "EMIT"
-
-    def test_instrument(self):
-        """Test instrument filter."""
-        q = CollectionQuery().instrument("GEDI")
-        assert q.to_cmr()["instrument"] == "GEDI"
+    @pytest.mark.parametrize(
+        "method,args,key,expected",
+        [
+            (
+                "keyword",
+                ("sea surface temperature",),
+                "keyword",
+                "sea surface temperature",
+            ),
+            ("cloud_hosted", (True,), "cloud_hosted", True),
+            ("has_granules", (True,), "has_granules", True),
+            ("doi", ("10.5067/AQR50-3Q7CS",), "doi", "10.5067/AQR50-3Q7CS"),
+            ("project", ("EMIT",), "project", "EMIT"),
+            ("instrument", ("GEDI",), "instrument", "GEDI"),
+        ],
+        ids=["keyword", "cloud_hosted", "has_granules", "doi", "project", "instrument"],
+    )
+    def test_collection_query_methods(self, method, args, key, expected):
+        """Test CollectionQuery filter methods set correct CMR parameters."""
+        q = getattr(CollectionQuery(), method)(*args)
+        assert q.to_cmr()[key] == expected
 
     def test_to_stac_keyword(self):
         """Test STAC conversion maps keyword to q."""
@@ -365,6 +415,11 @@ class TestCollectionQuery:
         assert cmr["has_granules"] is True
 
 
+# =============================================================================
+# Query Interoperability Tests
+# =============================================================================
+
+
 class TestQueryInteroperability:
     """Test interoperability between query types."""
 
@@ -382,13 +437,16 @@ class TestQueryInteroperability:
         )
 
         cmr = q.to_cmr()
-        assert "short_name" in cmr
-        assert "version" in cmr
-        assert "provider" in cmr
-        assert "temporal" in cmr
-        assert "bounding_box" in cmr
-        assert "cloud_cover" in cmr
-        assert "day_night_flag" in cmr
+        for key in [
+            "short_name",
+            "version",
+            "provider",
+            "temporal",
+            "bounding_box",
+            "cloud_cover",
+            "day_night_flag",
+        ]:
+            assert key in cmr
 
         stac = q.to_stac()
         assert "collections" in stac
@@ -410,9 +468,12 @@ class TestQueryInteroperability:
         )
 
         cmr = q.to_cmr()
-        assert "keyword" in cmr
-        assert "short_name" in cmr
-        assert "cloud_hosted" in cmr
-        assert "has_granules" in cmr
-        assert "temporal" in cmr
-        assert "bounding_box" in cmr
+        for key in [
+            "keyword",
+            "short_name",
+            "cloud_hosted",
+            "has_granules",
+            "temporal",
+            "bounding_box",
+        ]:
+            assert key in cmr

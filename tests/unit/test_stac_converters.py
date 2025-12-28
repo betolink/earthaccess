@@ -480,36 +480,40 @@ class TestStacCollectionToDataCollection:
 class TestExtractGranuleDatetime:
     """Tests for _extract_granule_datetime helper."""
 
-    def test_range_datetime(self):
-        """Test extraction from RangeDateTime."""
-        temporal = {
-            "RangeDateTime": {
-                "BeginningDateTime": "2023-01-01T00:00:00Z",
-                "EndingDateTime": "2023-01-01T01:00:00Z",
-            }
-        }
+    @pytest.mark.parametrize(
+        "temporal,expected_dt,expected_start,expected_end",
+        [
+            pytest.param(
+                {
+                    "RangeDateTime": {
+                        "BeginningDateTime": "2023-01-01T00:00:00Z",
+                        "EndingDateTime": "2023-01-01T01:00:00Z",
+                    }
+                },
+                None,
+                "2023-01-01T00:00:00Z",
+                "2023-01-01T01:00:00Z",
+                id="range_datetime",
+            ),
+            pytest.param(
+                {"SingleDateTime": "2023-01-01T00:00:00Z"},
+                "2023-01-01T00:00:00Z",
+                None,
+                None,
+                id="single_datetime",
+            ),
+            pytest.param({}, None, None, None, id="empty_temporal"),
+        ],
+    )
+    def test_datetime_extraction(
+        self, temporal, expected_dt, expected_start, expected_end
+    ):
+        """Test datetime extraction from various temporal extent formats."""
         dt, start, end = _extract_granule_datetime(temporal)
 
-        assert dt is None
-        assert start == "2023-01-01T00:00:00Z"
-        assert end == "2023-01-01T01:00:00Z"
-
-    def test_single_datetime(self):
-        """Test extraction from SingleDateTime."""
-        temporal = {"SingleDateTime": "2023-01-01T00:00:00Z"}
-        dt, start, end = _extract_granule_datetime(temporal)
-
-        assert dt == "2023-01-01T00:00:00Z"
-        assert start is None
-        assert end is None
-
-    def test_empty_temporal(self):
-        """Test handling of empty temporal extent."""
-        dt, start, end = _extract_granule_datetime({})
-
-        assert dt is None
-        assert start is None
-        assert end is None
+        assert dt == expected_dt
+        assert start == expected_start
+        assert end == expected_end
 
 
 class TestExtractGranuleGeometry:
@@ -603,70 +607,71 @@ class TestBuildGranuleAssets:
 class TestExtractCollectionTemporalExtent:
     """Tests for _extract_collection_temporal_extent helper."""
 
-    def test_range_date_times(self):
-        """Test extraction from RangeDateTimes."""
-        temporal_extents = [
-            {
-                "RangeDateTimes": [
+    @pytest.mark.parametrize(
+        "temporal_extents,expected_start,expected_end",
+        [
+            pytest.param(
+                [
                     {
-                        "BeginningDateTime": "2020-01-01T00:00:00Z",
-                        "EndingDateTime": "2023-12-31T23:59:59Z",
+                        "RangeDateTimes": [
+                            {
+                                "BeginningDateTime": "2020-01-01T00:00:00Z",
+                                "EndingDateTime": "2023-12-31T23:59:59Z",
+                            }
+                        ]
                     }
-                ]
-            }
-        ]
+                ],
+                "2020-01-01T00:00:00Z",
+                "2023-12-31T23:59:59Z",
+                id="range_date_times",
+            ),
+            pytest.param([], None, None, id="empty_extents"),
+        ],
+    )
+    def test_temporal_extent_extraction(
+        self, temporal_extents, expected_start, expected_end
+    ):
+        """Test temporal extent extraction from various formats."""
         start, end = _extract_collection_temporal_extent(temporal_extents)
 
-        assert start == "2020-01-01T00:00:00Z"
-        assert end == "2023-12-31T23:59:59Z"
-
-    def test_empty_extents(self):
-        """Test handling of empty temporal extents."""
-        start, end = _extract_collection_temporal_extent([])
-
-        assert start is None
-        assert end is None
+        assert start == expected_start
+        assert end == expected_end
 
 
 class TestStacAssetsToRelatedUrls:
     """Tests for _stac_assets_to_related_urls helper."""
 
-    def test_data_asset(self):
-        """Test data asset conversion."""
-        assets = {
-            "data": {
-                "href": "https://example.com/data.nc",
-                "roles": ["data"],
-            }
-        }
+    @pytest.mark.parametrize(
+        "assets,expected_type",
+        [
+            pytest.param(
+                {"data": {"href": "https://example.com/data.nc", "roles": ["data"]}},
+                "GET DATA",
+                id="data_asset",
+            ),
+            pytest.param(
+                {"data": {"href": "s3://bucket/data.nc", "roles": ["data"]}},
+                "GET DATA VIA DIRECT ACCESS",
+                id="s3_asset",
+            ),
+            pytest.param(
+                {
+                    "thumbnail": {
+                        "href": "https://example.com/thumb.png",
+                        "roles": ["thumbnail"],
+                    }
+                },
+                "GET RELATED VISUALIZATION",
+                id="thumbnail_asset",
+            ),
+        ],
+    )
+    def test_asset_to_related_url_conversion(self, assets, expected_type):
+        """Test STAC assets are converted to RelatedUrls with correct types."""
         urls = _stac_assets_to_related_urls(assets)
 
         assert len(urls) == 1
-        assert urls[0]["Type"] == "GET DATA"
-
-    def test_s3_asset(self):
-        """Test S3 URL gets direct access type."""
-        assets = {
-            "data": {
-                "href": "s3://bucket/data.nc",
-                "roles": ["data"],
-            }
-        }
-        urls = _stac_assets_to_related_urls(assets)
-
-        assert urls[0]["Type"] == "GET DATA VIA DIRECT ACCESS"
-
-    def test_thumbnail_asset(self):
-        """Test thumbnail asset conversion."""
-        assets = {
-            "thumbnail": {
-                "href": "https://example.com/thumb.png",
-                "roles": ["thumbnail"],
-            }
-        }
-        urls = _stac_assets_to_related_urls(assets)
-
-        assert urls[0]["Type"] == "GET RELATED VISUALIZATION"
+        assert urls[0]["Type"] == expected_type
 
 
 # =============================================================================

@@ -1,8 +1,75 @@
+import contextlib
+import json
 import os
 import pathlib
 
 import earthaccess
 import pytest
+
+# =============================================================================
+# VCR Configuration for pytest-recording
+# =============================================================================
+
+REDACTED_STRING = "REDACTED"
+
+
+def redact_key_values(keys_to_redact):
+    """Create a response filter that redacts specified keys."""
+
+    def redact(payload):
+        for key in keys_to_redact:
+            if key in payload:
+                payload[key] = REDACTED_STRING
+        return payload
+
+    def before_record_response(response):
+        body = response["body"]["string"].decode("utf8")
+
+        with contextlib.suppress(json.JSONDecodeError):
+            payload = json.loads(body)
+            redacted_payload = (
+                list(map(redact, payload))
+                if isinstance(payload, list)
+                else redact(payload)
+            )
+            response["body"]["string"] = json.dumps(redacted_payload).encode()
+
+        return response
+
+    return before_record_response
+
+
+@pytest.fixture(scope="module")
+def vcr_config():
+    """VCR configuration for pytest-recording in integration tests."""
+    return {
+        "decode_compressed_response": True,
+        "filter_headers": [
+            "Accept-Encoding",
+            "Authorization",
+            "Cookie",
+            "Set-Cookie",
+            "User-Agent",
+        ],
+        "filter_post_data_parameters": ["access_token"],
+        "before_record_response": redact_key_values(
+            ["access_token", "uid", "first_name", "last_name", "email_address"]
+        ),
+    }
+
+
+@pytest.fixture(scope="module")
+def vcr_cassette_dir(request):
+    """Return the cassette directory for the current test module."""
+    module_name = pathlib.Path(request.fspath).stem
+    return str(
+        pathlib.Path(__file__).parent / "fixtures" / "vcr_cassettes" / module_name
+    )
+
+
+# =============================================================================
+# Auth Fixtures
+# =============================================================================
 
 
 @pytest.fixture

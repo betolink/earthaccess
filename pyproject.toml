@@ -96,6 +96,7 @@ test = [
   "types-requests >=0.1",
   "types-setuptools >=0.1",
   "vcrpy >=7.0.0",
+  "pytest-recording >=0.13.0",
   "earthaccess[kerchunk]",
   "earthaccess[virtualizarr]",
   "dask[distributed]>=2025.7.0",

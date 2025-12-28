@@ -130,50 +130,61 @@ class TestReadGeometryFile:
 class TestCountPoints:
     """Tests for _count_points helper function."""
 
-    def test_count_polygon_points(self) -> None:
-        """Count points in a simple polygon."""
-        geometry = {
-            "type": "Polygon",
-            "coordinates": [[[-10, -10], [10, -10], [10, 10], [-10, 10], [-10, -10]]],
-        }
-        assert _count_points(geometry) == 5
-
-    def test_count_polygon_with_hole(self) -> None:
-        """Count points in polygon with a hole."""
-        geometry = {
-            "type": "Polygon",
-            "coordinates": [
-                # Exterior ring
-                [[-10, -10], [10, -10], [10, 10], [-10, 10], [-10, -10]],
-                # Hole
-                [[-5, -5], [5, -5], [5, 5], [-5, 5], [-5, -5]],
-            ],
-        }
-        assert _count_points(geometry) == 10  # 5 + 5
-
-    def test_count_multipolygon_points(self) -> None:
-        """Count points in MultiPolygon."""
-        geometry = {
-            "type": "MultiPolygon",
-            "coordinates": [
-                [[[-10, -10], [0, -10], [0, 0], [-10, 0], [-10, -10]]],
-                [[[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]]],
-            ],
-        }
-        assert _count_points(geometry) == 10  # 5 + 5
-
-    def test_count_point(self) -> None:
-        """Count points in a Point geometry."""
-        geometry = {"type": "Point", "coordinates": [0, 0]}
-        assert _count_points(geometry) == 1
-
-    def test_count_linestring(self) -> None:
-        """Count points in a LineString."""
-        geometry = {
-            "type": "LineString",
-            "coordinates": [[0, 0], [10, 10], [20, 0]],
-        }
-        assert _count_points(geometry) == 3
+    @pytest.mark.parametrize(
+        "geometry,expected_count",
+        [
+            pytest.param(
+                {
+                    "type": "Polygon",
+                    "coordinates": [
+                        [[-10, -10], [10, -10], [10, 10], [-10, 10], [-10, -10]]
+                    ],
+                },
+                5,
+                id="simple_polygon",
+            ),
+            pytest.param(
+                {
+                    "type": "Polygon",
+                    "coordinates": [
+                        # Exterior ring
+                        [[-10, -10], [10, -10], [10, 10], [-10, 10], [-10, -10]],
+                        # Hole
+                        [[-5, -5], [5, -5], [5, 5], [-5, 5], [-5, -5]],
+                    ],
+                },
+                10,  # 5 + 5
+                id="polygon_with_hole",
+            ),
+            pytest.param(
+                {
+                    "type": "MultiPolygon",
+                    "coordinates": [
+                        [[[-10, -10], [0, -10], [0, 0], [-10, 0], [-10, -10]]],
+                        [[[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]]],
+                    ],
+                },
+                10,  # 5 + 5
+                id="multipolygon",
+            ),
+            pytest.param(
+                {"type": "Point", "coordinates": [0, 0]},
+                1,
+                id="point",
+            ),
+            pytest.param(
+                {
+                    "type": "LineString",
+                    "coordinates": [[0, 0], [10, 10], [20, 0]],
+                },
+                3,
+                id="linestring",
+            ),
+        ],
+    )
+    def test_count_points(self, geometry: dict, expected_count: int) -> None:
+        """Count points in various geometry types."""
+        assert _count_points(geometry) == expected_count
 
 
 class TestSimplifyGeometry:
@@ -258,50 +269,66 @@ class TestSimplifyGeometry:
 class TestExtractPolygonCoords:
     """Tests for extracting polygon coordinates."""
 
-    def test_extract_from_polygon(self) -> None:
-        """Extract coords from a simple Polygon."""
-        geometry = {
-            "type": "Polygon",
-            "coordinates": [
-                [
-                    [-10.0, -10.0],
-                    [10.0, -10.0],
-                    [10.0, 10.0],
-                    [-10.0, 10.0],
-                    [-10.0, -10.0],
-                ]
-            ],
-        }
-
+    @pytest.mark.parametrize(
+        "geometry,expected_len,expected_first",
+        [
+            pytest.param(
+                {
+                    "type": "Polygon",
+                    "coordinates": [
+                        [
+                            [-10.0, -10.0],
+                            [10.0, -10.0],
+                            [10.0, 10.0],
+                            [-10.0, 10.0],
+                            [-10.0, -10.0],
+                        ]
+                    ],
+                },
+                5,
+                (-10.0, -10.0),
+                id="simple_polygon",
+            ),
+            pytest.param(
+                {
+                    "type": "MultiPolygon",
+                    "coordinates": [
+                        [
+                            [
+                                [-10.0, -10.0],
+                                [0.0, -10.0],
+                                [0.0, 0.0],
+                                [-10.0, 0.0],
+                                [-10.0, -10.0],
+                            ]
+                        ],
+                        [
+                            [
+                                [0.0, 0.0],
+                                [10.0, 0.0],
+                                [10.0, 10.0],
+                                [0.0, 10.0],
+                                [0.0, 0.0],
+                            ]
+                        ],
+                    ],
+                },
+                5,
+                (-10.0, -10.0),
+                id="multipolygon_uses_first",
+            ),
+        ],
+    )
+    def test_extract_polygon_coords(
+        self, geometry: dict, expected_len: int, expected_first: tuple
+    ) -> None:
+        """Extract coordinates from various polygon geometry types."""
         result = extract_polygon_coords(geometry)
 
-        assert len(result) == 5
-        assert result[0] == (-10.0, -10.0)
-        assert result[-1] == (-10.0, -10.0)
-
-    def test_extract_from_multipolygon(self) -> None:
-        """Extract coords from MultiPolygon (uses first polygon)."""
-        geometry = {
-            "type": "MultiPolygon",
-            "coordinates": [
-                [
-                    [
-                        [-10.0, -10.0],
-                        [0.0, -10.0],
-                        [0.0, 0.0],
-                        [-10.0, 0.0],
-                        [-10.0, -10.0],
-                    ]
-                ],
-                [[[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 10.0], [0.0, 0.0]]],
-            ],
-        }
-
-        result = extract_polygon_coords(geometry)
-
-        # Should use first polygon
-        assert len(result) == 5
-        assert result[0] == (-10.0, -10.0)
+        assert len(result) == expected_len
+        assert result[0] == expected_first
+        # Polygon should be closed
+        assert result[0] == result[-1]
 
     def test_extract_from_point_raises(self) -> None:
         """Raise error when extracting from non-polygon geometry."""
