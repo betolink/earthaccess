@@ -1,10 +1,16 @@
+"""Legacy Store class - being refactored into modular components.
+
+This module contains the Store class which is the main interface for
+downloading and opening granules. It's being incrementally refactored
+to use the new modular components in the store package.
+"""
+
 import datetime
 import logging
 import threading
 from functools import lru_cache
 from itertools import chain
 from pathlib import Path
-from pickle import dumps, loads
 from typing import Any, Dict, List, Mapping, Optional, Tuple, Union
 from uuid import uuid4
 
@@ -20,9 +26,7 @@ from tenacity import (
 )
 from typing_extensions import deprecated
 
-import earthaccess
-
-from ..auth import Auth, SessionWithHeaderRedirection
+from ..auth import SessionWithHeaderRedirection
 from ..credentials_store import DefaultFileSystemFactory, FileSystemFactory
 from ..daac import DAAC_TEST_URLS, find_provider
 from ..parallel import get_executor
@@ -30,159 +34,14 @@ from ..results import DataGranule
 from ..search import DataCollections
 from ..target_filesystem import TargetLocation
 
+# Import from new modular components
+from .file_wrapper import (
+    get_url_granule_mapping as _get_url_granule_mapping,
+    is_interactive as _is_interactive,
+    open_files as _open_files,
+)
+
 logger = logging.getLogger(__name__)
-
-
-def _is_interactive() -> bool:
-    """Detect if earthaccess is being used in an interactive session.
-    Interactive sessions include Jupyter Notebooks, IPython REPL, and default Python REPL.
-    """
-    try:
-        from IPython import get_ipython  # type: ignore
-
-        # IPython Notebook or REPL:
-        if get_ipython() is not None:
-            return True
-    except ImportError:
-        pass
-
-    import sys
-
-    # Python REPL
-    return hasattr(sys, "ps1")
-
-
-class EarthAccessFile:
-    """Handle for a file-like object pointing to an on-prem or Earthdata Cloud granule."""
-
-    def __init__(
-        self, f: fsspec.spec.AbstractBufferedFile, granule: DataGranule
-    ) -> None:
-        """EarthAccessFile connects an Earthdata search result with an open file-like object.
-
-        The class implements custom serialization, but otherwise passes all attribute and method calls
-        directly to the file-like object given during initialization. An instance of
-        this class can be treated like that file-like object itself.
-
-        Note that `type()` applied to an instance of this class is expected to disagree with
-        the `__class__` attribute on the instance.
-
-        Parameters:
-            f: a file-like object
-            granule: a granule search result
-        """
-        self.f = f
-        self.granule = granule
-
-    def __getattribute__(self, name: str) -> Any:
-        # use super().__getattribute__ to avoid infinite recursion
-        if (name in EarthAccessFile.__dict__) or (name in self.__dict__):
-            # accessing our attributes
-            return super().__getattribute__(name)
-        else:
-            # access proxied attributes
-            proxy = super().__getattribute__("f")
-            return getattr(proxy, name)
-
-    def __reduce_ex__(self, protocol: Any) -> Any:
-        return make_instance, (
-            self.__class__,
-            self.granule,
-            earthaccess.__auth__,
-            dumps(self.f),
-        )
-
-    def __repr__(self) -> str:
-        return repr(self.f)
-
-
-def _optimal_fsspec_block_size(file_size: int) -> int:
-    """Determine the optimal block size based on file size.
-    Note: we could even be smarter if we know the chunk sizes of the variables
-    we need to cache, e.g. using the `dmrpp` file and the `wellknownparts` cache type.
-
-    Uses `blockcache` for all files with block sizes adjusted by file size:
-
-    - <100MB: 4MB
-    - >100MB: 4–16MB
-
-    Parameters:
-        file_size (int): Size of the file in bytes.
-
-    Returns:
-        block_size (int): Optimal block size in bytes.
-    """
-    if file_size < 100 * 1024 * 1024:
-        block_size = 4 * 1024 * 1024
-    elif 100 * 1024 * 1024 <= file_size < 1024 * 1024 * 1024:
-        block_size = 8 * 1024 * 1024
-    else:
-        block_size = 16 * 1024 * 1024
-
-    return block_size
-
-
-def _open_files(
-    url_mapping: Mapping[str, Union[DataGranule, None]],
-    fs: fsspec.AbstractFileSystem,
-    *,
-    max_workers: Optional[int] = None,
-    show_progress: bool = True,
-    open_kwargs: Optional[Dict[str, Any]] = None,
-    parallel: Union[str, bool, None] = None,
-) -> List["EarthAccessFile"]:
-    def multi_thread_open(data: tuple[str, Optional[DataGranule]]) -> EarthAccessFile:
-        url, granule = data
-        f_size = fs.info(url)["size"]
-        default_cache_type = "background"  # block cache with background fetching
-        default_block_size = _optimal_fsspec_block_size(f_size)
-
-        open_kw = (open_kwargs or {}).copy()
-
-        open_kw.setdefault("cache_type", default_cache_type)
-        open_kw.setdefault("block_size", default_block_size)
-
-        f = fs.open(url, **open_kw)
-        return EarthAccessFile(f, granule)  # type: ignore
-
-    # Get executor based on parallel parameter
-    executor = get_executor(
-        parallel, max_workers=max_workers, show_progress=show_progress
-    )
-
-    # Execute using the executor
-    try:
-        results = list(executor.map(multi_thread_open, url_mapping.items()))
-        return results
-    finally:
-        # Ensure executor is properly shut down
-        executor.shutdown(wait=True)
-
-
-def make_instance(
-    cls: Any, granule: DataGranule, auth: Auth, data: Any
-) -> EarthAccessFile:
-    # Attempt to re-authenticate
-    if not earthaccess.__auth__.authenticated:
-        earthaccess.__auth__ = auth
-        earthaccess.login()
-
-    # When sending EarthAccessFiles between processes, it's possible that
-    # we will need to switch between s3 <--> https protocols.
-    # TODO: Re-evaluate this logic with the new S3 probe mechanism.
-    # For now, we'll just return the object as is.
-    return EarthAccessFile(loads(data), granule)
-
-
-def _get_url_granule_mapping(
-    granules: List[DataGranule], access: str
-) -> Mapping[str, DataGranule]:
-    """Construct a mapping between file urls and granules."""
-    url_mapping = {}
-    for granule in granules:
-        for url in granule.data_links(access=access):
-            url_mapping[url] = granule
-    return url_mapping
 
 
 class Store(object):
