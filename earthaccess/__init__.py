@@ -21,6 +21,7 @@ from .api import (
     search_services,
     status,
 )
+from .assets import Asset, AssetFilter
 from .auth import Auth
 from .dmrpp_zarr import open_virtual_dataset, open_virtual_mfdataset
 from .kerchunk import consolidate_metadata
@@ -32,6 +33,7 @@ from .query import (
     Point,
     Polygon,
 )
+from .results import SearchResults
 from .search import DataCollection, DataCollections, DataGranule, DataGranules
 from .services import DataServices
 from .store import Store
@@ -64,8 +66,13 @@ __all__ = [
     "DataCollection",
     "DataCollections",
     "DataServices",
+    # results.py
+    "SearchResults",
     # auth.py
     "Auth",
+    # assets.py
+    "Asset",
+    "AssetFilter",
     # store.py
     "Store",
     # target_filesystem.py

@@ -1,9 +1,10 @@
-import fsspec
 import tempfile
 from pathlib import Path
+
+import fsspec
 from dask.distributed import Client, LocalCluster
-from earthaccess.store import EarthAccessFile
 from earthaccess import Auth, Store
+from earthaccess.store import EarthAccessFile
 
 
 def test_serialization():
@@ -81,13 +82,13 @@ def test_dask_download_small_dataset():
 
     # Use a small, known dataset for testing
     # This is just testing the session strategy, not actual download
-    test_urls = [
+    _ = [
         "https://example.com/test1.txt",  # Mock URLs for testing
         "https://example.com/test2.txt",
     ]
 
     with tempfile.TemporaryDirectory() as temp_dir:
-        temp_path = Path(temp_dir)
+        _ = Path(temp_dir)
 
         # Test that Dask executor type is set correctly
         store = Store(auth)

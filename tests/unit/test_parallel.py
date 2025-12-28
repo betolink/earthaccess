@@ -1,11 +1,9 @@
-"""
-Unit tests for the parallel execution module.
-"""
+"""Unit tests for the parallel execution module."""
 
-import pytest
 from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import Mock, patch
 
+import pytest
 from earthaccess.parallel import (
     SerialExecutor,
     ThreadPoolExecutorWrapper,

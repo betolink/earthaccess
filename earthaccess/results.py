@@ -782,6 +782,52 @@ class DataGranule(CustomDict):
 
         return assets
 
+    def assets(self) -> List[Any]:
+        """Get all assets from this granule as Asset objects.
+
+        Returns a list of Asset objects representing all granule files,
+        including data files, thumbnails, and metadata. Assets are created
+        from STAC-style asset dictionaries built by _build_item_assets().
+
+        Returns:
+            List of Asset objects representing granule files
+
+        Example:
+            >>> granule = results[0]
+            >>> all_assets = granule.assets()
+            >>> data_assets = [a for a in all_assets if a.is_data()]
+        """
+        from .assets import Asset
+
+        assets_dict = self._build_item_assets()
+        return [
+            Asset(
+                href=asset.get("href", ""),
+                title=asset.get("title"),
+                description=asset.get("description"),
+                type=asset.get("type"),
+                roles=asset.get("roles", []),
+                size=asset.get("size"),
+            )
+            for asset in assets_dict.values()
+        ]
+
+    def data_assets(self) -> List[Any]:
+        """Get only data assets (those with 'data' role).
+
+        Convenience method for filtering assets to only those with the 'data' role.
+        Excludes thumbnails, browse images, and other metadata assets.
+
+        Returns:
+            List of Asset objects with 'data' role only
+
+        Example:
+            >>> granule = results[0]
+            >>> data_files = granule.data_assets()
+            >>> print(f"Found {len(data_files)} data files")
+        """
+        return [a for a in self.assets() if a.is_data()]
+
 
 # =============================================================================
 # SearchResults - Lazy Pagination Wrapper
@@ -795,9 +841,36 @@ class SearchResults:
     without loading all results into memory at once. It supports both direct
     iteration and page-by-page iteration.
 
+    SearchResults fetches data lazily from NASA's CMR (Common Metadata Repository),
+    only requesting pages of results as they are accessed. This enables efficient
+    processing of large result sets that may contain thousands of granules.
+
     Attributes:
         query: The CMR query object (DataGranules or DataCollections)
         limit: Maximum number of results to fetch (None for unlimited)
+
+    Examples:
+        Create SearchResults from a query and iterate directly:
+
+        >>> from earthaccess.search import DataGranules
+        >>> query = DataGranules().short_name("ATL06").temporal("2020-01", "2020-02")
+        >>> results = SearchResults(query, limit=100)
+        >>> for granule in results:  # doctest: +SKIP
+        ...     print(granule["meta"]["concept-id"])
+
+        Check total hits before iterating:
+
+        >>> results = SearchResults(query)  # doctest: +SKIP
+        >>> print(f"Found {len(results)} granules")  # doctest: +SKIP
+
+        Process results page by page for batch operations:
+
+        >>> for page in results.pages():  # doctest: +SKIP
+        ...     process_batch(page)
+
+        Convert to list (fetches all results):
+
+        >>> granule_list = list(results)  # doctest: +SKIP
     """
 
     def __init__(self, query: Any, limit: Optional[int] = None) -> None:

@@ -1,5 +1,4 @@
-"""
-Generic parallel execution utilities for earthaccess.
+"""Generic parallel execution utilities for earthaccess.
 
 This module provides a unified interface for different parallel execution backends,
 following the concurrent.futures.Executor API pattern.
@@ -13,7 +12,6 @@ from typing import (
     Iterable,
     Iterator,
     List,
-    Literal,
     Optional,
     TypeVar,
     Union,
@@ -27,14 +25,14 @@ __all__ = [
     "get_executor",
     "execute_with_executor",
     "submit_all_and_wait",
+    "execute_with_credentials",
 ]
 
 T = TypeVar("T")
 
 
 class SerialExecutor(Executor):
-    """
-    A custom Executor that runs tasks sequentially, mimicking the
+    """A custom Executor that runs tasks sequentially, mimicking the
     concurrent.futures.Executor interface. Useful as a default and for debugging.
     """
 
@@ -43,8 +41,7 @@ class SerialExecutor(Executor):
         self._futures: list[Future] = []
 
     def submit(self, fn: Callable[..., T], /, *args: Any, **kwargs: Any) -> Future[T]:
-        """
-        Submit a callable to be executed.
+        """Submit a callable to be executed.
 
         Unlike parallel executors, this runs the task immediately and sequentially.
 
@@ -57,7 +54,7 @@ class SerialExecutor(Executor):
         **kwargs
             Keyword arguments for the callable
 
-        Returns
+        Returns:
         -------
         A Future representing the result of the execution
         """
@@ -86,8 +83,7 @@ class SerialExecutor(Executor):
         timeout: float | None = None,
         chunksize: int = 1,
     ) -> Iterator[T]:
-        """
-        Execute a function over an iterable sequentially.
+        """Execute a function over an iterable sequentially.
 
         Parameters
         ----------
@@ -98,15 +94,14 @@ class SerialExecutor(Executor):
         timeout
             Optional timeout (ignored in serial execution)
 
-        Returns
+        Returns:
         -------
         Generator of results
         """
         return map(fn, *iterables)
 
     def shutdown(self, wait: bool = True, *, cancel_futures: bool = False) -> None:
-        """
-        Shutdown the executor.
+        """Shutdown the executor.
 
         Parameters
         ----------
@@ -118,8 +113,7 @@ class SerialExecutor(Executor):
 
 
 class ThreadPoolExecutorWrapper(Executor):
-    """
-    A wrapper around ThreadPoolExecutor that provides a consistent interface
+    """A wrapper around ThreadPoolExecutor that provides a consistent interface
     and handles common configuration patterns with optional progress bars.
     """
 
@@ -213,8 +207,7 @@ def get_executor(
     show_progress: bool = True,
     **kwargs: Any,
 ) -> Executor:
-    """
-    Get an executor that follows the concurrent.futures.Executor ABC API.
+    """Get an executor that follows the concurrent.futures.Executor ABC API.
 
     Parameters
     ----------
@@ -233,12 +226,12 @@ def get_executor(
     **kwargs
         Additional arguments passed to the executor
 
-    Returns
+    Returns:
     -------
     Executor
         An executor instance following the concurrent.futures.Executor API
 
-    Examples
+    Examples:
     --------
     >>> executor = get_executor("threads", max_workers=4)
     >>> executor = get_executor("serial")
@@ -302,8 +295,7 @@ def get_executor(
 
 
 class DaskDelayedExecutor(Executor):
-    """
-    An Executor that uses [dask.delayed][dask.delayed.delayed] for parallel computation.
+    """An Executor that uses [dask.delayed][dask.delayed.delayed] for parallel computation.
 
     This executor mimics the concurrent.futures.Executor interface but uses Dask's delayed computation model.
     """
@@ -326,8 +318,7 @@ class DaskDelayedExecutor(Executor):
         self._dask = dask
 
     def submit(self, fn: Callable[..., T], /, *args: Any, **kwargs: Any) -> Future[T]:
-        """
-        Submit a task to be computed with [dask.delayed][dask.delayed.delayed].
+        """Submit a task to be computed with [dask.delayed][dask.delayed.delayed].
 
         Parameters
         ----------
@@ -338,7 +329,7 @@ class DaskDelayedExecutor(Executor):
         **kwargs
             Keyword arguments for the callable
 
-        Returns
+        Returns:
         -------
         A Future representing the result of the execution
         """
@@ -367,8 +358,7 @@ class DaskDelayedExecutor(Executor):
         timeout: float | None = None,
         chunksize: int = 1,
     ) -> Iterator[T]:
-        """
-        Apply a function to an iterable using [dask.delayed][dask.delayed.delayed].
+        """Apply a function to an iterable using [dask.delayed][dask.delayed.delayed].
 
         Parameters
         ----------
@@ -379,7 +369,7 @@ class DaskDelayedExecutor(Executor):
         timeout
             Optional timeout (ignored in serial execution)
 
-        Returns
+        Returns:
         -------
         Generator of results
         """
@@ -420,8 +410,7 @@ class DaskDelayedExecutor(Executor):
         return list(results)
 
     def shutdown(self, wait: bool = True, *, cancel_futures: bool = False) -> None:
-        """
-        Shutdown the executor
+        """Shutdown the executor.
 
         Parameters
         ----------
@@ -433,8 +422,7 @@ class DaskDelayedExecutor(Executor):
 
 
 class LithopsEagerFunctionExecutor(Executor):
-    """
-    Lithops-based function executor which follows the [concurrent.futures.Executor][] API.
+    """Lithops-based function executor which follows the [concurrent.futures.Executor][] API.
 
     Only required because lithops doesn't follow the [concurrent.futures.Executor][] API, see https://github.com/lithops-cloud/lithops/issues/1427.
     """
@@ -450,8 +438,7 @@ class LithopsEagerFunctionExecutor(Executor):
         self.lithops_client = lithops.FunctionExecutor(**kwargs)
 
     def submit(self, fn: Callable[..., T], /, *args: Any, **kwargs: Any) -> Future[T]:
-        """
-        Submit a task to be computed using lithops.
+        """Submit a task to be computed using lithops.
 
         Parameters
         ----------
@@ -462,11 +449,10 @@ class LithopsEagerFunctionExecutor(Executor):
         **kwargs
             Keyword arguments for the callable
 
-        Returns
+        Returns:
         -------
         A concurrent.futures.Future representing the result of the execution
         """
-
         # Create a concurrent.futures Future to maintain interface compatibility
         future: Future = Future()
 
@@ -497,8 +483,7 @@ class LithopsEagerFunctionExecutor(Executor):
         timeout: float | None = None,
         chunksize: int = 1,
     ) -> Iterator[T]:
-        """
-        Apply a function to an iterable using lithops.
+        """Apply a function to an iterable using lithops.
 
         Only needed because [lithops.executors.FunctionExecutor.map][lithops.executors.FunctionExecutor.map] returns futures, unlike [concurrent.futures.Executor.map][].
 
@@ -511,7 +496,7 @@ class LithopsEagerFunctionExecutor(Executor):
         timeout
             Optional timeout (ignored in serial execution)
 
-        Returns
+        Returns:
         -------
         Generator of results
         """
@@ -521,8 +506,7 @@ class LithopsEagerFunctionExecutor(Executor):
         return results
 
     def shutdown(self, wait: bool = True, *, cancel_futures: bool = False) -> None:
-        """
-        Shutdown the executor.
+        """Shutdown the executor.
 
         Parameters
         ----------
@@ -540,8 +524,7 @@ def execute_with_executor(
     *args: Any,
     **kwargs: Any,
 ) -> list[T]:
-    """
-    Execute a function over an iterable using the provided executor.
+    """Execute a function over an iterable using the provided executor.
 
     This is a convenience function that handles both map and submit patterns
     and returns a list of results.
@@ -559,7 +542,7 @@ def execute_with_executor(
     **kwargs
         Additional keyword arguments to pass to func
 
-    Returns
+    Returns:
     -------
     list[T]
         List of results from applying func to each item
@@ -581,8 +564,7 @@ def submit_all_and_wait(
     *args: Any,
     **kwargs: Any,
 ) -> list[T]:
-    """
-    Submit all tasks to executor and wait for all to complete.
+    """Submit all tasks to executor and wait for all to complete.
 
     This is useful when you need more control over the submission process
     or when working with futures directly.
@@ -600,7 +582,7 @@ def submit_all_and_wait(
     **kwargs
         Additional keyword arguments to pass to func
 
-    Returns
+    Returns:
     -------
     list[T]
         List of results from applying func to each item
@@ -612,4 +594,67 @@ def submit_all_and_wait(
 
     # Wait for all futures to complete and get results
     results = [future.result() for future in futures]
+    return results
+
+
+def execute_with_credentials(
+    executor: Executor,
+    func: Callable[..., T],
+    iterable: Iterable[Any],
+    credentials_context: Any,
+    *args: Any,
+    **kwargs: Any,
+) -> list[T]:
+    """Execute a function over an iterable with credential context distribution.
+
+    This function wraps the provided function to include a credentials context
+    that can be used by worker processes for cloud and on-premises data access.
+    The credentials are serialized and passed to each worker.
+
+    Parameters
+    ----------
+    executor : Executor
+        The executor to use for parallel execution (Serial, ThreadPool, Dask, Lithops)
+    func : Callable
+        Function to apply to each item. Should accept (item, credentials_context)
+    iterable : Iterable[Any]
+        Iterable of items to process
+    credentials_context : AuthContext
+        The credentials context to distribute to workers. Should be an AuthContext
+        from earthaccess.credentials_store.credentials
+    *args
+        Additional positional arguments to pass to func
+    **kwargs
+        Additional keyword arguments to pass to func
+
+    Returns:
+    -------
+    list[T]
+        List of results from applying func to each item with credentials
+
+    Examples:
+    --------
+    >>> from earthaccess.parallel import get_executor, execute_with_credentials
+    >>> from earthaccess.credentials_store.credentials import AuthContext
+    >>>
+    >>> # Create auth context from authenticated auth
+    >>> auth_context = AuthContext.from_auth(earthaccess.__auth__)
+    >>>
+    >>> # Define operation that uses credentials
+    >>> def download_granule(granule, auth_context):
+    ...     return granule.download(auth_context=auth_context, path="/data")
+    >>>
+    >>> # Execute in parallel with credentials distributed to workers
+    >>> executor = get_executor("threads", max_workers=4)
+    >>> results = execute_with_credentials(
+    ...     executor, download_granule, granules, auth_context
+    ... )
+    """
+
+    # Wrap function to include credentials context for each item
+    def func_with_credentials(item: Any) -> T:
+        return func(item, credentials_context, *args, **kwargs)
+
+    # Use map for better performance with large iterables
+    results = list(executor.map(func_with_credentials, iterable))
     return results

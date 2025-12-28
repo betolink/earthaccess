@@ -140,6 +140,23 @@ docs = [
 [tool.pytest]
 filterwarnings = ["error::UserWarning"]
 
+[tool.coverage.run]
+source = ["earthaccess"]
+branch = true
+omit = [
+  "earthaccess/widgets.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+  "pragma: no cover",
+  "if TYPE_CHECKING:",
+  "raise NotImplementedError",
+]
+# Don't fail, just report - coverage is informational
+fail_under = 0
+show_missing = true
+
 [tool.mypy]
 python_version = "3.11"
 files = ["earthaccess", "tests"]

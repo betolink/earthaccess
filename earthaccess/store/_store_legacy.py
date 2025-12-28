@@ -1,7 +1,6 @@
 import datetime
 import logging
 import threading
-import traceback
 from functools import lru_cache
 from itertools import chain
 from pathlib import Path
@@ -13,7 +12,6 @@ import fsspec
 import requests
 import s3fs
 from multimethod import multimethod as singledispatchmethod
-
 from tenacity import (
     retry,
     retry_if_exception_type,
@@ -24,12 +22,13 @@ from typing_extensions import deprecated
 
 import earthaccess
 
-from .auth import Auth, SessionWithHeaderRedirection
-from .daac import DAAC_TEST_URLS, find_provider
-from .parallel import get_executor
-from .results import DataGranule
-from .search import DataCollections
-from .target_filesystem import TargetLocation
+from ..auth import Auth, SessionWithHeaderRedirection
+from ..credentials_store import DefaultFileSystemFactory, FileSystemFactory
+from ..daac import DAAC_TEST_URLS, find_provider
+from ..parallel import get_executor
+from ..results import DataGranule
+from ..search import DataCollections
+from ..target_filesystem import TargetLocation
 
 logger = logging.getLogger(__name__)
 
@@ -189,13 +188,23 @@ def _get_url_granule_mapping(
 class Store(object):
     """Store class to access granules on-prem or in the cloud."""
 
-    def __init__(self, auth: Any, pre_authorize: bool = False) -> None:
+    def __init__(
+        self,
+        auth: Any,
+        pre_authorize: bool = False,
+        fs_factory: Optional[FileSystemFactory] = None,
+    ) -> None:
         """Store is the class to access data.
 
         Parameters:
             auth: Auth instance to download and access data.
+            pre_authorize: Whether to pre-authorize with all DAAC endpoints (default: False)
+            fs_factory: Optional FileSystemFactory for dependency injection (default: DefaultFileSystemFactory)
         """
         self.thread_locals = threading.local()
+        # Initialize filesystem factory (default to DefaultFileSystemFactory)
+        self._fs_factory = fs_factory or DefaultFileSystemFactory()
+
         if auth.authenticated is True:
             self.auth = auth
             self._s3_credentials: Dict[
@@ -480,28 +489,9 @@ class Store(object):
     ) -> List[Any]:
         raise NotImplementedError("granules should be a list of DataGranule or URLs")
 
-    @_open.register
-    def _open_granules(
-        self,
-        granules: List[DataGranule],
-        provider: Optional[str] = None,
-        *,
-        credentials_endpoint: Optional[str] = None,
-        max_workers: Optional[int] = None,
-        show_progress: bool = True,
-        open_kwargs: Optional[Dict[str, Any]] = None,
-        parallel: Union[str, bool, None] = None,
-    ) -> List[Any]:
-        fileset: List = []
-        total_size = round(sum([granule.size() for granule in granules]) / 1024, 2)
-        logger.info(f"Opening {len(granules)} granules, approx size: {total_size} GB")
-
-        if self.auth is None:
-            raise ValueError(
-                "A valid Earthdata login instance is required to retrieve credentials"
-            )
-
-    def _get_credentials_endpoint_from_collection(self, concept_id: str) -> Optional[str]:
+    def _get_credentials_endpoint_from_collection(
+        self, concept_id: str
+    ) -> Optional[str]:
         """Fetches the S3 credentials endpoint from the collection metadata."""
         try:
             # We can use the internal search module or just a direct request
@@ -509,13 +499,15 @@ class Store(object):
             # Let's use the auth session to query CMR.
             base_url = self.auth.system.cmr_base_url
             url = f"{base_url}/search/collections.umm_json?concept_id={concept_id}"
-            
+
             response = self.auth.get_session().get(url)
             if response.ok:
                 data = response.json()
                 if "items" in data and len(data["items"]) > 0:
                     umm = data["items"][0]["umm"]
-                    return umm.get("DirectDistributionInformation", {}).get("S3CredentialsAPIEndpoint")
+                    return umm.get("DirectDistributionInformation", {}).get(
+                        "S3CredentialsAPIEndpoint"
+                    )
         except Exception as e:
             logger.debug(f"Failed to fetch collection metadata for {concept_id}: {e}")
         return None
@@ -544,18 +536,20 @@ class Store(object):
         # Probe for S3 access
         s3_fs = None
         access = "on_prem"
-        
+
         if granules[0].cloud_hosted:
             provider = granules[0]["meta"]["provider-id"]
             endpoint = credentials_endpoint or self._own_s3_credentials(
                 granules[0]["umm"]["RelatedUrls"]
             )
-            
+
             if endpoint is None:
                 # Try to get it from collection metadata
                 collection_concept_id = granules[0]["meta"].get("collection-concept-id")
                 if collection_concept_id:
-                    endpoint = self._get_credentials_endpoint_from_collection(collection_concept_id)
+                    endpoint = self._get_credentials_endpoint_from_collection(
+                        collection_concept_id
+                    )
 
             # Try to get S3 credentials
             try:
@@ -597,10 +591,10 @@ class Store(object):
                     parallel=parallel,
                 )
             except Exception as e:
-                 # If something goes wrong during bulk open, we could potentially fallback, 
-                 # but for now let's raise or log. 
-                 # Given the probe succeeded, this might be a real error.
-                 raise RuntimeError(
+                # If something goes wrong during bulk open, we could potentially fallback,
+                # but for now let's raise or log.
+                # Given the probe succeeded, this might be a real error.
+                raise RuntimeError(
                     f"An exception occurred while trying to access remote files on S3: {e}"
                 ) from e
         else:
@@ -630,11 +624,12 @@ class Store(object):
     ) -> List[Any]:
         fileset: List = []
         s3_fs = None
-        
-        if not (isinstance(granules[0], str) and (
-            granules[0].startswith("s3") or granules[0].startswith("http")
-        )):
-             raise ValueError(
+
+        if not (
+            isinstance(granules[0], str)
+            and (granules[0].startswith("s3") or granules[0].startswith("http"))
+        ):
+            raise ValueError(
                 f"Schema for {granules[0]} is not recognized, must be an HTTP or S3 URL"
             )
 
@@ -644,24 +639,24 @@ class Store(object):
             )
 
         url_mapping: Mapping[str, None] = {url: None for url in granules}
-        
+
         # Try S3 first if links are S3 or if we want to probe
         # For URLs, if they are S3, we MUST use S3. If they are HTTP, we might be able to use S3 if we convert them?
         # The original logic only tried S3 if in_region and starts with S3.
-        
+
         if granules[0].startswith("s3"):
             # We must try S3
             if provider is not None:
                 s3_fs = self.get_s3_filesystem(provider=provider)
             elif credentials_endpoint is not None:
                 s3_fs = self.get_s3_filesystem(endpoint=credentials_endpoint)
-            
+
             if s3_fs:
                 try:
                     # Probe
                     with s3_fs.open(granules[0], "rb") as f:
                         f.read(10)
-                    
+
                     fileset = _open_files(
                         url_mapping,
                         fs=s3_fs,
@@ -672,7 +667,9 @@ class Store(object):
                     )
                     return fileset
                 except Exception as e:
-                    logger.warning(f"S3 access failed: {e}. URLs are S3, so cannot fallback to HTTPS easily unless we convert them.")
+                    logger.warning(
+                        f"S3 access failed: {e}. URLs are S3, so cannot fallback to HTTPS easily unless we convert them."
+                    )
                     # If the user provided S3 URLs, and S3 fails, we probably can't do much unless we know the HTTP equivalent.
                     # But the original code raised an error if not in region.
                     # Now we raise if probe fails.
@@ -680,16 +677,16 @@ class Store(object):
                         "Could not access S3 URLs. Ensure you are in-region or have correct permissions."
                     ) from e
             else:
-                 raise RuntimeError(
+                raise RuntimeError(
                     f"Could not retrieve cloud credentials for provider: {provider}. endpoint: {credentials_endpoint}"
                 )
         else:
-            # HTTP URLs. 
+            # HTTP URLs.
             # We could try to see if they are cloud hosted and we are in region, but for now let's stick to HTTPS
             # unless we want to implement the "convert http to s3" logic here too.
             # The user request said "try first a S3 link... if 401... use regular links".
             # For _open_urls, we usually just have the URLs.
-            
+
             fileset = self._open_urls_https(
                 url_mapping,
                 max_workers=max_workers,
@@ -910,22 +907,24 @@ class Store(object):
         parallel: Union[str, bool, None] = None,
     ) -> List[Path]:
         data_links: List = []
-        
+
         # Probe for S3 access
         s3_fs = None
         access = "on_prem"
-        
+
         if granules[0].cloud_hosted:
             provider = granules[0]["meta"]["provider-id"]
             endpoint = credentials_endpoint or self._own_s3_credentials(
                 granules[0]["umm"]["RelatedUrls"]
             )
-            
+
             if endpoint is None:
                 # Try to get it from collection metadata
                 collection_concept_id = granules[0]["meta"].get("collection-concept-id")
                 if collection_concept_id:
-                    endpoint = self._get_credentials_endpoint_from_collection(collection_concept_id)
+                    endpoint = self._get_credentials_endpoint_from_collection(
+                        collection_concept_id
+                    )
 
             # Try to get S3 credentials
             try:
@@ -957,16 +956,15 @@ class Store(object):
         # Collect links based on access type
         data_links = list(
             chain.from_iterable(
-                granule.data_links(access=access)
-                for granule in granules
+                granule.data_links(access=access) for granule in granules
             )
         )
-        
+
         total_size = round(sum(granule.size() for granule in granules) / 1024, 2)
         logger.info(
             f" Getting {len(granules)} granules, approx download size: {total_size} GB"
         )
-        
+
         if access == "direct" and s3_fs is not None:
             if endpoint is not None:
                 logger.info(
