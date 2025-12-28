@@ -781,3 +781,199 @@ class DataGranule(CustomDict):
             }
 
         return assets
+
+
+# =============================================================================
+# SearchResults - Lazy Pagination Wrapper
+# =============================================================================
+
+
+class SearchResults:
+    """A wrapper around CMR search results that supports lazy pagination.
+
+    This class provides an interface for iterating through large result sets
+    without loading all results into memory at once. It supports both direct
+    iteration and page-by-page iteration.
+
+    Attributes:
+        query: The CMR query object (DataGranules or DataCollections)
+        limit: Maximum number of results to fetch (None for unlimited)
+    """
+
+    def __init__(self, query: Any, limit: Optional[int] = None) -> None:
+        """Initialize SearchResults.
+
+        Parameters:
+            query: The CMR query object that will be used to fetch results
+            limit: Maximum number of results to fetch, None for unlimited
+        """
+        self.query = query
+        self.limit = limit
+        self._cached_results: List[Union[DataGranule, DataCollection]] = []
+        self._total_hits: Optional[int] = None
+        self._exhausted = False
+        self._last_search_after: Optional[str] = None
+
+    def __iter__(self):
+        """Iterate through all results, fetching pages as needed.
+
+        This enables direct iteration:
+            for granule in search_results:
+                print(granule)
+
+        Yields:
+            DataGranule or DataCollection instances
+        """
+        # If we've already cached all results, use the cache
+        if self._exhausted:
+            yield from self._cached_results
+            return
+
+        # Otherwise, fetch pages as needed
+        page_size = 2000
+        search_after = None
+
+        for result in self._cached_results:
+            yield result
+
+        results_yielded = len(self._cached_results)
+
+        while not self._exhausted:
+            # Check if we've hit the limit
+            if self.limit and results_yielded >= self.limit:
+                self._exhausted = True
+                break
+
+            # Fetch next page
+            page = self._fetch_page(page_size, search_after)
+
+            if not page:
+                self._exhausted = True
+                break
+
+            # Check if this is a partial page (CMR returns fewer results than requested)
+            if len(page) < page_size:
+                self._exhausted = True
+
+            for result in page:
+                # Check limit
+                if self.limit and results_yielded >= self.limit:
+                    self._exhausted = True
+                    break
+
+                self._cached_results.append(result)
+                results_yielded += 1
+                yield result
+
+            # Get search_after header for next page
+            search_after = getattr(self, "_last_search_after", None)
+
+            if self._exhausted:
+                break
+
+    def pages(self):
+        """Iterate through results page by page.
+
+        Each page is a list of results, allowing for batch processing.
+        Pages are fetched lazily from the CMR.
+
+        Yields:
+            List[DataGranule] or List[DataCollection]: A page of results
+        """
+        page_size = 2000
+        search_after = None
+        results_fetched = 0
+
+        while True:
+            # Check if we've hit the limit
+            if self.limit and results_fetched >= self.limit:
+                break
+
+            # Fetch next page
+            page = self._fetch_page(
+                min(page_size, self.limit - results_fetched)
+                if self.limit
+                else page_size,
+                search_after,
+            )
+
+            if not page:
+                break
+
+            results_fetched += len(page)
+            yield page
+
+            # Check if this is a partial page
+            if len(page) < page_size:
+                break
+
+            # Get search_after header for next page
+            search_after = getattr(self, "_last_search_after", None)
+
+    def _fetch_page(
+        self, page_size: int, search_after: Optional[str] = None
+    ) -> List[Union[DataGranule, DataCollection]]:
+        """Fetch a single page of results from CMR.
+
+        Parameters:
+            page_size: Number of results to fetch
+            search_after: Pagination token for retrieving subsequent pages
+
+        Returns:
+            A list of DataGranule or DataCollection instances
+        """
+        url = self.query._build_url()
+        headers = dict(self.query.headers or {})
+
+        if search_after:
+            headers["cmr-search-after"] = search_after
+
+        # Use getattr to safely access session (available on DataGranules/DataCollections subclasses)
+        session = getattr(self.query, "session", requests.session())
+        response = session.get(url, headers=headers, params={"page_size": page_size})
+
+        try:
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as ex:
+            raise RuntimeError(ex.response.text) from ex
+
+        # Store search_after for next page
+        if cmr_search_after := response.headers.get("cmr-search-after"):
+            self._last_search_after = cmr_search_after
+
+        # Store total hits
+        if self._total_hits is None and (hits := response.headers.get("CMR-Hits")):
+            self._total_hits = int(hits)
+
+        results_data = response.json().get("items", [])
+
+        # Convert to DataGranule or DataCollection
+        from earthaccess.search import DataGranules
+
+        if isinstance(self.query, DataGranules):
+            # It's a GranuleQuery (DataGranules inherits from GranuleQuery)
+            cloud = len(results_data) > 0 and self.query._is_cloud_hosted(
+                results_data[0]
+            )
+            return [DataGranule(item, cloud_hosted=cloud) for item in results_data]
+        else:
+            # It's a CollectionQuery (DataCollections)
+            return [DataCollection(item) for item in results_data]
+
+    def __len__(self) -> int:
+        """Return the total number of hits from the CMR.
+
+        Note: This makes a request to CMR to get the hit count if not already cached.
+
+        Returns:
+            The total number of results matching the query
+        """
+        if self._total_hits is None:
+            self._total_hits = self.query.hits()
+        assert self._total_hits is not None
+        return self._total_hits
+
+    def __repr__(self) -> str:
+        """String representation of SearchResults."""
+        hits = self._total_hits if self._total_hits is not None else "?"
+        return f"SearchResults(hits={hits}, cached={len(self._cached_results)})"
