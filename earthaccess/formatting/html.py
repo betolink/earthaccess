@@ -557,28 +557,33 @@ def _repr_search_results_html(
         ]
     )
 
-    pagination_controls = f"""
-    <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 8px; padding: 8px; background: var(--ea-bg-secondary, #f8f9fa); border-radius: 3px; flex-wrap: wrap; gap: 8px;">
-      <div style="display: flex; align-items: center; gap: 4px;">
-        <button id="first-{widget_id}" onclick="goFirst_{widget_id}()" class="btn btn-sm" title="First page">⏮</button>
-        <button id="prev-{widget_id}" onclick="goPrev_{widget_id}()" class="btn btn-sm" title="Previous page">◀</button>
-        <button id="next-{widget_id}" onclick="goNext_{widget_id}()" class="btn btn-sm" title="Next page">▶</button>
-        <button id="last-{widget_id}" onclick="goLast_{widget_id}()" class="btn btn-sm" title="Last page">⏭</button>
-      </div>
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <label style="font-size: 0.85em; color: var(--ea-text-secondary, #555); margin: 0;">
-          Per page:
-          <select onchange="changePageSize_{widget_id}(this.value)" style="margin-left: 4px; padding: 2px 4px; border-radius: 3px; border: 1px solid #ccc;">
-            {page_size_options}
-          </select>
-        </label>
-      </div>
-      <div id="pageinfo-{widget_id}" style="font-size: 0.85em; color: var(--ea-text-secondary, #555);">
-        Page 1 of {total_pages}
-      </div>
-    </div>
-    {load_more_hint}
-    """
+    # Only show pagination controls if there's more than one page of cached results
+    if total_pages > 1:
+        pagination_controls = f"""
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 8px; padding: 8px; background: var(--ea-bg-secondary, #f8f9fa); border-radius: 3px; flex-wrap: wrap; gap: 8px;">
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <button id="first-{widget_id}" onclick="goFirst_{widget_id}()" class="btn btn-sm" title="First page">⏮</button>
+            <button id="prev-{widget_id}" onclick="goPrev_{widget_id}()" class="btn btn-sm" title="Previous page">◀</button>
+            <button id="next-{widget_id}" onclick="goNext_{widget_id}()" class="btn btn-sm" title="Next page">▶</button>
+            <button id="last-{widget_id}" onclick="goLast_{widget_id}()" class="btn btn-sm" title="Last page">⏭</button>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <label style="font-size: 0.85em; color: var(--ea-text-secondary, #555); margin: 0;">
+              Per page:
+              <select onchange="changePageSize_{widget_id}(this.value)" style="margin-left: 4px; padding: 2px 4px; border-radius: 3px; border: 1px solid #ccc;">
+                {page_size_options}
+              </select>
+            </label>
+          </div>
+          <div id="pageinfo-{widget_id}" style="font-size: 0.85em; color: var(--ea-text-secondary, #555);">
+            Page 1 of {total_pages}
+          </div>
+        </div>
+        {load_more_hint}
+        """
+    else:
+        # Single page - no pagination controls needed, just show the hint if more available
+        pagination_controls = load_more_hint
 
     return f"""
     {css_inline}
