@@ -1473,6 +1473,30 @@ class SearchResults:
 
         return result
 
+    def to_stac(self) -> List[Dict[str, Any]]:
+        """Convert all cached results to STAC format.
+
+        Converts each cached search result to its STAC representation.
+        For granules, returns STAC Items. For collections, returns STAC Collections.
+
+        Note: This only converts currently cached results. To convert all matching
+        results, iterate over the SearchResults first to cache them.
+
+        Returns:
+            List of STAC-compatible dictionaries (Items or Collections)
+
+        Examples:
+            >>> results = earthaccess.search_data(short_name="ATL06", count=10)
+            >>> stac_items = results.to_stac()
+            >>> print(len(stac_items))  # 10 STAC Items
+            >>> print(stac_items[0]["type"])  # "Feature"
+
+            >>> collections = earthaccess.search_datasets(keyword="temperature")
+            >>> stac_collections = collections.to_stac()
+            >>> print(stac_collections[0]["type"])  # "Collection"
+        """
+        return [item.to_stac() for item in self._cached_results]
+
     def show_map(self, max_items: int = 10000, **kwargs):
         """Display an interactive map with bounding boxes for cached results.
 

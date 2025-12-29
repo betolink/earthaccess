@@ -658,7 +658,7 @@ def _collection_row_with_index(
     spatial_extent = collection.get_umm("SpatialExtent")
     spatial_str = _format_spatial_extent(spatial_extent)
 
-    # Links for detail row
+    # Links for detail row - use RelatedUrls with proper labels
     links_html_parts = []
     if landing:
         links_html_parts.append(
@@ -669,12 +669,26 @@ def _collection_row_with_index(
     links_html_parts.append(
         f'<a href="{earthdata_search_url}" target="_blank" class="btn btn-sm btn-secondary" style="margin: 2px;">🔍 Earthdata Search</a>'
     )
-    # Data links (first 3)
-    for i, link in enumerate(get_data[:3]):
-        if link.startswith("http"):
-            links_html_parts.append(
-                f'<a href="{link}" target="_blank" class="btn btn-sm btn-outline-secondary" style="margin: 2px;">📥 Data {i + 1}</a>'
-            )
+
+    # Get RelatedUrls with their types for proper labeling
+    related_urls = collection.get("umm", {}).get("RelatedUrls", [])
+    data_links_with_labels = []
+    for url_info in related_urls:
+        url = url_info.get("URL", "")
+        url_type = url_info.get("Type", "")
+        subtype = url_info.get("Subtype", "")
+
+        # Only include GET DATA type links
+        if url_type == "GET DATA" and url.startswith("http"):
+            # Use subtype as label, fallback to simplified type
+            label = _format_link_label(subtype) if subtype else "Data"
+            data_links_with_labels.append((url, label))
+
+    # Add data links (first 5) with their proper labels
+    for url, label in data_links_with_labels[:5]:
+        links_html_parts.append(
+            f'<a href="{url}" target="_blank" class="btn btn-sm btn-outline-secondary" style="margin: 2px;">📥 {label}</a>'
+        )
 
     links_html = " ".join(links_html_parts)
 
@@ -955,6 +969,50 @@ def _format_spatial_extent(spatial_extent: Optional[dict]) -> str:
         return f"{len(gpolygons)} polygon(s)"
 
     return "Global"
+
+
+def _format_link_label(subtype: str) -> str:
+    """Format a UMM RelatedUrl Subtype into a human-readable label.
+
+    Parameters:
+        subtype: The Subtype field from a UMM RelatedUrl
+
+    Returns:
+        A short, human-readable label for the link
+    """
+    # Common subtype mappings to shorter labels
+    label_map = {
+        "DATA TREE": "Data Tree",
+        "Earthdata Search": "Earthdata Search",
+        "DIRECT DOWNLOAD": "Direct Download",
+        "GET DATA": "Get Data",
+        "OPENDAP DATA": "OPeNDAP",
+        "THREDDS DATA": "THREDDS",
+        "SUBSETTER": "Subsetter",
+        "DATA CATALOG": "Data Catalog",
+        "WEB MAP SERVICE (WMS)": "WMS",
+        "WEB COVERAGE SERVICE (WCS)": "WCS",
+        "WEB FEATURE SERVICE (WFS)": "WFS",
+        "ORDER DATA": "Order Data",
+        "USER'S GUIDE": "User Guide",
+        "GENERAL DOCUMENTATION": "Docs",
+        "DATA CITATION GUIDELINES": "Citation",
+        "ALGORITHM THEORETICAL BASIS DOCUMENT (ATBD)": "ATBD",
+        "PRODUCT QUALITY ASSESSMENT": "Quality",
+        "PRODUCT USAGE": "Usage",
+        "BROWSE": "Browse",
+        "THUMBNAIL": "Thumbnail",
+    }
+
+    # Return mapped label or title-cased version of subtype
+    if subtype in label_map:
+        return label_map[subtype]
+
+    # Title case and truncate if needed
+    label = subtype.title()
+    if len(label) > 20:
+        label = label[:17] + "..."
+    return label
 
 
 __all__ = [
