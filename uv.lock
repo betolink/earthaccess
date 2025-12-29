@@ -1187,6 +1187,23 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+all = [
+    { name = "anywidget", marker = "python_full_version < '3.14' and platform_python_implementation != 'PyPy'" },
+    { name = "dask" },
+    { name = "fastparquet" },
+    { name = "geopandas", marker = "python_full_version < '3.14' and platform_python_implementation != 'PyPy'" },
+    { name = "h5netcdf" },
+    { name = "h5py" },
+    { name = "kerchunk" },
+    { name = "lonboard", marker = "python_full_version < '3.14' and platform_python_implementation != 'PyPy'" },
+    { name = "numcodecs" },
+    { name = "numpy" },
+    { name = "obstore" },
+    { name = "shapely" },
+    { name = "virtualizarr" },
+    { name = "xarray" },
+    { name = "zarr" },
+]
 dev = [
     { name = "bump-my-version" },
     { name = "nox" },
@@ -1290,9 +1307,13 @@ requires-dist = [
     { name = "dask", marker = "extra == 'kerchunk'" },
     { name = "dask", marker = "extra == 'virtualizarr'" },
     { name = "dask", extras = ["distributed"], marker = "extra == 'test'", specifier = ">=2025.7.0" },
+    { name = "earthaccess", extras = ["geo"], marker = "extra == 'all'" },
+    { name = "earthaccess", extras = ["kerchunk"], marker = "extra == 'all'" },
     { name = "earthaccess", extras = ["kerchunk"], marker = "extra == 'test'" },
+    { name = "earthaccess", extras = ["virtualizarr"], marker = "extra == 'all'" },
     { name = "earthaccess", extras = ["virtualizarr"], marker = "extra == 'docs'" },
     { name = "earthaccess", extras = ["virtualizarr"], marker = "extra == 'test'" },
+    { name = "earthaccess", extras = ["widgets"], marker = "extra == 'all'" },
     { name = "fastparquet", marker = "extra == 'virtualizarr'", specifier = ">=2023.4.0" },
     { name = "fsspec", specifier = ">=2025.2" },
     { name = "geopandas", marker = "python_full_version < '3.14' and platform_python_implementation != 'PyPy' and extra == 'widgets'", specifier = ">=0.14" },
@@ -1358,7 +1379,7 @@ requires-dist = [
     { name = "zarr", marker = "extra == 'test'", specifier = ">=3.1.1" },
     { name = "zarr", marker = "extra == 'virtualizarr'", specifier = ">=3.1.1" },
 ]
-provides-extras = ["kerchunk", "geo", "virtualizarr", "widgets", "dev", "test", "docs"]
+provides-extras = ["kerchunk", "geo", "virtualizarr", "widgets", "all", "dev", "test", "docs"]
 
 [[package]]
 name = "editorconfig"

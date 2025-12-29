@@ -82,6 +82,12 @@ widgets = [
   "geopandas >=0.14; python_version < '3.14' and platform_python_implementation != 'PyPy'",
   "shapely >=2.0; python_version < '3.14' and platform_python_implementation != 'PyPy'",
 ]
+all = [
+  "earthaccess[kerchunk]",
+  "earthaccess[geo]",
+  "earthaccess[virtualizarr]",
+  "earthaccess[widgets]",
+]
 dev = [
   "bump-my-version >=0.10.0",
   "nox",
