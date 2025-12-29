@@ -1256,6 +1256,65 @@ class SearchResults:
         assert self._total_hits is not None
         return self._total_hits
 
+    def __getitem__(
+        self, index: int
+    ) -> Union[DataGranule, DataCollection, List[Union[DataGranule, DataCollection]]]:
+        """Get item(s) by index or slice.
+
+        Supports both single indexing and slicing. Results are fetched lazily
+        as needed to satisfy the request.
+
+        Parameters:
+            index: Integer index or slice object
+
+        Returns:
+            Single result for integer index, list of results for slice
+
+        Raises:
+            IndexError: If index is out of range
+
+        Examples:
+            >>> results = earthaccess.search_data(short_name="ATL06", count=100)
+            >>> first = results[0]  # Get first result
+            >>> last = results[-1]  # Get last result
+            >>> batch = results[0:10]  # Get first 10 results
+        """
+        # Ensure we have the total hits count
+        total = len(self)
+
+        # Handle slices
+        if isinstance(index, slice):
+            start, stop, step = index.indices(total)
+            # Fetch all needed results
+            max_needed = stop
+            self._ensure_cached(max_needed)
+            return self._cached_results[index]
+
+        # Handle negative indices
+        if index < 0:
+            index = total + index
+
+        if index < 0 or index >= total:
+            raise IndexError(f"Index {index} out of range for {total} results")
+
+        # Ensure we have cached up to this index
+        self._ensure_cached(index + 1)
+        return self._cached_results[index]
+
+    def _ensure_cached(self, count: int) -> None:
+        """Ensure at least `count` results are cached.
+
+        Parameters:
+            count: Minimum number of results to cache
+        """
+        if len(self._cached_results) >= count:
+            return
+
+        # Need to fetch more results
+        for _ in self:
+            if len(self._cached_results) >= count:
+                break
+
     def __repr__(self) -> str:
         """String representation of SearchResults."""
         hits = self._total_hits if self._total_hits is not None else "?"

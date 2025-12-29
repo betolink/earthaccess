@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 import earthaccess
 import pytest
 from earthaccess.search.query import CollectionQuery, GranuleQuery
+from earthaccess.search.results import SearchResults
 
 
 class TestSearchDataWithGranuleQuery:
@@ -27,7 +28,8 @@ class TestSearchDataWithGranuleQuery:
 
             results = earthaccess.search_data(query=query)
 
-            assert results == []
+            # Returns SearchResults, not a list
+            assert isinstance(results, SearchResults)
             # Should have called parameters with the CMR-converted dict
             mock_query.parameters.assert_called_once()
             call_kwargs = mock_query.parameters.call_args[1]
@@ -47,8 +49,11 @@ class TestSearchDataWithGranuleQuery:
 
             results = earthaccess.search_data(query=query, count=10)
 
-            assert len(results) == 10
-            mock_query.get.assert_called_once_with(10)
+            # Returns SearchResults with limit
+            assert isinstance(results, SearchResults)
+            assert results.limit == 10
+            # Total hits should still be 100 (from CMR)
+            assert len(results) == 100
 
     def test_search_data_query_with_bounding_box(self):
         """search_data() should pass spatial parameters from query object."""
@@ -128,7 +133,8 @@ class TestSearchDatasetsWithCollectionQuery:
             ):
                 results = earthaccess.search_datasets(query=query)
 
-            assert results == []
+            # Returns SearchResults, not a list
+            assert isinstance(results, SearchResults)
             mock_query.parameters.assert_called_once()
             call_kwargs = mock_query.parameters.call_args[1]
             assert "keyword" in call_kwargs
@@ -150,8 +156,11 @@ class TestSearchDatasetsWithCollectionQuery:
             ):
                 results = earthaccess.search_datasets(query=query, count=5)
 
-            assert len(results) == 5
-            mock_query.get.assert_called_once_with(5)
+            # Returns SearchResults with limit
+            assert isinstance(results, SearchResults)
+            assert results.limit == 5
+            # Total hits should still be 100 (from CMR)
+            assert len(results) == 100
 
     def test_search_datasets_query_with_daac(self):
         """search_datasets() should pass daac from query object."""

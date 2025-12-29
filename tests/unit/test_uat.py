@@ -40,7 +40,7 @@ class TestUatEnvironmentArgument:
             responses.GET,
             "https://cmr.uat.earthdata.nasa.gov/search/granules.umm_json?page_size=0",
             json=cmr_json_response,
-            headers={"CMR-Hits": "0"},
+            headers={"CMR-Hits": "1"},
             status=200,
         )
 

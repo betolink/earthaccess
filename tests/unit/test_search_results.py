@@ -171,12 +171,10 @@ class TestSearchResultsExport:
 
 
 class TestAPIIntegrationWithSearchResults:
-    """Test that API functions can return SearchResults."""
+    """Test that API functions return SearchResults."""
 
-    def test_search_data_returns_list_by_default(self) -> None:
-        """Test that search_data returns a list by default (backward compatible)."""
-        # This test verifies the default behavior doesn't change
-        # We'll mock the actual CMR call
+    def test_search_data_returns_search_results(self) -> None:
+        """Test that search_data returns SearchResults."""
         with patch("earthaccess.api.DataGranules") as mock_dg:
             mock_query = Mock()
             mock_query.hits.return_value = 0
@@ -186,13 +184,13 @@ class TestAPIIntegrationWithSearchResults:
 
             import earthaccess
 
-            # This should return a list, not SearchResults
+            # This should return SearchResults
             result = earthaccess.search_data(short_name="TEST")
 
-            assert isinstance(result, list)
+            assert isinstance(result, SearchResults)
 
-    def test_search_datasets_returns_list_by_default(self) -> None:
-        """Test that search_datasets returns a list by default."""
+    def test_search_datasets_returns_search_results(self) -> None:
+        """Test that search_datasets returns SearchResults."""
         with patch("earthaccess.api.DataCollections") as mock_dc:
             mock_query = Mock()
             mock_query.hits.return_value = 0
@@ -204,7 +202,7 @@ class TestAPIIntegrationWithSearchResults:
 
             result = earthaccess.search_datasets(keyword="TEST")
 
-            assert isinstance(result, list)
+            assert isinstance(result, SearchResults)
 
     def test_search_results_exportable_from_earthaccess(self) -> None:
         """Test that SearchResults can be imported from earthaccess package."""
