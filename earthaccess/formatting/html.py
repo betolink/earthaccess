@@ -338,7 +338,7 @@ def _repr_search_results_html(
 
     Parameters:
         results: A SearchResults instance
-        page_size: Number of items per page
+        page_size: Number of items per page (default 20)
 
     Returns:
         HTML string for notebook display with JavaScript pagination
@@ -360,8 +360,15 @@ def _repr_search_results_html(
         total_hits = results.total()
     hits_str = f"{total_hits:,}" if total_hits is not None else "?"
     cached_count = len(results._cached_results)
+
+    # Calculate total pages based on cached results
     total_pages = (
         max(1, (cached_count + page_size - 1) // page_size) if cached_count > 0 else 1
+    )
+
+    # Determine if more results are available to load
+    more_available = (
+        total_hits is not None and cached_count < total_hits and not results._exhausted
     )
 
     # Determine result type from class name or content
@@ -448,19 +455,23 @@ def _repr_search_results_html(
                 </tr>
         """
 
-    # JavaScript for pagination and row expansion
+    # JavaScript for pagination and row expansion with dynamic page size
     js_code = f"""
     <script>
     (function() {{
         const widgetId = '{widget_id}';
-        const pageSize = {page_size};
+        let pageSize = {page_size};
         const totalItems = {cached_count};
-        const totalPages = {total_pages};
         let currentPage = 0;
+
+        function getTotalPages() {{
+            return Math.max(1, Math.ceil(totalItems / pageSize));
+        }}
 
         function updatePage() {{
             const tbody = document.getElementById('tbody-' + widgetId);
             const rows = tbody.querySelectorAll('tr[data-idx]');
+            const totalPages = getTotalPages();
             const startIdx = currentPage * pageSize;
             const endIdx = Math.min(startIdx + pageSize, totalItems);
 
@@ -469,7 +480,6 @@ def _repr_search_results_html(
                 const detailRow = document.getElementById('detail-' + widgetId + '-' + idx);
                 if (idx >= startIdx && idx < endIdx) {{
                     row.style.display = '';
-                    // Keep detail row state but hide if outside page
                 }} else {{
                     row.style.display = 'none';
                     if (detailRow) detailRow.style.display = 'none';
@@ -479,9 +489,9 @@ def _repr_search_results_html(
             // Update pagination info
             const pageInfo = document.getElementById('pageinfo-' + widgetId);
             if (totalItems > 0) {{
-                pageInfo.textContent = 'Page ' + (currentPage + 1) + ' of ' + totalPages + ' (' + (startIdx + 1) + '-' + endIdx + ' of ' + totalItems + ')';
+                pageInfo.textContent = 'Page ' + (currentPage + 1) + ' of ' + totalPages + ' (' + (startIdx + 1) + '-' + endIdx + ' of ' + totalItems + ' loaded)';
             }} else {{
-                pageInfo.textContent = 'No results';
+                pageInfo.textContent = 'No results loaded';
             }}
 
             // Update button states
@@ -493,8 +503,21 @@ def _repr_search_results_html(
 
         window['goFirst_' + widgetId] = function() {{ currentPage = 0; updatePage(); }};
         window['goPrev_' + widgetId] = function() {{ if (currentPage > 0) currentPage--; updatePage(); }};
-        window['goNext_' + widgetId] = function() {{ if (currentPage < totalPages - 1) currentPage++; updatePage(); }};
-        window['goLast_' + widgetId] = function() {{ currentPage = totalPages - 1; updatePage(); }};
+        window['goNext_' + widgetId] = function() {{
+            const totalPages = getTotalPages();
+            if (currentPage < totalPages - 1) currentPage++;
+            updatePage();
+        }};
+        window['goLast_' + widgetId] = function() {{
+            currentPage = getTotalPages() - 1;
+            updatePage();
+        }};
+
+        window['changePageSize_' + widgetId] = function(newSize) {{
+            pageSize = parseInt(newSize);
+            currentPage = 0;  // Reset to first page
+            updatePage();
+        }};
 
         window['toggleDetail_' + widgetId] = function(idx) {{
             const detailRow = document.getElementById('detail-' + widgetId + '-' + idx);
@@ -516,18 +539,45 @@ def _repr_search_results_html(
     </script>
     """
 
+    # Build "load more" hint if more results available
+    load_more_hint = ""
+    if more_available:
+        remaining = (total_hits or 0) - cached_count
+        load_more_hint = f"""
+        <div style="margin-top: 8px; padding: 8px; background: #fff3cd; border-radius: 3px; font-size: 0.85em; color: #856404;">
+          <b>Note:</b> {remaining:,} more results available. Use <code>list(results)</code> or iterate to load all, then display again.
+        </div>
+        """
+
+    # Page size options
+    page_size_options = "".join(
+        [
+            f'<option value="{size}" {"selected" if size == page_size else ""}>{size}</option>'
+            for size in [10, 20, 50, 100]
+        ]
+    )
+
     pagination_controls = f"""
-    <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 8px; padding: 8px; background: var(--ea-bg-secondary, #f8f9fa); border-radius: 3px;">
-      <div>
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 8px; padding: 8px; background: var(--ea-bg-secondary, #f8f9fa); border-radius: 3px; flex-wrap: wrap; gap: 8px;">
+      <div style="display: flex; align-items: center; gap: 4px;">
         <button id="first-{widget_id}" onclick="goFirst_{widget_id}()" class="btn btn-sm" title="First page">⏮</button>
         <button id="prev-{widget_id}" onclick="goPrev_{widget_id}()" class="btn btn-sm" title="Previous page">◀</button>
         <button id="next-{widget_id}" onclick="goNext_{widget_id}()" class="btn btn-sm" title="Next page">▶</button>
         <button id="last-{widget_id}" onclick="goLast_{widget_id}()" class="btn btn-sm" title="Last page">⏭</button>
       </div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <label style="font-size: 0.85em; color: var(--ea-text-secondary, #555); margin: 0;">
+          Per page:
+          <select onchange="changePageSize_{widget_id}(this.value)" style="margin-left: 4px; padding: 2px 4px; border-radius: 3px; border: 1px solid #ccc;">
+            {page_size_options}
+          </select>
+        </label>
+      </div>
       <div id="pageinfo-{widget_id}" style="font-size: 0.85em; color: var(--ea-text-secondary, #555);">
         Page 1 of {total_pages}
       </div>
     </div>
+    {load_more_hint}
     """
 
     return f"""
@@ -540,14 +590,11 @@ def _repr_search_results_html(
           </div>
         </div>
         <div class="row">
-          <div class="col-4">
+          <div class="col-6">
             <p style="margin: 2px 0;"><b>Total in CMR</b>: {hits_str}</p>
           </div>
-          <div class="col-4">
+          <div class="col-6">
             <p style="margin: 2px 0;"><b>Loaded</b>: {cached_count:,} {result_type}</p>
-          </div>
-          <div class="col-4">
-            <p style="margin: 2px 0;"><b>Pages</b>: {total_pages}</p>
           </div>
         </div>
         {summary_html}
