@@ -78,6 +78,27 @@ class TestSearchResultsLen:
         # hits() should only be called once
         mock_query.hits.assert_called_once()
 
+    def test_hits_is_deprecated_alias_for_total(self) -> None:
+        """Test that hits() is a deprecated alias for total()."""
+        import warnings
+
+        mock_query = Mock()
+        mock_query.hits.return_value = 750
+        results = SearchResults(mock_query)
+
+        # hits() should emit a deprecation warning
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            hits_result = results.hits()
+
+            assert len(w) == 1
+            assert issubclass(w[0].category, DeprecationWarning)
+            assert "hits() is deprecated" in str(w[0].message)
+
+        # hits() should return same value as total()
+        assert hits_result == 750
+        assert hits_result == results.total()
+
 
 class TestSearchResultsIteration:
     """Test direct iteration through SearchResults."""

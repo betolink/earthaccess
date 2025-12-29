@@ -1114,6 +1114,24 @@ class SearchResults:
             self._total_hits = self.query.hits()
         return self._total_hits
 
+    def hits(self) -> int:
+        """Return the total number of results matching the query in CMR.
+
+        .. deprecated::
+            Use :meth:`total` instead. This method will be removed in a future version.
+
+        Returns:
+            The total number of results matching the query
+        """
+        import warnings
+
+        warnings.warn(
+            "hits() is deprecated, use total() instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.total()
+
     def __len__(self) -> int:
         """Return the number of currently cached/materialized results.
 
