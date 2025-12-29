@@ -349,13 +349,37 @@ def _repr_search_results_html(
             {"".join([f"<style>{style}</style>" for style in css_styles])}
             </div>"""
 
-    # Get counts
+    # Auto-fetch first page if no results are cached
+    if len(results._cached_results) == 0 and not results._exhausted:
+        # Fetch first page by iterating until we have some results or hit limit
+        results._ensure_cached(min(page_size, results.limit or page_size))
+
+    # Get counts - call total() to ensure we have the hit count
     total_hits = results._total_hits
+    if total_hits is None:
+        total_hits = results.total()
     hits_str = f"{total_hits:,}" if total_hits is not None else "?"
     cached_count = len(results._cached_results)
     total_pages = (
         max(1, (cached_count + page_size - 1) // page_size) if cached_count > 0 else 1
     )
+
+    # Determine result type from class name or content
+    result_class = results.__class__.__name__
+    if "Granule" in result_class:
+        result_type = "granules"
+        result_title = "GranuleResults"
+        is_collection_results = False
+    elif "Collection" in result_class:
+        result_type = "collections"
+        result_title = "CollectionResults"
+        is_collection_results = True
+    else:
+        is_collection_results = cached_count > 0 and not _is_granule(
+            results._cached_results[0]
+        )
+        result_type = "collections" if is_collection_results else "granules"
+        result_title = "SearchResults"
 
     # Compute summary if we have cached results and total < 10k
     summary_html = ""
@@ -366,34 +390,24 @@ def _repr_search_results_html(
             if summary["cloud_count"] > 0
             else ""
         )
-        summary_html = f"""
-        <div class="row" style="margin-top: 5px;">
-          <div class="col-12" style="font-size: 0.85em; color: #555;">
-            <b>Summary</b>: {summary["total_size_mb"]:.1f} MB total | {cloud_str}{summary["temporal_range"]}
-          </div>
-        </div>
-        """
-
-    # Determine result type from class name or content
-    result_class = results.__class__.__name__
-    if "Granule" in result_class:
-        result_type = "granules"
-        result_title = "GranuleResults"
-    elif "Collection" in result_class:
-        result_type = "collections"
-        result_title = "CollectionResults"
-    else:
-        result_type = (
-            "granules"
-            if (
-                cached_count == 0
-                or _is_granule(
-                    results._cached_results[0] if results._cached_results else None
-                )
-            )
-            else "collections"
-        )
-        result_title = "SearchResults"
+        if not is_collection_results:
+            # Only show size summary for granules
+            summary_html = f"""
+            <div class="row" style="margin-top: 5px;">
+              <div class="col-12" style="font-size: 0.85em; color: #555;">
+                <b>Summary</b>: {summary["total_size_mb"]:.1f} MB total | {cloud_str}{summary["temporal_range"] or ""}
+              </div>
+            </div>
+            """
+        else:
+            # For collections, just show cloud count and temporal range
+            summary_html = f"""
+            <div class="row" style="margin-top: 5px;">
+              <div class="col-12" style="font-size: 0.85em; color: #555;">
+                <b>Summary</b>: {cloud_str}{summary["temporal_range"] or ""}
+              </div>
+            </div>
+            """
 
     # Generate all table rows (we'll paginate client-side with JS)
     all_rows = []
@@ -401,16 +415,40 @@ def _repr_search_results_html(
         if _is_granule(item):
             row = _granule_row_with_index(item, idx)
         else:
-            row = _collection_row_with_index(item, idx)
+            row = _collection_row_with_index(item, idx, widget_id)
         all_rows.append(row)
 
     all_rows_html = (
         "\n".join(all_rows)
         if all_rows
-        else "<tr data-idx='0'><td colspan='5' style='text-align: center;'>No results cached yet. Iterate over results to populate.</td></tr>"
+        else f"<tr data-idx='0'><td colspan='{6 if is_collection_results else 6}' style='text-align: center;'>No results found.</td></tr>"
     )
 
-    # JavaScript for pagination
+    # Different table headers for granules vs collections
+    if is_collection_results:
+        table_header = """
+                <tr>
+                  <th style="width: 3%;"></th>
+                  <th style="width: 22%;">Short Name</th>
+                  <th style="width: 25%;">Concept ID</th>
+                  <th style="width: 25%;">DOI</th>
+                  <th style="width: 10%;">Cloud</th>
+                  <th style="width: 15%;">Links</th>
+                </tr>
+        """
+    else:
+        table_header = """
+                <tr>
+                  <th style="width: 5%;">#</th>
+                  <th style="width: 40%;">Name</th>
+                  <th style="width: 20%;">Date</th>
+                  <th style="width: 15%;">Size</th>
+                  <th style="width: 10%;">Cloud</th>
+                  <th style="width: 10%;">Link</th>
+                </tr>
+        """
+
+    # JavaScript for pagination and row expansion
     js_code = f"""
     <script>
     (function() {{
@@ -428,10 +466,13 @@ def _repr_search_results_html(
 
             rows.forEach(row => {{
                 const idx = parseInt(row.getAttribute('data-idx'));
+                const detailRow = document.getElementById('detail-' + widgetId + '-' + idx);
                 if (idx >= startIdx && idx < endIdx) {{
                     row.style.display = '';
+                    // Keep detail row state but hide if outside page
                 }} else {{
                     row.style.display = 'none';
+                    if (detailRow) detailRow.style.display = 'none';
                 }}
             }});
 
@@ -455,6 +496,20 @@ def _repr_search_results_html(
         window['goNext_' + widgetId] = function() {{ if (currentPage < totalPages - 1) currentPage++; updatePage(); }};
         window['goLast_' + widgetId] = function() {{ currentPage = totalPages - 1; updatePage(); }};
 
+        window['toggleDetail_' + widgetId] = function(idx) {{
+            const detailRow = document.getElementById('detail-' + widgetId + '-' + idx);
+            const toggleBtn = document.getElementById('toggle-' + widgetId + '-' + idx);
+            if (detailRow) {{
+                if (detailRow.style.display === 'none') {{
+                    detailRow.style.display = '';
+                    toggleBtn.textContent = '▼';
+                }} else {{
+                    detailRow.style.display = 'none';
+                    toggleBtn.textContent = '▶';
+                }}
+            }}
+        }};
+
         // Initial page setup
         setTimeout(updatePage, 50);
     }})();
@@ -462,14 +517,14 @@ def _repr_search_results_html(
     """
 
     pagination_controls = f"""
-    <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 8px; padding: 8px; background: #f8f9fa; border-radius: 3px;">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 8px; padding: 8px; background: var(--ea-bg-secondary, #f8f9fa); border-radius: 3px;">
       <div>
-        <button id="first-{widget_id}" onclick="goFirst_{widget_id}()" style="padding: 4px 8px; margin-right: 4px; cursor: pointer;" title="First page">⏮</button>
-        <button id="prev-{widget_id}" onclick="goPrev_{widget_id}()" style="padding: 4px 8px; margin-right: 4px; cursor: pointer;" title="Previous page">◀</button>
-        <button id="next-{widget_id}" onclick="goNext_{widget_id}()" style="padding: 4px 8px; margin-right: 4px; cursor: pointer;" title="Next page">▶</button>
-        <button id="last-{widget_id}" onclick="goLast_{widget_id}()" style="padding: 4px 8px; cursor: pointer;" title="Last page">⏭</button>
+        <button id="first-{widget_id}" onclick="goFirst_{widget_id}()" class="btn btn-sm" title="First page">⏮</button>
+        <button id="prev-{widget_id}" onclick="goPrev_{widget_id}()" class="btn btn-sm" title="Previous page">◀</button>
+        <button id="next-{widget_id}" onclick="goNext_{widget_id}()" class="btn btn-sm" title="Next page">▶</button>
+        <button id="last-{widget_id}" onclick="goLast_{widget_id}()" class="btn btn-sm" title="Last page">⏭</button>
       </div>
-      <div id="pageinfo-{widget_id}" style="font-size: 0.85em; color: #555;">
+      <div id="pageinfo-{widget_id}" style="font-size: 0.85em; color: var(--ea-text-secondary, #555);">
         Page 1 of {total_pages}
       </div>
     </div>
@@ -497,21 +552,14 @@ def _repr_search_results_html(
         </div>
         {summary_html}
         <details style="margin-top: 10px;" open>
-          <summary style="cursor: pointer; padding: 5px; background: #f5f5f5; border-radius: 3px;">
+          <summary style="cursor: pointer; padding: 5px; background: var(--ea-bg-tertiary, #f5f5f5); border-radius: 3px;">
             <b>Browse Results</b>
           </summary>
           {pagination_controls}
-          <div style="margin-top: 8px; max-height: 400px; overflow-y: auto;">
+          <div style="margin-top: 8px; max-height: 500px; overflow-y: auto;">
             <table class="table table-sm table-striped" style="font-size: 0.85em;">
-              <thead style="position: sticky; top: 0; background: white; z-index: 1;">
-                <tr>
-                  <th style="width: 5%;">#</th>
-                  <th style="width: 40%;">Name</th>
-                  <th style="width: 20%;">Date</th>
-                  <th style="width: 15%;">Size</th>
-                  <th style="width: 10%;">Cloud</th>
-                  <th style="width: 10%;">Link</th>
-                </tr>
+              <thead style="position: sticky; top: 0; background: var(--ea-bg-primary, white); z-index: 1;">
+                {table_header}
               </thead>
               <tbody id="tbody-{widget_id}">
                 {all_rows_html}
@@ -562,46 +610,107 @@ def _granule_row_with_index(granule: "DataGranule", idx: int) -> str:
     """
 
 
-def _collection_row_with_index(collection: "DataCollection", idx: int) -> str:
-    """Generate a table row for a collection with index for pagination."""
+def _collection_row_with_index(
+    collection: "DataCollection", idx: int, widget_id: str
+) -> str:
+    """Generate a collapsible table row for a collection with index for pagination.
+
+    Creates a main row with summary info and a hidden detail row that expands
+    to show links, temporal coverage, and spatial extent.
+    """
     short_name = collection.get_umm("ShortName") or "Unknown"
     version = collection.version() or ""
-    name_display = f"{short_name} v{version}" if version else short_name
+    name_display = f"{short_name}"
+    if version:
+        name_display += f" v{version}"
 
     # Truncate if needed
-    if len(name_display) > 35:
-        name_display = name_display[:32] + "..."
+    if len(name_display) > 30:
+        name_display = name_display[:27] + "..."
 
-    # Get temporal
-    temporal_extents = collection.get_umm("TemporalExtents")
-    date_str = _format_collection_temporal(temporal_extents, short=True)
+    # Concept ID
+    concept_id = collection.concept_id()
 
-    # Size - collections don't have size, show "-"
-    size_str = "-"
+    # DOI
+    doi = collection.doi()
+    if doi:
+        doi_html = f'<a href="https://doi.org/{doi}" target="_blank" style="font-size: 0.8em;">{doi[:30]}{"..." if len(doi) > 30 else ""}</a>'
+    else:
+        doi_html = '<span style="color: #999;">—</span>'
 
     # Cloud
     cloud_info = collection.get_umm("DirectDistributionInformation")
     is_cloud = cloud_info is not None and bool(cloud_info)
     cloud_icon = "☁️" if is_cloud else "🖥️"
 
-    # Landing page link
+    # Links count for the main row
     landing = collection.landing_page()
-    link_html = (
-        f'<a href="{landing}" target="_blank" title="{landing}">🔗</a>'
-        if landing
-        else ""
-    )
+    get_data = collection.get_data()
+    link_count = (1 if landing else 0) + len(get_data)
+    links_badge = f'<span style="background: #007bff; color: white; padding: 2px 6px; border-radius: 10px; font-size: 0.75em;">{link_count}</span>'
 
-    return f"""
-    <tr data-idx="{idx}">
-      <td style="color: #888;">{idx + 1}</td>
-      <td title="{short_name}"><code style="font-size: 0.8em;">{name_display}</code></td>
-      <td>{date_str}</td>
-      <td>{size_str}</td>
-      <td>{cloud_icon}</td>
-      <td>{link_html}</td>
+    # Build detail row content
+    # Temporal extent
+    temporal_extents = collection.get_umm("TemporalExtents")
+    temporal_str = _format_collection_temporal(temporal_extents)
+
+    # Spatial extent
+    spatial_extent = collection.get_umm("SpatialExtent")
+    spatial_str = _format_spatial_extent(spatial_extent)
+
+    # Links for detail row
+    links_html_parts = []
+    if landing:
+        links_html_parts.append(
+            f'<a href="{landing}" target="_blank" class="btn btn-sm btn-primary" style="margin: 2px;">🏠 Landing Page</a>'
+        )
+    # Earthdata Search link
+    earthdata_search_url = f"https://search.earthdata.nasa.gov/search?q={concept_id}"
+    links_html_parts.append(
+        f'<a href="{earthdata_search_url}" target="_blank" class="btn btn-sm btn-secondary" style="margin: 2px;">🔍 Earthdata Search</a>'
+    )
+    # Data links (first 3)
+    for i, link in enumerate(get_data[:3]):
+        if link.startswith("http"):
+            links_html_parts.append(
+                f'<a href="{link}" target="_blank" class="btn btn-sm btn-outline-secondary" style="margin: 2px;">📥 Data {i + 1}</a>'
+            )
+
+    links_html = " ".join(links_html_parts)
+
+    # Main row with toggle button
+    main_row = f"""
+    <tr data-idx="{idx}" style="cursor: pointer;" onclick="toggleDetail_{widget_id}({idx})">
+      <td style="text-align: center;">
+        <span id="toggle-{widget_id}-{idx}" style="font-size: 0.8em; color: #666;">▶</span>
+      </td>
+      <td title="{short_name}"><code style="font-size: 0.85em;">{name_display}</code></td>
+      <td><code style="font-size: 0.75em; color: #666;">{concept_id}</code></td>
+      <td>{doi_html}</td>
+      <td style="text-align: center;">{cloud_icon}</td>
+      <td style="text-align: center;">{links_badge}</td>
     </tr>
     """
+
+    # Detail row (hidden by default)
+    detail_row = f"""
+    <tr id="detail-{widget_id}-{idx}" style="display: none; background: var(--ea-bg-tertiary, #f9f9f9);">
+      <td colspan="6" style="padding: 10px 15px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div>
+            <p style="margin: 4px 0;"><b>Temporal Coverage:</b> {temporal_str}</p>
+            <p style="margin: 4px 0;"><b>Spatial Coverage:</b> {spatial_str}</p>
+          </div>
+          <div>
+            <p style="margin: 4px 0 8px 0;"><b>Links:</b></p>
+            <div>{links_html}</div>
+          </div>
+        </div>
+      </td>
+    </tr>
+    """
+
+    return main_row + detail_row
 
 
 def _generate_table_rows(items: List[Any]) -> str:
@@ -808,6 +917,44 @@ def _format_collection_temporal(
             return f"{begin_short} to present"
 
     return "N/A"
+
+
+def _format_spatial_extent(spatial_extent: Optional[dict]) -> str:
+    """Format a collection's spatial extent for display.
+
+    Parameters:
+        spatial_extent: The SpatialExtent from UMM metadata
+
+    Returns:
+        Human-readable spatial coverage string
+    """
+    if not spatial_extent:
+        return "Global"
+
+    h_domain = spatial_extent.get("HorizontalSpatialDomain", {})
+    geometry = h_domain.get("Geometry", {})
+
+    # Try bounding rectangles
+    bounding_rects = geometry.get("BoundingRectangles", [])
+    if bounding_rects:
+        rect = bounding_rects[0]
+        west = rect.get("WestBoundingCoordinate", -180)
+        south = rect.get("SouthBoundingCoordinate", -90)
+        east = rect.get("EastBoundingCoordinate", 180)
+        north = rect.get("NorthBoundingCoordinate", 90)
+
+        # Check if global
+        if west <= -179 and east >= 179 and south <= -89 and north >= 89:
+            return "Global"
+
+        return f"Lon: {west:.1f}° to {east:.1f}°, Lat: {south:.1f}° to {north:.1f}°"
+
+    # Check for GPolygons
+    gpolygons = geometry.get("GPolygons", [])
+    if gpolygons:
+        return f"{len(gpolygons)} polygon(s)"
+
+    return "Global"
 
 
 __all__ = [

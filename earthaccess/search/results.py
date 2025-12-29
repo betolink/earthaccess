@@ -1183,8 +1183,8 @@ class SearchResults:
                 break
 
             # Check if this is a partial page (CMR returns fewer results than requested)
-            if len(page) < page_size:
-                self._exhausted = True
+            # We'll mark as exhausted AFTER processing this page
+            is_last_page = len(page) < page_size
 
             for result in page:
                 # Check limit
@@ -1196,11 +1196,13 @@ class SearchResults:
                 results_yielded += 1
                 yield result
 
+            # Mark exhausted after processing the last page
+            if is_last_page:
+                self._exhausted = True
+                break
+
             # Get search_after header for next page
             search_after = self._last_search_after
-
-            if self._exhausted:
-                break
 
     def pages(self):
         """Iterate through results page by page.
