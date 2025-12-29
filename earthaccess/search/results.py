@@ -1523,6 +1523,32 @@ class SearchResults:
 
         return show_map(self, max_items=max_items, **kwargs)
 
+    def browse(self, page_size: int = 20):
+        """Display an interactive browser widget for paginating through results.
+
+        This creates a Jupyter widget with bidirectional pagination - clicking
+        'Next' will automatically fetch more results from CMR if needed.
+
+        Parameters:
+            page_size: Number of items per page (default 20)
+
+        Returns:
+            An ipywidgets VBox containing the interactive browser
+
+        Raises:
+            ImportError: If ipywidgets is not installed
+
+        Examples:
+            >>> results = earthaccess.search_data(short_name="ATL06", count=100)
+            >>> results.browse()  # Returns interactive widget with pagination
+
+            >>> # Custom page size
+            >>> results.browse(page_size=50)
+        """
+        from earthaccess.formatting.widgets import browse_results
+
+        return browse_results(self, page_size=page_size)
+
 
 class GranuleResults(SearchResults):
     """Search results containing DataGranule objects.

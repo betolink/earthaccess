@@ -545,7 +545,7 @@ def _repr_search_results_html(
         remaining = (total_hits or 0) - cached_count
         load_more_hint = f"""
         <div style="margin-top: 8px; padding: 8px; background: #fff3cd; border-radius: 3px; font-size: 0.85em; color: #856404;">
-          <b>Note:</b> {remaining:,} more results available. Use <code>list(results)</code> or iterate to load all, then display again.
+          <b>Note:</b> {remaining:,} more results available in CMR. Use <code>results.browse()</code> for interactive pagination, or <code>list(results)</code> to load all.
         </div>
         """
 
