@@ -81,6 +81,7 @@ nav:
       - "Authentication": "user_guide/authenticate.md"
       - "Status": "user_guide/status.md"
       - "Search": "user_guide/search.md"
+      - "Results": "user_guide/results.md"
       - "Access": "user_guide/access.md"
       - "Backwards Compatibility": "user_guide/backwards-compatibility.md"
   - HOW-TO:

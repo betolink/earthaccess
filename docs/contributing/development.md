@@ -44,6 +44,12 @@ manage one yourself and use `pipx` to run tests and build docs with `nox`.
     python -m pip install --editable ".[dev,test,docs]"
     ```
 
+    To test widget functionality (interactive map visualization), also install the widgets extra:
+
+    ```bash
+    python -m pip install --editable ".[dev,test,docs,widgets]"
+    ```
+
 === "`conda`/`mamba`"
 
     `conda` and `mamba` are open-source package and environment managers that are language and platform agnostic.

@@ -6,6 +6,8 @@ The [Authentication](./authenticate.md) section shows how `earthaccess` can be u
 
 The [Search](./search.md) section introduces how to search for NASA datasets (collections) and specific data granules.
 
+The [Results](./results.md) section covers working with search results, including rich Jupyter display, summary statistics, and interactive map visualization.
+
 The [Access](./access.md) section introduces how to use `earthaccess` to download data to a local machine or stream data by opening it directly in memory.
 
 Additional usage information can be found in the User Reference section.  The How-To sections contains short code examples for specific workflows.  Longer tutorials for working with particular datasets are in the Tutorials section.

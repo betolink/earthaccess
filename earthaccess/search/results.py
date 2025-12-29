@@ -12,7 +12,11 @@ from typing import Any, Dict, List, Optional, Union
 import requests
 
 import earthaccess
-from earthaccess.formatting import _repr_granule_html
+from earthaccess.formatting import (
+    _repr_collection_html,
+    _repr_granule_html,
+    _repr_search_results_html,
+)
 from earthaccess.search.services import DataServices
 
 
@@ -393,6 +397,37 @@ class DataCollection(CustomDict):
             self.render_dict, sort_keys=False, indent=2, separators=(",", ": ")
         )
 
+    def _repr_html_(self) -> str:
+        """Return HTML representation for Jupyter notebook display.
+
+        Returns:
+            HTML string with collection metadata card.
+        """
+        return _repr_collection_html(self)
+
+    def show_map(self, **kwargs):
+        """Display an interactive map with the spatial extent of this collection.
+
+        Requires the [widgets] extra: pip install earthaccess[widgets]
+
+        Parameters:
+            **kwargs: Additional arguments passed to loneboard (fill_color, line_color)
+
+        Returns:
+            A loneboard Map widget for display in Jupyter
+
+        Raises:
+            ImportError: If widget dependencies are not installed
+            ValueError: If collection has no spatial extent
+
+        Examples:
+            >>> collection = earthaccess.search_datasets(short_name="ATL06")[0]
+            >>> collection.show_map()  # Display interactive map
+        """
+        from earthaccess.formatting.widgets import show_collection_map
+
+        return show_collection_map(self, **kwargs)
+
 
 class DataGranule(CustomDict):
     """Dictionary-like object to represent a granule from CMR."""
@@ -453,6 +488,29 @@ class DataGranule(CustomDict):
         """
         granule_html_repr = _repr_granule_html(self)
         return granule_html_repr
+
+    def show_map(self, **kwargs):
+        """Display an interactive map with the bounding box for this granule.
+
+        Requires the [widgets] extra: pip install earthaccess[widgets]
+
+        Parameters:
+            **kwargs: Additional arguments passed to loneboard (fill_color, line_color)
+
+        Returns:
+            A loneboard Map widget for display in Jupyter
+
+        Raises:
+            ImportError: If widget dependencies are not installed
+            ValueError: If granule has no spatial extent
+
+        Examples:
+            >>> granule = results[0]
+            >>> granule.show_map()  # Display interactive map
+        """
+        from earthaccess.formatting.widgets import show_granule_map
+
+        return show_granule_map(self, **kwargs)
 
     def __hash__(self) -> int:  # type: ignore[override]
         return hash(self["meta"]["concept-id"])
@@ -1196,3 +1254,117 @@ class SearchResults:
         """String representation of SearchResults."""
         hits = self._total_hits if self._total_hits is not None else "?"
         return f"SearchResults(hits={hits}, cached={len(self._cached_results)})"
+
+    def _repr_html_(self) -> str:
+        """Return HTML representation for Jupyter notebook display.
+
+        Returns:
+            HTML string with collapsible results table.
+        """
+        return _repr_search_results_html(self)
+
+    def summary(self) -> dict:
+        """Compute aggregated metadata for cached results.
+
+        Only computes detailed statistics if total_hits < 10,000 to avoid
+        performance issues with large result sets.
+
+        Returns:
+            Dictionary containing:
+            - total_hits: Total number of matching results in CMR
+            - cached_count: Number of results currently cached
+            - total_size_mb: Total size of cached granules in MB (granules only)
+            - cloud_count: Number of cloud-hosted results
+            - temporal_range: Date range of cached results (if available)
+
+        Examples:
+            >>> results = earthaccess.search_data(short_name="ATL06", count=100)
+            >>> summary = results.summary()
+            >>> print(f"Total size: {summary['total_size_mb']:.1f} MB")
+        """
+        cached_count = len(self._cached_results)
+        total_hits = self._total_hits
+
+        # Basic info always available
+        result: dict = {
+            "total_hits": total_hits,
+            "cached_count": cached_count,
+            "total_size_mb": 0.0,
+            "cloud_count": 0,
+            "temporal_range": None,
+        }
+
+        # Only compute detailed stats if reasonable number of results
+        if cached_count == 0 or (total_hits is not None and total_hits >= 10000):
+            return result
+
+        # Compute detailed statistics
+        total_size = 0.0
+        cloud_count = 0
+        min_date: Optional[str] = None
+        max_date: Optional[str] = None
+
+        for item in self._cached_results:
+            # Check if granule (has size method) or collection
+            if hasattr(item, "size") and callable(item.size):
+                total_size += item.size()
+
+            if getattr(item, "cloud_hosted", False):
+                cloud_count += 1
+            else:
+                # For collections, check DirectDistributionInformation
+                cloud_info = item.get("umm", {}).get("DirectDistributionInformation")
+                if cloud_info:
+                    cloud_count += 1
+
+            # Extract temporal info
+            temporal = item.get("umm", {}).get("TemporalExtent", {})
+            range_dt = temporal.get("RangeDateTime", {})
+            begin = range_dt.get("BeginningDateTime")
+            end = range_dt.get("EndingDateTime")
+
+            if begin:
+                if min_date is None or begin < min_date:
+                    min_date = begin
+            if end:
+                if max_date is None or end > max_date:
+                    max_date = end
+
+        # Format temporal range
+        if min_date and max_date:
+            min_short = min_date[:10] if len(min_date) >= 10 else min_date
+            max_short = max_date[:10] if len(max_date) >= 10 else max_date
+            result["temporal_range"] = f"{min_short} to {max_short}"
+        elif min_date:
+            result["temporal_range"] = f"{min_date[:10]} to present"
+
+        result["total_size_mb"] = total_size
+        result["cloud_count"] = cloud_count
+
+        return result
+
+    def show_map(self, max_items: int = 10000, **kwargs):
+        """Display an interactive map with bounding boxes for cached results.
+
+        This method creates a loneboard map visualization showing the spatial
+        extent of cached search results. Requires the [widgets] extra.
+
+        Parameters:
+            max_items: Maximum number of bounding boxes to display (default 10000)
+            **kwargs: Additional arguments passed to loneboard (fill_color, line_color)
+
+        Returns:
+            A loneboard Map widget for display in Jupyter
+
+        Raises:
+            ImportError: If widget dependencies are not installed
+            ValueError: If no results are cached
+
+        Examples:
+            >>> results = earthaccess.search_data(short_name="ATL06", count=100)
+            >>> list(results)  # Fetch results first
+            >>> results.show_map()  # Display interactive map
+        """
+        from earthaccess.formatting.widgets import show_map
+
+        return show_map(self, max_items=max_items, **kwargs)

@@ -76,6 +76,12 @@ virtualizarr = [
   "numcodecs >= 0.16.2",
   "xarray",
 ]
+widgets = [
+  "anywidget >=0.9; python_version < '3.14' and platform_python_implementation != 'PyPy'",
+  "lonboard >=0.9; python_version < '3.14' and platform_python_implementation != 'PyPy'",
+  "geopandas >=0.14; python_version < '3.14' and platform_python_implementation != 'PyPy'",
+  "shapely >=2.0; python_version < '3.14' and platform_python_implementation != 'PyPy'",
+]
 dev = [
   "bump-my-version >=0.10.0",
   "nox",
