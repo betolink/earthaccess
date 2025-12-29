@@ -19,12 +19,13 @@ import earthaccess
 from earthaccess.exceptions import LoginStrategyUnavailable, ServiceOutage
 from earthaccess.search import (
     CollectionQuery,
+    CollectionResults,
     DataCollections,
     DataGranule,
     DataGranules,
     DataServices,
     GranuleQuery,
-    SearchResults,
+    GranuleResults,
 )
 
 from .auth import PROD, Auth, System
@@ -112,7 +113,7 @@ def search_datasets(
     query: Optional[NewCollectionQuery] = None,
     count: int = -1,
     **kwargs: Any,
-) -> SearchResults:
+) -> CollectionResults:
     """Search datasets (collections) using NASA's CMR.
 
     [https://cmr.earthdata.nasa.gov/search/site/docs/search/api.html](https://cmr.earthdata.nasa.gov/search/site/docs/search/api.html)
@@ -167,8 +168,9 @@ def search_datasets(
             * **debug**: (bool) If True prints CMR request.  Default: True
 
     Returns:
-        A SearchResults object containing DataCollection results. Supports iteration,
+        A CollectionResults object containing DataCollection results. Supports iteration,
             indexing (results[0], results[-1], results[0:10]), and conversion to list.
+            Use len(results) for loaded count, results.total() for total CMR matches.
             Each DataCollection provides dataset information like concept_id, doi, etc.
 
     Raises:
@@ -212,7 +214,7 @@ def search_datasets(
         logger.warning(
             "A valid set of parameters is needed to search for datasets on CMR"
         )
-        return SearchResults(DataCollections(), limit=0)
+        return CollectionResults(DataCollections(), limit=0)
     auth = earthaccess.__auth__
     if auth and isinstance(auth, Auth) and auth.authenticated:
         cmr_query = DataCollections(auth).parameters(**kwargs)
@@ -220,14 +222,14 @@ def search_datasets(
         cmr_query = DataCollections().parameters(**kwargs)
     datasets_found = cmr_query.hits()
     logger.info(f"Datasets found: {datasets_found}")
-    return SearchResults(cmr_query, limit=count if count > 0 else None)
+    return CollectionResults(cmr_query, limit=count if count > 0 else None)
 
 
 def search_data(
     query: Optional[NewGranuleQuery] = None,
     count: int = -1,
     **kwargs: Any,
-) -> SearchResults:
+) -> GranuleResults:
     """Search for dataset files (granules) using NASA's CMR.
 
     [https://cmr.earthdata.nasa.gov/search/site/docs/search/api.html](https://cmr.earthdata.nasa.gov/search/site/docs/search/api.html)
@@ -291,8 +293,9 @@ def search_data(
 
 
     Returns:
-        A SearchResults object containing DataGranule results. Supports iteration,
+        A GranuleResults object containing DataGranule results. Supports iteration,
             indexing (results[0], results[-1], results[0:10]), and conversion to list.
+            Use len(results) for loaded count, results.total() for total CMR matches.
             Each DataGranule can be used to access files via `download()` or `open()`.
 
     Raises:
@@ -338,7 +341,7 @@ def search_data(
         cmr_query = DataGranules().parameters(**kwargs)
     granules_found = cmr_query.hits()
     logger.info(f"Granules found: {granules_found}")
-    return SearchResults(cmr_query, limit=count if count > 0 else None)
+    return GranuleResults(cmr_query, limit=count if count > 0 else None)
 
 
 def search_services(count: int = -1, **kwargs: Any) -> List[Any]:

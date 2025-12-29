@@ -18,7 +18,7 @@ from earthaccess.formatting.html import (  # noqa: E402
     _repr_search_results_html,
 )
 
-STATIC_FILES = ["iso_bootstrap4.0.0min.css", "styles.css"]
+STATIC_FILES = ["styles.css"]
 
 
 def _load_static_files() -> List[str]:

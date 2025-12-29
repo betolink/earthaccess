@@ -51,5 +51,6 @@ class TestUatEnvironmentArgument:
 
         # Query CMR, and check that mock communication was with UAT CMR
         results = earthaccess.search_data()
-        assert len(results) == 1
+        # total() returns the mocked CMR hits
+        assert results.total() == 1
         assert earthaccess.__auth__.system.edl_hostname == earthaccess.UAT.edl_hostname

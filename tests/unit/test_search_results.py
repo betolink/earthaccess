@@ -35,33 +35,45 @@ class TestSearchResultsCreation:
         results = SearchResults(mock_query)
 
         assert "SearchResults" in repr(results)
-        assert "hits=?" in repr(results)
-        assert "cached=0" in repr(results)
+        assert "total=?" in repr(results)
+        assert "loaded=0" in repr(results)
 
 
 class TestSearchResultsLen:
-    """Test __len__ behavior."""
+    """Test __len__ behavior - now returns cached count, not total hits."""
 
-    def test_len_calls_hits_on_query(self) -> None:
-        """Test that __len__ calls hits() on the query object."""
+    def test_len_returns_cached_count(self) -> None:
+        """Test that __len__ returns the number of cached results."""
+        mock_query = Mock()
+        results = SearchResults(mock_query)
+
+        # Initially no results cached
+        assert len(results) == 0
+
+        # After caching some results
+        results._cached_results = [Mock() for _ in range(25)]
+        assert len(results) == 25
+
+    def test_total_calls_hits_on_query(self) -> None:
+        """Test that total() calls hits() on the query object."""
         mock_query = Mock()
         mock_query.hits.return_value = 1000
         results = SearchResults(mock_query)
 
-        length = len(results)
+        total = results.total()
 
         mock_query.hits.assert_called_once()
-        assert length == 1000
+        assert total == 1000
 
-    def test_len_caches_result(self) -> None:
-        """Test that __len__ caches the result."""
+    def test_total_caches_result(self) -> None:
+        """Test that total() caches the result."""
         mock_query = Mock()
         mock_query.hits.return_value = 500
         results = SearchResults(mock_query)
 
-        # Call len twice
-        len(results)
-        len(results)
+        # Call total twice
+        results.total()
+        results.total()
 
         # hits() should only be called once
         mock_query.hits.assert_called_once()
@@ -137,8 +149,11 @@ class TestSearchResultsIntegration:
 
         results = SearchResults(mock_query)
 
-        # Should be able to get length
-        assert len(results) == 100
+        # len() returns cached count (initially 0)
+        assert len(results) == 0
+
+        # total() returns CMR hits
+        assert results.total() == 100
 
         # Should have expected attributes
         assert hasattr(results, "__iter__")
@@ -245,8 +260,8 @@ class TestSearchResultsCaching:
 
         repr_str = repr(results)
 
-        assert "hits=100" in repr_str
-        assert "cached=25" in repr_str
+        assert "total=100" in repr_str
+        assert "loaded=25" in repr_str
 
 
 class TestSearchResultsUsagePatterns:
@@ -279,16 +294,17 @@ class TestSearchResultsUsagePatterns:
         assert len(granule_list) == 3
 
     def test_pattern_check_length_first(self) -> None:
-        """Test checking length before iteration."""
+        """Test checking total before iteration."""
         mock_query = Mock()
         mock_query.hits.return_value = 5000
         results = SearchResults(mock_query)
 
-        # Check hits before iterating
-        total = len(results)
+        # Use total() to get CMR hits, not len()
+        total = results.total()
 
         assert total == 5000
-        # No items fetched yet
+        # No items fetched yet, so len() is 0
+        assert len(results) == 0
         assert len(results._cached_results) == 0
 
 

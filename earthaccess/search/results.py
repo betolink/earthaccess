@@ -1042,7 +1042,7 @@ class DataGranule(CustomDict):
 
 
 class SearchResults:
-    """A wrapper around CMR search results that supports lazy pagination.
+    """Base class for CMR search results with lazy pagination.
 
     This class provides an interface for iterating through large result sets
     without loading all results into memory at once. It supports both direct
@@ -1050,32 +1050,33 @@ class SearchResults:
 
     SearchResults fetches data lazily from NASA's CMR (Common Metadata Repository),
     only requesting pages of results as they are accessed. This enables efficient
-    processing of large result sets that may contain thousands of granules.
+    processing of large result sets that may contain thousands of items.
 
     Attributes:
         query: The CMR query object (DataGranules or DataCollections)
         limit: Maximum number of results to fetch (None for unlimited)
 
     Examples:
-        Create SearchResults from a query and iterate directly:
+        Iterate through results:
 
-        >>> from earthaccess.search import DataGranules
-        >>> query = DataGranules().short_name("ATL06").temporal("2020-01", "2020-02")
-        >>> results = SearchResults(query, limit=100)
+        >>> results = earthaccess.search_data(short_name="ATL06", count=100)
         >>> for granule in results:  # doctest: +SKIP
         ...     print(granule["meta"]["concept-id"])
 
-        Check total hits before iterating:
+        Check how many results are currently loaded:
 
-        >>> results = SearchResults(query)  # doctest: +SKIP
-        >>> print(f"Found {len(results)} granules")  # doctest: +SKIP
+        >>> print(f"Loaded {len(results)} granules")  # doctest: +SKIP
 
-        Process results page by page for batch operations:
+        Get total matching results in CMR:
 
-        >>> for page in results.pages():  # doctest: +SKIP
-        ...     process_batch(page)
+        >>> print(f"Total available: {results.total()}")  # doctest: +SKIP
 
-        Convert to list (fetches all results):
+        Access by index (lazy fetches as needed):
+
+        >>> first = results[0]  # doctest: +SKIP
+        >>> fifth = results[4]  # doctest: +SKIP
+
+        Convert to list (fetches all results up to limit):
 
         >>> granule_list = list(results)  # doctest: +SKIP
     """
@@ -1096,6 +1097,35 @@ class SearchResults:
         self._exhausted = False
         self._last_search_after: Optional[str] = None
 
+    def total(self) -> int:
+        """Return the total number of results matching the query in CMR.
+
+        This makes a request to CMR to get the hit count if not already cached.
+        Use this to know how many total results exist before fetching them all.
+
+        Returns:
+            The total number of results matching the query
+
+        Examples:
+            >>> results = earthaccess.search_data(short_name="ATL06", count=100)
+            >>> print(f"Total matching: {results.total()}")  # doctest: +SKIP
+        """
+        if self._total_hits is None:
+            self._total_hits = self.query.hits()
+        return self._total_hits
+
+    def __len__(self) -> int:
+        """Return the number of currently cached/materialized results.
+
+        This returns the count of results that have been fetched so far,
+        not the total number of matching results in CMR. Use `total()`
+        to get the total number of matching results.
+
+        Returns:
+            The number of results currently loaded in memory
+        """
+        return len(self._cached_results)
+
     def __iter__(self):
         """Iterate through all results, fetching pages as needed.
 
@@ -1113,8 +1143,9 @@ class SearchResults:
 
         # Otherwise, fetch pages as needed
         page_size = 2000
-        search_after = None
+        search_after = self._last_search_after
 
+        # First yield already cached results
         for result in self._cached_results:
             yield result
 
@@ -1148,7 +1179,7 @@ class SearchResults:
                 yield result
 
             # Get search_after header for next page
-            search_after = getattr(self, "_last_search_after", None)
+            search_after = self._last_search_after
 
             if self._exhausted:
                 break
@@ -1190,7 +1221,7 @@ class SearchResults:
                 break
 
             # Get search_after header for next page
-            search_after = getattr(self, "_last_search_after", None)
+            search_after = self._last_search_after
 
     def _fetch_page(
         self, page_size: int, search_after: Optional[str] = None
@@ -1229,35 +1260,34 @@ class SearchResults:
 
         results_data = response.json().get("items", [])
 
-        # Convert to DataGranule or DataCollection
+        return self._convert_results(results_data)
+
+    def _convert_results(
+        self, results_data: List[Dict[str, Any]]
+    ) -> List[Union[DataGranule, DataCollection]]:
+        """Convert raw CMR response data to result objects.
+
+        Override in subclasses for type-specific conversion.
+
+        Parameters:
+            results_data: Raw JSON items from CMR response
+
+        Returns:
+            List of DataGranule or DataCollection instances
+        """
         # Import here to avoid circular imports
         from earthaccess.search.queries import DataGranules
 
         if isinstance(self.query, DataGranules):
-            # It's a GranuleQuery (DataGranules inherits from GranuleQuery)
             cloud = len(results_data) > 0 and self.query._is_cloud_hosted(
                 results_data[0]
             )
             return [DataGranule(item, cloud_hosted=cloud) for item in results_data]
         else:
-            # It's a CollectionQuery (DataCollections)
             return [DataCollection(item) for item in results_data]
 
-    def __len__(self) -> int:
-        """Return the total number of hits from the CMR.
-
-        Note: This makes a request to CMR to get the hit count if not already cached.
-
-        Returns:
-            The total number of results matching the query
-        """
-        if self._total_hits is None:
-            self._total_hits = self.query.hits()
-        assert self._total_hits is not None
-        return self._total_hits
-
     def __getitem__(
-        self, index: int
+        self, index: Union[int, slice]
     ) -> Union[DataGranule, DataCollection, List[Union[DataGranule, DataCollection]]]:
         """Get item(s) by index or slice.
 
@@ -1276,33 +1306,41 @@ class SearchResults:
         Examples:
             >>> results = earthaccess.search_data(short_name="ATL06", count=100)
             >>> first = results[0]  # Get first result
-            >>> last = results[-1]  # Get last result
+            >>> fifth = results[4]  # Get fifth result (fetches if needed)
             >>> batch = results[0:10]  # Get first 10 results
         """
-        # Ensure we have the total hits count
-        total = len(self)
-
         # Handle slices
         if isinstance(index, slice):
-            start, stop, step = index.indices(total)
-            # Fetch all needed results
-            max_needed = stop
-            self._ensure_cached(max_needed)
+            # For slices, we need to ensure we have enough results
+            # Use limit or a reasonable max if unbounded
+            max_index = (
+                index.stop if index.stop is not None else (self.limit or self.total())
+            )
+            self._ensure_cached(max_index)
             return self._cached_results[index]
 
-        # Handle negative indices
+        # Handle negative indices - need to know total to resolve
         if index < 0:
+            total = self.total()
             index = total + index
-
-        if index < 0 or index >= total:
-            raise IndexError(f"Index {index} out of range for {total} results")
+            if index < 0:
+                raise IndexError("Index out of range")
 
         # Ensure we have cached up to this index
         self._ensure_cached(index + 1)
+
+        if index >= len(self._cached_results):
+            raise IndexError(
+                f"Index {index} out of range for {len(self._cached_results)} cached results"
+            )
+
         return self._cached_results[index]
 
     def _ensure_cached(self, count: int) -> None:
         """Ensure at least `count` results are cached.
+
+        Fetches additional pages as needed to cache the requested number
+        of results.
 
         Parameters:
             count: Minimum number of results to cache
@@ -1310,15 +1348,22 @@ class SearchResults:
         if len(self._cached_results) >= count:
             return
 
-        # Need to fetch more results
+        if self._exhausted:
+            return
+
+        # Apply limit constraint
+        if self.limit:
+            count = min(count, self.limit)
+
+        # Fetch results until we have enough
         for _ in self:
-            if len(self._cached_results) >= count:
+            if len(self._cached_results) >= count or self._exhausted:
                 break
 
     def __repr__(self) -> str:
         """String representation of SearchResults."""
-        hits = self._total_hits if self._total_hits is not None else "?"
-        return f"SearchResults(hits={hits}, cached={len(self._cached_results)})"
+        total = self._total_hits if self._total_hits is not None else "?"
+        return f"{self.__class__.__name__}(total={total}, loaded={len(self._cached_results)})"
 
     def _repr_html_(self) -> str:
         """Return HTML representation for Jupyter notebook display.
@@ -1336,8 +1381,8 @@ class SearchResults:
 
         Returns:
             Dictionary containing:
-            - total_hits: Total number of matching results in CMR
-            - cached_count: Number of results currently cached
+            - total: Total number of matching results in CMR
+            - loaded: Number of results currently cached
             - total_size_mb: Total size of cached granules in MB (granules only)
             - cloud_count: Number of cloud-hosted results
             - temporal_range: Date range of cached results (if available)
@@ -1352,8 +1397,8 @@ class SearchResults:
 
         # Basic info always available
         result: dict = {
-            "total_hits": total_hits,
-            "cached_count": cached_count,
+            "total": total_hits,
+            "loaded": cached_count,
             "total_size_mb": 0.0,
             "cloud_count": 0,
             "temporal_range": None,
@@ -1433,3 +1478,54 @@ class SearchResults:
         from earthaccess.formatting.widgets import show_map
 
         return show_map(self, max_items=max_items, **kwargs)
+
+
+class GranuleResults(SearchResults):
+    """Search results containing DataGranule objects.
+
+    This subclass is returned by `earthaccess.search_data()` and provides
+    granule-specific functionality.
+
+    Examples:
+        >>> results = earthaccess.search_data(short_name="ATL06", count=10)
+        >>> for granule in results:
+        ...     print(granule.data_links())
+    """
+
+    __module__ = "earthaccess.search"
+
+    def _convert_results(self, results_data: List[Dict[str, Any]]) -> List[DataGranule]:
+        """Convert raw CMR response data to DataGranule objects."""
+        cloud = len(results_data) > 0 and self.query._is_cloud_hosted(results_data[0])
+        return [DataGranule(item, cloud_hosted=cloud) for item in results_data]
+
+    def __repr__(self) -> str:
+        """String representation of GranuleResults."""
+        total = self._total_hits if self._total_hits is not None else "?"
+        return f"GranuleResults(total={total}, loaded={len(self._cached_results)})"
+
+
+class CollectionResults(SearchResults):
+    """Search results containing DataCollection objects.
+
+    This subclass is returned by `earthaccess.search_datasets()` and provides
+    collection-specific functionality.
+
+    Examples:
+        >>> results = earthaccess.search_datasets(keyword="temperature", count=10)
+        >>> for collection in results:
+        ...     print(collection.concept_id())
+    """
+
+    __module__ = "earthaccess.search"
+
+    def _convert_results(
+        self, results_data: List[Dict[str, Any]]
+    ) -> List[DataCollection]:
+        """Convert raw CMR response data to DataCollection objects."""
+        return [DataCollection(item) for item in results_data]
+
+    def __repr__(self) -> str:
+        """String representation of CollectionResults."""
+        total = self._total_hits if self._total_hits is not None else "?"
+        return f"CollectionResults(total={total}, loaded={len(self._cached_results)})"

@@ -52,8 +52,9 @@ class TestSearchDataWithGranuleQuery:
             # Returns SearchResults with limit
             assert isinstance(results, SearchResults)
             assert results.limit == 10
-            # Total hits should still be 100 (from CMR)
-            assert len(results) == 100
+            # len() returns cached count (0 before fetching), total() returns CMR hits
+            assert len(results) == 0
+            assert results.total() == 100
 
     def test_search_data_query_with_bounding_box(self):
         """search_data() should pass spatial parameters from query object."""
@@ -159,8 +160,9 @@ class TestSearchDatasetsWithCollectionQuery:
             # Returns SearchResults with limit
             assert isinstance(results, SearchResults)
             assert results.limit == 5
-            # Total hits should still be 100 (from CMR)
-            assert len(results) == 100
+            # len() returns cached count (0 before fetching), total() returns CMR hits
+            assert len(results) == 0
+            assert results.total() == 100
 
     def test_search_datasets_query_with_daac(self):
         """search_datasets() should pass daac from query object."""

@@ -167,9 +167,9 @@ def test_repr_search_results_html_empty():
     html = _repr_search_results_html(results)
 
     assert "SearchResults" in html
-    assert "Total Hits" in html
+    assert "Total in CMR" in html
     assert "0" in html
-    assert "Cached" in html
+    assert "Loaded" in html
 
 
 def test_repr_search_results_html_with_granules():
@@ -209,7 +209,7 @@ def test_repr_search_results_html_with_granules():
     assert "100" in html  # Total hits
     assert "5" in html  # Cached count
     assert "SC:ATL06.005:123456" in html or "ATL06" in html
-    assert "Show Results" in html  # Collapsible section
+    assert "Browse Results" in html  # Collapsible section with pagination
 
 
 def test_repr_search_results_html_with_collections():
@@ -429,8 +429,8 @@ def test_search_results_summary_empty():
 
     summary = results.summary()
 
-    assert summary["total_hits"] == 0
-    assert summary["cached_count"] == 0
+    assert summary["total"] == 0
+    assert summary["loaded"] == 0
     assert summary["total_size_mb"] == 0.0
     assert summary["cloud_count"] == 0
     assert summary["temporal_range"] is None
@@ -465,8 +465,8 @@ def test_search_results_summary_with_data():
 
     summary = results.summary()
 
-    assert summary["total_hits"] == 3
-    assert summary["cached_count"] == 3
+    assert summary["total"] == 3
+    assert summary["loaded"] == 3
     assert summary["total_size_mb"] == 150.0  # 3 * 50 MB
     assert summary["cloud_count"] == 3
     assert "2020-03-01" in summary["temporal_range"]
@@ -483,8 +483,8 @@ def test_search_results_summary_skips_for_large_results():
     summary = results.summary()
 
     # Should return basic info without detailed computation
-    assert summary["total_hits"] == 15000
-    assert summary["cached_count"] == 0
+    assert summary["total"] == 15000
+    assert summary["loaded"] == 0
     assert summary["total_size_mb"] == 0.0
 
 

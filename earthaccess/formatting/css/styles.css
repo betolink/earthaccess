@@ -1,14 +1,297 @@
 /*
- CSS to override bootstrap or define custom styles
-*/
+ * Minimal CSS for earthaccess Jupyter HTML displays
+ * Replaces full Bootstrap 4 (~207KB) with focused styles (~4KB)
+ *
+ * Supports:
+ * - 12-column flexbox grid
+ * - Card/container styling
+ * - Tables
+ * - Buttons
+ * - Dark mode via CSS custom properties
+ */
 
-.bootstrap .p {
- font-size: 18px;
+/* === CSS Custom Properties for Theming === */
+:root {
+  --ea-bg-primary: #ffffff;
+  --ea-bg-secondary: #f8f9fa;
+  --ea-bg-tertiary: #f5f5f5;
+  --ea-text-primary: #212529;
+  --ea-text-secondary: #666666;
+  --ea-text-muted: #888888;
+  --ea-border-color: #dee2e6;
+  --ea-border-radius: 4px;
+  --ea-link-color: #007bff;
+  --ea-link-hover: #0056b3;
+  --ea-btn-primary-bg: #007bff;
+  --ea-btn-primary-text: #ffffff;
+  --ea-btn-secondary-bg: #6c757d;
+  --ea-btn-secondary-text: #ffffff;
+  --ea-success: #28a745;
+  --ea-warning: #ffc107;
+  --ea-warning-bg: #fff3cd;
+  --ea-warning-text: #856404;
+  --ea-danger: #dc3545;
+  --ea-table-stripe: rgba(0, 0, 0, 0.03);
 }
 
-.bootstrap .pull-right {
-    @extend .float-right;
+/* Dark mode support (system preference) */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ea-bg-primary: #1e1e1e;
+    --ea-bg-secondary: #2d2d2d;
+    --ea-bg-tertiary: #383838;
+    --ea-text-primary: #e0e0e0;
+    --ea-text-secondary: #a0a0a0;
+    --ea-text-muted: #808080;
+    --ea-border-color: #444444;
+    --ea-link-color: #58a6ff;
+    --ea-link-hover: #79b8ff;
+    --ea-warning-bg: #4a3f00;
+    --ea-warning-text: #ffd93d;
+    --ea-table-stripe: rgba(255, 255, 255, 0.03);
+  }
 }
-.bootstrap .pull-left {
-    @extend .float-left;
+
+/* JupyterLab dark theme detection */
+[data-jp-theme-light="false"] .ea-container,
+.jp-Notebook.jp-mod-dark .ea-container,
+body[data-vscode-theme-kind="vscode-dark"] .ea-container {
+  --ea-bg-primary: #1e1e1e;
+  --ea-bg-secondary: #2d2d2d;
+  --ea-bg-tertiary: #383838;
+  --ea-text-primary: #e0e0e0;
+  --ea-text-secondary: #a0a0a0;
+  --ea-text-muted: #808080;
+  --ea-border-color: #444444;
+  --ea-link-color: #58a6ff;
+  --ea-link-hover: #79b8ff;
+  --ea-warning-bg: #4a3f00;
+  --ea-warning-text: #ffd93d;
+  --ea-table-stripe: rgba(255, 255, 255, 0.03);
 }
+
+/* === Base Scoped Styles === */
+.bootstrap {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ea-text-primary);
+  box-sizing: border-box;
+}
+
+.bootstrap *,
+.bootstrap *::before,
+.bootstrap *::after {
+  box-sizing: inherit;
+}
+
+.bootstrap p {
+  margin: 0 0 0.5rem 0;
+  font-size: 14px;
+}
+
+.bootstrap h5 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.bootstrap hr {
+  border: none;
+  border-top: 1px solid var(--ea-border-color);
+  margin: 8px 0;
+}
+
+.bootstrap code {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 0.875em;
+  padding: 0.1em 0.3em;
+  background: var(--ea-bg-secondary);
+  border-radius: 3px;
+  color: var(--ea-text-primary);
+}
+
+.bootstrap a {
+  color: var(--ea-link-color);
+  text-decoration: none;
+}
+
+.bootstrap a:hover {
+  color: var(--ea-link-hover);
+  text-decoration: underline;
+}
+
+/* === Grid System (12-column flexbox) === */
+.bootstrap .container-fluid {
+  width: 100%;
+  padding-right: 15px;
+  padding-left: 15px;
+  margin-right: auto;
+  margin-left: auto;
+  background: var(--ea-bg-primary);
+}
+
+.bootstrap .row {
+  display: flex;
+  flex-wrap: wrap;
+  margin-right: -15px;
+  margin-left: -15px;
+}
+
+.bootstrap .row > [class*="col-"] {
+  position: relative;
+  width: 100%;
+  padding-right: 15px;
+  padding-left: 15px;
+}
+
+.bootstrap .col-4 { flex: 0 0 33.333333%; max-width: 33.333333%; }
+.bootstrap .col-6 { flex: 0 0 50%; max-width: 50%; }
+.bootstrap .col-8 { flex: 0 0 66.666667%; max-width: 66.666667%; }
+.bootstrap .col-12 { flex: 0 0 100%; max-width: 100%; }
+
+/* === Border/Card === */
+.bootstrap .border {
+  border: 1px solid var(--ea-border-color) !important;
+  border-radius: var(--ea-border-radius);
+  background: var(--ea-bg-primary);
+}
+
+/* === Buttons === */
+.bootstrap .btn {
+  display: inline-block;
+  font-weight: 400;
+  text-align: center;
+  white-space: nowrap;
+  vertical-align: middle;
+  user-select: none;
+  border: 1px solid transparent;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  border-radius: var(--ea-border-radius);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out;
+}
+
+.bootstrap .btn:hover {
+  text-decoration: none;
+}
+
+.bootstrap .btn-sm {
+  padding: 0.2rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+.bootstrap .btn-primary {
+  color: var(--ea-btn-primary-text);
+  background-color: var(--ea-btn-primary-bg);
+  border-color: var(--ea-btn-primary-bg);
+}
+
+.bootstrap .btn-primary:hover {
+  background-color: #0069d9;
+  border-color: #0062cc;
+}
+
+.bootstrap .btn-secondary {
+  color: var(--ea-btn-secondary-text);
+  background-color: var(--ea-btn-secondary-bg);
+  border-color: var(--ea-btn-secondary-bg);
+}
+
+.bootstrap .btn-secondary:hover {
+  background-color: #5a6268;
+  border-color: #545b62;
+}
+
+/* === Tables === */
+.bootstrap .table {
+  width: 100%;
+  margin-bottom: 1rem;
+  border-collapse: collapse;
+  background-color: var(--ea-bg-primary);
+}
+
+.bootstrap .table th,
+.bootstrap .table td {
+  padding: 0.5rem;
+  vertical-align: top;
+  border-top: 1px solid var(--ea-border-color);
+  text-align: left;
+}
+
+.bootstrap .table thead th {
+  vertical-align: bottom;
+  border-bottom: 2px solid var(--ea-border-color);
+  font-weight: 600;
+  background: var(--ea-bg-secondary);
+}
+
+.bootstrap .table-sm th,
+.bootstrap .table-sm td {
+  padding: 0.3rem;
+}
+
+.bootstrap .table-striped tbody tr:nth-of-type(odd) {
+  background-color: var(--ea-table-stripe);
+}
+
+/* === Utility Classes === */
+.bootstrap .text-right {
+  text-align: right !important;
+}
+
+.bootstrap .badge {
+  display: inline-block;
+  padding: 0.25em 0.5em;
+  font-size: 75%;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+  vertical-align: baseline;
+  border-radius: 0.25rem;
+}
+
+/* === Details/Summary === */
+.bootstrap details {
+  margin: 0;
+}
+
+.bootstrap summary {
+  cursor: pointer;
+  user-select: none;
+}
+
+.bootstrap summary:focus {
+  outline: none;
+}
+
+/* === Pagination Controls === */
+.bootstrap button {
+  font-family: inherit;
+  font-size: inherit;
+  background: var(--ea-bg-secondary);
+  border: 1px solid var(--ea-border-color);
+  border-radius: var(--ea-border-radius);
+  color: var(--ea-text-primary);
+  cursor: pointer;
+  transition: background-color 0.15s ease-in-out;
+}
+
+.bootstrap button:hover:not(:disabled) {
+  background: var(--ea-bg-tertiary);
+}
+
+.bootstrap button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Float utilities */
+.bootstrap .float-right { float: right !important; }
+.bootstrap .float-left { float: left !important; }
+.bootstrap .pull-right { float: right !important; }
+.bootstrap .pull-left { float: left !important; }

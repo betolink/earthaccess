@@ -162,6 +162,7 @@ class Auth(object):
         # Maybe all these predefined URLs should be in a constants.py file
         self.authenticated = False
         self.token: Optional[Mapping[str, str]] = None
+        self._login_strategy: Optional[str] = None
         self._set_earthdata_system(PROD)
 
     def login(
@@ -202,10 +203,13 @@ class Auth(object):
 
         if strategy == "interactive":
             self._interactive(persist)
+            self._login_strategy = "interactive"
         elif strategy == "netrc":
             self._netrc()
+            self._login_strategy = "netrc"
         elif strategy == "environment":
             self._environment()
+            self._login_strategy = "environment"
 
         return self
 
@@ -509,3 +513,28 @@ class Auth(object):
             ):
                 return str(daac["s3-credentials"])
         return ""
+
+    def __repr__(self) -> str:
+        """Return string representation of Auth status."""
+        if not self.authenticated:
+            return "Auth(authenticated=False)"
+
+        username = getattr(self, "username", None)
+        user_str = f"user='{username}'" if username else "user=<token>"
+        strategy_str = (
+            f"strategy='{self._login_strategy}'" if self._login_strategy else ""
+        )
+        system_str = f"system={self.system.edl_hostname}"
+
+        parts = ["Auth(authenticated=True", user_str]
+        if strategy_str:
+            parts.append(strategy_str)
+        parts.append(system_str + ")")
+
+        return ", ".join(parts)
+
+    def _repr_html_(self) -> str:
+        """Return HTML representation for Jupyter notebook display."""
+        from earthaccess.formatting.html import _repr_auth_html
+
+        return _repr_auth_html(self)

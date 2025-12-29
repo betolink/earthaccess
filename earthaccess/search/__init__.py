@@ -23,9 +23,11 @@ from earthaccess.search.query import (
     ValidationResult,
 )
 from earthaccess.search.results import (
+    CollectionResults,
     CustomDict,
     DataCollection,
     DataGranule,
+    GranuleResults,
     SearchResults,
 )
 from earthaccess.search.services import DataServices
@@ -53,6 +55,8 @@ __all__ = [
     "DataCollection",
     "DataGranule",
     "SearchResults",
+    "GranuleResults",
+    "CollectionResults",
     # Service class
     "DataServices",
 ]

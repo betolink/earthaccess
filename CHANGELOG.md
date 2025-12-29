@@ -9,6 +9,14 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Changed
 
+- **Breaking:** `len(results)` on `SearchResults` now returns the count of loaded/cached
+  results, not the total CMR hits. Use `results.total()` to get total matches in CMR.
+  This change makes `SearchResults` behave more like a standard Python sequence.
+  ([@betolink](https://github.com/betolink))
+- **Breaking:** `search_data()` now returns `GranuleResults` and `search_datasets()`
+  returns `CollectionResults` (subclasses of `SearchResults`). These provide
+  type-specific behavior while maintaining full backward compatibility.
+  ([@betolink](https://github.com/betolink))
 - **Breaking:** Reorganized internal package structure to a modular architecture.
   The top-level `earthaccess/` directory now contains only `api.py` and `__init__.py`,
   with all code organized into logical sub-packages:
@@ -65,6 +73,16 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   ([@betolink](https://github.com/betolink))
 - Added rich HTML display with `_repr_html_()` methods on `DataGranule`,
   `DataCollection`, and `SearchResults` for enhanced Jupyter notebook rendering.
+  Includes interactive pagination with First/Previous/Next/Last navigation buttons.
+  ([@betolink](https://github.com/betolink))
+- Added `__repr__()` and `_repr_html_()` methods to `Auth` class showing
+  authentication status, login strategy, and user information with redacted tokens.
+  ([@betolink](https://github.com/betolink))
+- Added `GranuleResults` and `CollectionResults` subclasses of `SearchResults`
+  for type-specific handling of granule and collection search results.
+  ([@betolink](https://github.com/betolink))
+- Added `total()` method to `SearchResults` to get total CMR hits (previously
+  returned by `len()`). The `len()` function now returns loaded count.
   ([@betolink](https://github.com/betolink))
 - Added interactive map visualization with `show_map()` methods using lonboard.
   Requires optional `[widgets]` extra: `pip install earthaccess[widgets]`.
@@ -77,6 +95,10 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - Added methods `doi` and `citation` to `DataCollection` class.
   ([#203](https://github.com/nsidc/earthaccess/issues/203))
   (@Sherwin-14, @chuckwondo)
+- Replaced 207KB Bootstrap CSS with minimal 6.7KB custom CSS (97% size reduction)
+  with dark mode support via CSS custom properties. Automatically detects
+  JupyterLab and VSCode dark themes.
+  ([@betolink](https://github.com/betolink))
 
 ### Removed
 
