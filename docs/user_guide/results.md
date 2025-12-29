@@ -148,6 +148,7 @@ stac_item = granule.to_stac()
 | Method | Description |
 |--------|-------------|
 | `all()` | Fetch and return all results as a list |
+| `filter()` | Filter results by criteria and return matching as a list |
 | `items()` | Iterate through results one at a time (pystac-client compatible) |
 | `pages(page_size=2000)` | Iterate through results page by page |
 | `__iter__()` | Iterate through results one at a time |
@@ -227,6 +228,39 @@ granules = list(results)
 granules_again = results.all()  # Returns cached list
 ```
 
+### Filtering Results
+
+Use `filter()` to select granules matching specific criteria. You can chain it directly from search:
+
+```python
+# Filter with keyword arguments
+large_cloud_granules = earthaccess.search_data(
+    short_name="ATL06",
+    temporal=("2020-01-01", "2020-01-31"),
+    count=100
+).filter(cloud_hosted=True, min_size=50)
+
+# Available filter kwargs:
+# - min_size: Minimum size in MB
+# - max_size: Maximum size in MB
+# - cloud_hosted: Boolean for cloud hosting status
+# - start_date: datetime - filter by temporal range
+# - end_date: datetime - filter by temporal range
+```
+
+For more complex filtering, use a `GranuleFilter` object or a custom predicate:
+
+```python
+from earthaccess.search import GranuleFilter
+
+# Using GranuleFilter
+f = GranuleFilter(min_size=10, max_size=100, cloud_hosted=True)
+filtered = results.filter(f)
+
+# Using a custom predicate function
+filtered = results.filter(predicate=lambda g: "specific_name" in g["umm"]["GranuleUR"])
+```
+
 ### Summary Statistics
 
 The `summary()` method computes aggregated statistics for cached results:
@@ -239,7 +273,7 @@ results = earthaccess.search_data(
 )
 
 # Fetch all results first
-granules = results.get_all()
+granules = results.all()
 
 # Get summary statistics
 summary = results.summary()

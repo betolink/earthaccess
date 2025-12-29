@@ -63,9 +63,14 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   ([@betolink](https://github.com/betolink))
 - Added `SearchResults` class for lazy pagination of CMR search results with
   caching support. Prefetches first 20 results for immediate access. Includes
-  `all()` to fetch all results as a list, `items()` method for pystac-client
-  compatible iteration, `pages(page_size=2000)` iterator for batch processing
-  with configurable page size, and `summary()` method for aggregated statistics.
+  `all()` to fetch all results as a list, `filter()` to select granules by
+  criteria (size, cloud_hosted, temporal range, or custom predicate), `items()`
+  method for pystac-client compatible iteration, `pages(page_size=2000)` iterator
+  for batch processing with configurable page size, and `summary()` method for
+  aggregated statistics.
+  ([@betolink](https://github.com/betolink))
+- Added `GranuleFilter` frozen dataclass for filtering granules by size,
+  cloud hosting status, temporal range, or custom predicate functions.
   ([@betolink](https://github.com/betolink))
 - Added `Asset` and `AssetFilter` frozen dataclasses for type-safe, immutable
   granule file handling with role-based filtering (data, thumbnail, metadata).

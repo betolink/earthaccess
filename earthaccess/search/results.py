@@ -6,8 +6,10 @@ for representing and working with NASA CMR search results.
 
 import json
 import uuid
+from dataclasses import dataclass, field
+from datetime import datetime
 from functools import cache
-from typing import Any, Dict, Iterator, List, Optional, Union
+from typing import Any, Callable, Dict, Iterator, List, Optional, Union
 
 import requests
 
@@ -429,6 +431,90 @@ class DataCollection(CustomDict):
         from earthaccess.formatting.widgets import show_collection_map
 
         return show_collection_map(self, **kwargs)
+
+
+@dataclass(frozen=True)
+class GranuleFilter:
+    """Immutable filter for selecting granules based on various criteria.
+
+    This filter can be used with SearchResults.filter() to select granules
+    matching specific criteria like size, cloud hosting, or temporal range.
+
+    Attributes:
+        min_size: Minimum granule size in MB
+        max_size: Maximum granule size in MB
+        cloud_hosted: If set, filter by cloud hosting status
+        start_date: Filter granules ending after this date
+        end_date: Filter granules starting before this date
+        predicate: Custom filter function taking a DataGranule and returning bool
+
+    Examples:
+        >>> # Filter by size
+        >>> f = GranuleFilter(min_size=10, max_size=100)
+
+        >>> # Filter cloud-hosted granules larger than 50MB
+        >>> f = GranuleFilter(cloud_hosted=True, min_size=50)
+
+        >>> # Custom predicate
+        >>> f = GranuleFilter(predicate=lambda g: "ATL06" in g["umm"]["GranuleUR"])
+    """
+
+    __module__ = "earthaccess.search"
+
+    min_size: Optional[float] = None
+    max_size: Optional[float] = None
+    cloud_hosted: Optional[bool] = None
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    predicate: Optional[Callable[["DataGranule"], bool]] = field(
+        default=None, compare=False
+    )
+
+    def matches(self, granule: "DataGranule") -> bool:
+        """Check if a granule passes all filter criteria.
+
+        Parameters:
+            granule: DataGranule to check
+
+        Returns:
+            True if granule passes all filter criteria, False otherwise
+        """
+        # Size filtering
+        size = granule.size()
+        if size is not None:
+            if self.min_size is not None and size < self.min_size:
+                return False
+            if self.max_size is not None and size > self.max_size:
+                return False
+
+        # Cloud hosted filtering
+        if self.cloud_hosted is not None:
+            if granule.cloud_hosted != self.cloud_hosted:
+                return False
+
+        # Temporal filtering
+        if self.start_date is not None or self.end_date is not None:
+            temporal = granule.get("umm", {}).get("TemporalExtent", {})
+            range_dt = temporal.get("RangeDateTime", {})
+            begin_str = range_dt.get("BeginningDateTime")
+            end_str = range_dt.get("EndingDateTime")
+
+            if begin_str and self.end_date is not None:
+                begin_dt = datetime.fromisoformat(begin_str.replace("Z", "+00:00"))
+                if begin_dt > self.end_date.replace(tzinfo=begin_dt.tzinfo):
+                    return False
+
+            if end_str and self.start_date is not None:
+                end_dt = datetime.fromisoformat(end_str.replace("Z", "+00:00"))
+                if end_dt < self.start_date.replace(tzinfo=end_dt.tzinfo):
+                    return False
+
+        # Custom predicate
+        if self.predicate is not None:
+            if not self.predicate(granule):
+                return False
+
+        return True
 
 
 class DataGranule(CustomDict):
@@ -1240,6 +1326,69 @@ class SearchResults:
             using `items()` or `pages()` to process results incrementally.
         """
         return list(self)
+
+    def filter(
+        self,
+        filter_obj: Optional["GranuleFilter"] = None,
+        predicate: Optional[Callable[["DataGranule"], bool]] = None,
+        **kwargs: Any,
+    ) -> List["DataGranule"]:
+        """Filter results and return matching granules as a list.
+
+        This method fetches all results and applies the specified filter(s).
+        You can pass a GranuleFilter object, a predicate function, or use
+        keyword arguments as shortcuts for common filter criteria.
+
+        Parameters:
+            filter_obj: A GranuleFilter instance with filter criteria
+            predicate: A function that takes a DataGranule and returns bool
+            **kwargs: Shortcut filter criteria:
+                - min_size: Minimum size in MB
+                - max_size: Maximum size in MB
+                - cloud_hosted: Boolean for cloud hosting status
+
+        Returns:
+            List of DataGranule objects matching the filter criteria
+
+        Examples:
+            >>> results = earthaccess.search_data(short_name="ATL06", count=100)
+
+            >>> # Using kwargs shortcuts
+            >>> large = results.filter(min_size=100)
+            >>> cloud = results.filter(cloud_hosted=True)
+
+            >>> # Using a GranuleFilter
+            >>> f = GranuleFilter(min_size=50, max_size=200)
+            >>> filtered = results.filter(f)
+
+            >>> # Using a predicate function
+            >>> filtered = results.filter(predicate=lambda g: "ATL06" in str(g))
+
+            >>> # Chaining from search
+            >>> granules = earthaccess.search_data(
+            ...     short_name="ATL06", count=100
+            ... ).filter(cloud_hosted=True, min_size=10)
+        """
+        # Build filter from kwargs if no filter_obj provided
+        if filter_obj is None and (kwargs or predicate):
+            filter_obj = GranuleFilter(
+                min_size=kwargs.get("min_size"),
+                max_size=kwargs.get("max_size"),
+                cloud_hosted=kwargs.get("cloud_hosted"),
+                start_date=kwargs.get("start_date"),
+                end_date=kwargs.get("end_date"),
+                predicate=predicate,
+            )
+
+        # Fetch all results
+        all_results = self.all()
+
+        # If no filter, return all
+        if filter_obj is None:
+            return all_results  # type: ignore[return-value]
+
+        # Apply filter
+        return [g for g in all_results if filter_obj.matches(g)]  # type: ignore[arg-type]
 
     def items(self) -> Iterator[Union["DataGranule", "DataCollection"]]:
         """Iterate through all results one at a time.

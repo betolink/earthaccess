@@ -27,6 +27,7 @@ from earthaccess.search.results import (
     CustomDict,
     DataCollection,
     DataGranule,
+    GranuleFilter,
     GranuleResults,
     SearchResults,
 )
@@ -54,6 +55,7 @@ __all__ = [
     "CustomDict",
     "DataCollection",
     "DataGranule",
+    "GranuleFilter",
     "SearchResults",
     "GranuleResults",
     "CollectionResults",
