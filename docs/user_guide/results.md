@@ -146,9 +146,10 @@ stac_item = granule.to_stac()
 
 | Method | Description |
 |--------|-------------|
+| `items()` | Iterate through results one at a time (pystac-client compatible) |
+| `pages(page_size=2000)` | Iterate through results page by page |
 | `__iter__()` | Iterate through results one at a time |
 | `__len__()` | Get total number of matching results |
-| `pages()` | Iterate through results page by page |
 | `summary()` | Get aggregated statistics for cached results |
 | `show_map()` | Display interactive map of spatial extents |
 
@@ -166,15 +167,19 @@ results = earthaccess.search_data(
 # Check total hits (makes one request to CMR)
 print(f"Found {len(results)} granules")
 
-# Iterate through results (fetches pages as needed)
-for granule in results:
+# Iterate through results using items() - pystac-client compatible
+for granule in results.items():
     print(granule["umm"]["GranuleUR"])
     # Process granule...
+
+# Or iterate directly (equivalent to items())
+for granule in results:
+    print(granule["umm"]["GranuleUR"])
 ```
 
 ### Page-by-Page Iteration
 
-For batch processing, use the `pages()` method:
+For batch processing, use the `pages()` method. You can optionally specify the page size (default: 2000, max: 2000):
 
 ```python
 results = earthaccess.search_data(
@@ -182,12 +187,16 @@ results = earthaccess.search_data(
     temporal=("2020-01", "2020-03")
 )
 
-# Process results in batches
+# Process results in batches (default page size: 2000)
 for page in results.pages():
     print(f"Processing batch of {len(page)} granules")
     # Each page is a list of DataGranule objects
     for granule in page:
         process_granule(granule)
+
+# Custom page size for smaller batches
+for page in results.pages(page_size=100):
+    print(f"Processing batch of {len(page)} granules")
 ```
 
 ### Summary Statistics

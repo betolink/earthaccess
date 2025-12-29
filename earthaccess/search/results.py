@@ -7,7 +7,7 @@ for representing and working with NASA CMR search results.
 import json
 import uuid
 from functools import cache
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Iterator, List, Optional, Union
 
 import requests
 
@@ -1204,16 +1204,44 @@ class SearchResults:
             # Get search_after header for next page
             search_after = self._last_search_after
 
-    def pages(self):
+    def items(self) -> Iterator[Union["DataGranule", "DataCollection"]]:
+        """Iterate through all results one at a time.
+
+        This method provides API parity with pystac-client's ItemSearch.items().
+        Results are fetched lazily from CMR as needed.
+
+        Example:
+            >>> results = earthaccess.search_datasets(keyword="temperature")
+            >>> for collection in results.items():
+            ...     print(collection.concept_id())
+
+        Yields:
+            DataGranule or DataCollection: Individual result items
+
+        Note:
+            This is equivalent to iterating directly over the SearchResults object.
+        """
+        return iter(self)
+
+    def pages(self, page_size: int = 2000):
         """Iterate through results page by page.
 
         Each page is a list of results, allowing for batch processing.
         Pages are fetched lazily from the CMR.
 
+        Parameters:
+            page_size: Number of results per page (default: 2000, max: 2000)
+
         Yields:
             List[DataGranule] or List[DataCollection]: A page of results
+
+        Example:
+            >>> results = earthaccess.search_data(short_name="ATL06")
+            >>> for page in results.pages(page_size=100):
+            ...     print(f"Processing {len(page)} granules")
         """
-        page_size = 2000
+        if page_size < 1 or page_size > 2000:
+            raise ValueError("page_size must be between 1 and 2000")
         search_after = None
         results_fetched = 0
 
