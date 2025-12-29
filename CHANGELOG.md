@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Common Changelog](https://common-changelog.org/)
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.0a1] - 2026-01-06
 
 ### Changed
 
@@ -16,7 +16,7 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   - `earthaccess.search` - Search queries and results (includes query builders)
   - `earthaccess.store` - Data access and storage
   - `earthaccess.exceptions` - Exception classes
-  - `earthaccess.formatting` - HTML formatters
+  - `earthaccess.formatting` - HTML formatters and interactive widgets
   - `earthaccess.virtual` - Virtual dataset utilities (DMR++, Kerchunk)
 
   **Migration notes:**
@@ -24,6 +24,12 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   - `from earthaccess.query import BoundingBox` → `from earthaccess.search import BoundingBox`
   - Internal imports like `from earthaccess.daac import DAACS` → `from earthaccess.store.daac import DAACS`
   - The public API (`earthaccess.login()`, `earthaccess.search_data()`, etc.) is unchanged.
+  ([@betolink](https://github.com/betolink))
+- Refactored `SessionWithHeaderRedirection` from a class to a factory function
+  `create_redirect_session()` that uses response hooks for cleaner credential handling.
+  ([@betolink](https://github.com/betolink))
+- Enhanced `open_virtual_dataset()` to support multiple VirtualiZarr parsers
+  (DMR++, HDF5, NetCDF3) with automatic parser selection based on file type.
   ([@betolink](https://github.com/betolink))
 
 ### Added
@@ -44,9 +50,27 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   memory-efficient parallel processing of large result sets with backpressure
   support. Includes `AuthContext` for shipping credentials to distributed workers.
   ([@betolink](https://github.com/betolink))
-- Added `earthaccess.credentials` module with `CredentialManager` for centralized
-  S3 credential caching, automatic expiration handling, and provider inference
-  from S3 URLs.
+- Added `earthaccess.credentials` module with `S3Credentials` frozen dataclass
+  for centralized S3 credential management with automatic expiration handling.
+  ([@betolink](https://github.com/betolink))
+- Added `SearchResults` class for lazy pagination of CMR search results with
+  caching support. Includes `pages()` iterator for batch processing and
+  `summary()` method for aggregated statistics.
+  ([@betolink](https://github.com/betolink))
+- Added `Asset` and `AssetFilter` frozen dataclasses for type-safe, immutable
+  granule file handling with role-based filtering (data, thumbnail, metadata).
+  ([@betolink](https://github.com/betolink))
+- Added `TargetLocation` class for downloading to cloud storage destinations
+  (S3, GCS, Azure) with configurable storage options.
+  ([@betolink](https://github.com/betolink))
+- Added rich HTML display with `_repr_html_()` methods on `DataGranule`,
+  `DataCollection`, and `SearchResults` for enhanced Jupyter notebook rendering.
+  ([@betolink](https://github.com/betolink))
+- Added interactive map visualization with `show_map()` methods using lonboard.
+  Requires optional `[widgets]` extra: `pip install earthaccess[widgets]`.
+  ([@betolink](https://github.com/betolink))
+- Added geometry file support for `GranuleQuery.polygon()` with automatic
+  simplification for complex geometries exceeding CMR's point limits.
   ([@betolink](https://github.com/betolink))
 - Added architecture documentation with Mermaid diagrams and use case examples.
   ([@betolink](https://github.com/betolink))
