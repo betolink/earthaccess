@@ -36,9 +36,10 @@ class TestUatEnvironmentArgument:
         ) as f:
             cmr_json_response = json.loads(f.read())
 
+        # Mock for prefetch request (page_size=20) - returns results and CMR-Hits header
         responses.add(
             responses.GET,
-            "https://cmr.uat.earthdata.nasa.gov/search/granules.umm_json?page_size=0",
+            "https://cmr.uat.earthdata.nasa.gov/search/granules.umm_json",
             json=cmr_json_response,
             headers={"CMR-Hits": "1"},
             status=200,

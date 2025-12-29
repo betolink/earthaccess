@@ -24,6 +24,9 @@ class CompressedPersister:
     This persister automatically compresses cassettes using gzip when saving
     and decompresses when loading. Files are stored with .yaml.gz extension.
 
+    For backward compatibility, it falls back to reading .yaml files if
+    the .yaml.gz version doesn't exist.
+
     Benefits:
     - ~13x size reduction for typical CMR response cassettes
     - Transparent to test code - no changes needed in tests
@@ -32,7 +35,7 @@ class CompressedPersister:
 
     @classmethod
     def load_cassette(cls, cassette_path, serializer):
-        """Load cassette from .yaml.gz compressed file.
+        """Load cassette from .yaml.gz compressed file, falling back to .yaml.
 
         Args:
             cassette_path: Path to cassette (without .gz extension)
@@ -42,18 +45,25 @@ class CompressedPersister:
             Deserialized cassette data
 
         Raises:
-            CassetteNotFoundError: If compressed cassette file doesn't exist
+            CassetteNotFoundError: If neither compressed nor uncompressed cassette exists
         """
         cassette_path = Path(cassette_path)
         gz_path = cassette_path.with_suffix(".yaml.gz")
 
-        if not gz_path.is_file():
-            raise CassetteNotFoundError(f"Cassette not found: {gz_path}")
+        # Try compressed first
+        if gz_path.is_file():
+            with gzip.open(gz_path, "rt", encoding="utf-8") as f:
+                data = f.read()
+            return deserialize(data, serializer)
 
-        with gzip.open(gz_path, "rt", encoding="utf-8") as f:
-            data = f.read()
+        # Fall back to uncompressed .yaml
+        yaml_path = cassette_path.with_suffix(".yaml")
+        if yaml_path.is_file():
+            with open(yaml_path, "r", encoding="utf-8") as f:
+                data = f.read()
+            return deserialize(data, serializer)
 
-        return deserialize(data, serializer)
+        raise CassetteNotFoundError(f"Cassette not found: {gz_path} or {yaml_path}")
 
     @staticmethod
     def save_cassette(cassette_path, cassette_dict, serializer):

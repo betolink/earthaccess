@@ -47,14 +47,15 @@ class TestSearchDataWithGranuleQuery:
             mock_query.parameters.return_value = mock_query
             mock_dg.return_value = mock_query
 
-            results = earthaccess.search_data(query=query, count=10)
+            # Patch _fetch_page to avoid HTTP call during prefetch
+            with patch.object(SearchResults, "_fetch_page", return_value=[]):
+                results = earthaccess.search_data(query=query, count=10)
 
-            # Returns SearchResults with limit
-            assert isinstance(results, SearchResults)
-            assert results.limit == 10
-            # len() returns cached count (0 before fetching), total() returns CMR hits
-            assert len(results) == 0
-            assert results.total() == 100
+                # Returns SearchResults with limit
+                assert isinstance(results, SearchResults)
+                assert results.limit == 10
+                # total() returns CMR hits
+                assert results.total() == 100
 
     def test_search_data_query_with_bounding_box(self):
         """search_data() should pass spatial parameters from query object."""
@@ -155,13 +156,14 @@ class TestSearchDatasetsWithCollectionQuery:
             with patch(
                 "earthaccess.api.validate.valid_dataset_parameters", return_value=True
             ):
-                results = earthaccess.search_datasets(query=query, count=5)
+                # Patch _fetch_page to avoid HTTP call during prefetch
+                with patch.object(SearchResults, "_fetch_page", return_value=[]):
+                    results = earthaccess.search_datasets(query=query, count=5)
 
             # Returns SearchResults with limit
             assert isinstance(results, SearchResults)
             assert results.limit == 5
-            # len() returns cached count (0 before fetching), total() returns CMR hits
-            assert len(results) == 0
+            # total() returns CMR hits
             assert results.total() == 100
 
     def test_search_datasets_query_with_daac(self):
