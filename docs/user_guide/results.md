@@ -137,9 +137,10 @@ stac_item = granule.to_stac()
 
 ### Key Features
 
-- **Lazy pagination**: Results are fetched from CMR as you iterate
+- **Prefetching**: The first 20 results are fetched immediately for quick access
+- **Lazy pagination**: Additional results are fetched from CMR as you iterate
 - **Caching**: Previously fetched results are cached for reuse
-- **Length**: Use `len()` to get total hits without fetching all results
+- **Length**: Use `len()` to get the count of cached results, `total()` for CMR hits
 - **Page iteration**: Use `pages()` for batch processing
 
 ### Methods
@@ -149,7 +150,8 @@ stac_item = granule.to_stac()
 | `items()` | Iterate through results one at a time (pystac-client compatible) |
 | `pages(page_size=2000)` | Iterate through results page by page |
 | `__iter__()` | Iterate through results one at a time |
-| `__len__()` | Get total number of matching results |
+| `__len__()` | Get count of cached/loaded results |
+| `total()` | Get total number of matching results in CMR |
 | `summary()` | Get aggregated statistics for cached results |
 | `show_map()` | Display interactive map of spatial extents |
 
@@ -158,14 +160,17 @@ stac_item = granule.to_stac()
 ```python
 import earthaccess
 
-# Search returns a SearchResults object
+# Search returns a SearchResults object with first 20 results prefetched
 results = earthaccess.search_data(
     short_name="ATL06",
     temporal=("2020-01", "2020-03")
 )
 
-# Check total hits (makes one request to CMR)
-print(f"Found {len(results)} granules")
+# len() returns cached count (initially 20 from prefetch)
+print(f"Cached: {len(results)} granules")
+
+# total() returns all matching results in CMR
+print(f"Total available: {results.total()} granules")
 
 # Iterate through results using items() - pystac-client compatible
 for granule in results.items():

@@ -1083,12 +1083,16 @@ class SearchResults:
 
     __module__ = "earthaccess.search"
 
-    def __init__(self, query: Any, limit: Optional[int] = None) -> None:
+    def __init__(
+        self, query: Any, limit: Optional[int] = None, prefetch: int = 20
+    ) -> None:
         """Initialize SearchResults.
 
         Parameters:
             query: The CMR query object that will be used to fetch results
             limit: Maximum number of results to fetch, None for unlimited
+            prefetch: Number of results to fetch immediately (default: 20).
+                Set to 0 to disable prefetching.
         """
         self.query = query
         self.limit = limit
@@ -1096,6 +1100,19 @@ class SearchResults:
         self._total_hits: Optional[int] = None
         self._exhausted = False
         self._last_search_after: Optional[str] = None
+
+        # Prefetch initial results
+        if prefetch > 0:
+            fetch_count = prefetch if limit is None else min(prefetch, limit)
+            if fetch_count > 0:
+                initial_page = self._fetch_page(fetch_count)
+                self._cached_results.extend(initial_page)
+                # Mark exhausted if we got fewer results than requested,
+                # or if we've reached the limit
+                if len(initial_page) < fetch_count or (
+                    limit is not None and len(self._cached_results) >= limit
+                ):
+                    self._exhausted = True
 
     def total(self) -> int:
         """Return the total number of results matching the query in CMR.
