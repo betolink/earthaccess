@@ -436,11 +436,11 @@ def _repr_search_results_html(
         table_header = """
                 <tr>
                   <th style="width: 3%;"></th>
-                  <th style="width: 22%;">Short Name</th>
-                  <th style="width: 25%;">Concept ID</th>
-                  <th style="width: 25%;">DOI</th>
+                  <th style="width: 30%;">Short Name</th>
+                  <th style="width: 15%;">Format</th>
+                  <th style="width: 15%;">Granules</th>
                   <th style="width: 10%;">Cloud</th>
-                  <th style="width: 15%;">Links</th>
+                  <th style="width: 10%;">Links</th>
                 </tr>
         """
     else:
@@ -695,6 +695,24 @@ def _collection_row_with_index(
     is_cloud = cloud_info is not None and bool(cloud_info)
     cloud_icon = "☁️" if is_cloud else "🖥️"
 
+    # Data format and average file size from ArchiveAndDistributionInformation
+    archive_info = collection.get_umm("ArchiveAndDistributionInformation")
+    data_format = ""
+    avg_size = ""
+    if isinstance(archive_info, dict):
+        file_dist = archive_info.get("FileDistributionInformation", [])
+        if isinstance(file_dist, list) and file_dist:
+            first_dist = file_dist[0]
+            data_format = first_dist.get("Format", "")
+            avg_file_size = first_dist.get("AverageFileSize")
+            avg_file_unit = first_dist.get("AverageFileSizeUnit", "MB")
+            if avg_file_size is not None:
+                avg_size = f"{avg_file_size} {avg_file_unit}"
+
+    # Granule count from meta
+    granule_count = collection.get("meta", {}).get("granule-count")
+    granule_str = f"{granule_count:,}" if granule_count else "—"
+
     # Links count for the main row
     landing = collection.landing_page()
     get_data = collection.get_data()
@@ -716,11 +734,6 @@ def _collection_row_with_index(
         links_html_parts.append(
             f'<a href="{landing}" target="_blank" class="btn btn-sm btn-primary" style="margin: 2px;">🏠 Landing Page</a>'
         )
-    # Earthdata Search link
-    earthdata_search_url = f"https://search.earthdata.nasa.gov/search?q={concept_id}"
-    links_html_parts.append(
-        f'<a href="{earthdata_search_url}" target="_blank" class="btn btn-sm btn-secondary" style="margin: 2px;">🔍 Earthdata Search</a>'
-    )
 
     # Get RelatedUrls with their types for proper labeling
     related_urls = collection.get("umm", {}).get("RelatedUrls", [])
@@ -744,6 +757,13 @@ def _collection_row_with_index(
 
     links_html = " ".join(links_html_parts)
 
+    # Format display for data format
+    format_html = (
+        f'<span style="font-size: 0.8em;">{data_format}</span>'
+        if data_format
+        else '<span style="color: #999;">—</span>'
+    )
+
     # Main row with toggle button
     main_row = f"""
     <tr data-idx="{idx}" style="cursor: pointer;" onclick="toggleDetail_{widget_id}({idx})">
@@ -751,8 +771,8 @@ def _collection_row_with_index(
         <span id="toggle-{widget_id}-{idx}" style="font-size: 0.8em; color: #666;">▶</span>
       </td>
       <td title="{short_name}"><code style="font-size: 0.85em;">{name_display}</code></td>
-      <td><code style="font-size: 0.75em; color: #666;">{concept_id}</code></td>
-      <td>{doi_html}</td>
+      <td>{format_html}</td>
+      <td style="text-align: right;">{granule_str}</td>
       <td style="text-align: center;">{cloud_icon}</td>
       <td style="text-align: center;">{links_badge}</td>
     </tr>
@@ -764,8 +784,11 @@ def _collection_row_with_index(
       <td colspan="6" style="padding: 10px 15px;">
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
           <div>
-            <p style="margin: 4px 0;"><b>Temporal Coverage:</b> {temporal_str}</p>
-            <p style="margin: 4px 0;"><b>Spatial Coverage:</b> {spatial_str}</p>
+            <p style="margin: 4px 0;"><b>Concept ID:</b> <code style="font-size: 0.85em;">{concept_id}</code></p>
+            <p style="margin: 4px 0;"><b>DOI:</b> {doi_html}</p>
+            <p style="margin: 4px 0;"><b>Avg File Size:</b> {avg_size or "—"}</p>
+            <p style="margin: 4px 0;"><b>Temporal:</b> {temporal_str}</p>
+            <p style="margin: 4px 0;"><b>Spatial:</b> {spatial_str}</p>
           </div>
           <div>
             <p style="margin: 4px 0 8px 0;"><b>Links:</b></p>
