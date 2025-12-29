@@ -63,20 +63,13 @@ __all__ = [
     "show_map",
     "show_granule_map",
     "show_collection_map",
-    "browse_results",
 ]
 
 
 def __getattr__(name: str):
     """Lazy import for widget functions to avoid import errors when deps missing."""
-    if name in (
-        "show_map",
-        "show_granule_map",
-        "show_collection_map",
-        "browse_results",
-    ):
+    if name in ("show_map", "show_granule_map", "show_collection_map"):
         from earthaccess.formatting.widgets import (
-            browse_results,
             show_collection_map,
             show_granule_map,
             show_map,
@@ -86,6 +79,5 @@ def __getattr__(name: str):
             "show_map": show_map,
             "show_granule_map": show_granule_map,
             "show_collection_map": show_collection_map,
-            "browse_results": browse_results,
         }[name]
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
