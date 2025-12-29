@@ -37,7 +37,7 @@ from tenacity import (
 )
 from typing_extensions import deprecated
 
-from ..search import DataCollections, DataGranule
+from ..search import DataCollections, DataGranule, GranuleResults
 from .daac import DAAC_TEST_URLS, find_provider
 
 # Import from new modular components
@@ -502,6 +502,29 @@ class Store:
         return fileset
 
     @_open.register
+    def _open_granule_results(
+        self,
+        granules: GranuleResults,
+        provider: Optional[str] = None,
+        *,
+        credentials_endpoint: Optional[str] = None,
+        max_workers: Optional[int] = None,
+        show_progress: bool = True,
+        open_kwargs: Optional[Dict[str, Any]] = None,
+        parallel: Union[str, bool, None] = None,
+    ) -> List[Any]:
+        """Open GranuleResults (from search_data) by converting to list."""
+        return self._open_granules(
+            granules.all(),  # type: ignore[arg-type]
+            provider,
+            credentials_endpoint=credentials_endpoint,
+            max_workers=max_workers,
+            show_progress=show_progress,
+            open_kwargs=open_kwargs,
+            parallel=parallel,
+        )
+
+    @_open.register
     def _open_urls(
         self,
         granules: List[str],
@@ -911,6 +934,29 @@ class Store:
                 show_progress=show_progress,
                 parallel=parallel,
             )
+
+    @_get.register
+    def _get_granule_results(
+        self,
+        granules: GranuleResults,
+        path: Union[Path, TargetLocation],
+        provider: Optional[str] = None,
+        *,
+        credentials_endpoint: Optional[str] = None,
+        max_workers: Optional[int] = None,
+        show_progress: bool = True,
+        parallel: Union[str, bool, None] = None,
+    ) -> List[Path]:
+        """Download GranuleResults (from search_data) by converting to list."""
+        return self._get_granules(
+            granules.all(),  # type: ignore[arg-type]
+            path,
+            provider,
+            credentials_endpoint=credentials_endpoint,
+            max_workers=max_workers,
+            show_progress=show_progress,
+            parallel=parallel,
+        )
 
     def _clone_session_in_local_thread(
         self, original_session: requests.Session
