@@ -9,13 +9,31 @@ from unittest.mock import Mock, patch
 from earthaccess.search import DataGranule, SearchResults
 
 
+def create_mock_query(
+    hits: int = 0, get_return: list | None = None, page_size: int = 2000
+) -> Mock:
+    """Create a properly configured mock query for SearchResults tests.
+
+    Since SearchResults now prefetches results, the mock needs:
+    - headers: dict for HTTP headers
+    - get(count): method to return results
+    - hits(): method to return total hits count
+    """
+    mock_query = Mock()
+    mock_query.headers = {}
+    mock_query.hits.return_value = hits
+    mock_query.get.return_value = get_return if get_return is not None else []
+    mock_query._page_size = page_size
+    return mock_query
+
+
 class TestSearchResultsCreation:
     """Test SearchResults instantiation."""
 
     def test_create_with_query(self) -> None:
         """Test creating SearchResults with a query object."""
-        mock_query = Mock()
-        results = SearchResults(mock_query)
+        mock_query = create_mock_query()
+        results = SearchResults(mock_query, prefetch=0)
 
         assert results.query is mock_query
         assert results.limit is None
@@ -24,19 +42,33 @@ class TestSearchResultsCreation:
 
     def test_create_with_limit(self) -> None:
         """Test creating SearchResults with a limit."""
-        mock_query = Mock()
-        results = SearchResults(mock_query, limit=100)
+        mock_query = create_mock_query()
+        results = SearchResults(mock_query, limit=100, prefetch=0)
 
         assert results.limit == 100
 
     def test_repr_before_fetch(self) -> None:
         """Test string representation before any fetches."""
-        mock_query = Mock()
-        results = SearchResults(mock_query)
+        mock_query = create_mock_query()
+        results = SearchResults(mock_query, prefetch=0)
 
         assert "SearchResults" in repr(results)
         assert "total=?" in repr(results)
         assert "loaded=0" in repr(results)
+
+    def test_prefetch_loads_initial_results(self) -> None:
+        """Test that prefetch loads initial results on creation."""
+        mock_granules = [Mock(spec=DataGranule) for _ in range(5)]
+        mock_query = create_mock_query(hits=100, get_return=mock_granules)
+
+        # Mock _fetch_page to avoid HTTP calls
+        with patch.object(SearchResults, "_fetch_page") as mock_fetch:
+            mock_fetch.return_value = mock_granules
+            results = SearchResults(mock_query, prefetch=20)
+
+            # Should have prefetched the available results
+            assert len(results._cached_results) == 5
+            mock_fetch.assert_called_once()
 
 
 class TestSearchResultsLen:
@@ -44,8 +76,8 @@ class TestSearchResultsLen:
 
     def test_len_returns_cached_count(self) -> None:
         """Test that __len__ returns the number of cached results."""
-        mock_query = Mock()
-        results = SearchResults(mock_query)
+        mock_query = create_mock_query()
+        results = SearchResults(mock_query, prefetch=0)
 
         # Initially no results cached
         assert len(results) == 0
@@ -56,9 +88,8 @@ class TestSearchResultsLen:
 
     def test_total_calls_hits_on_query(self) -> None:
         """Test that total() calls hits() on the query object."""
-        mock_query = Mock()
-        mock_query.hits.return_value = 1000
-        results = SearchResults(mock_query)
+        mock_query = create_mock_query(hits=1000)
+        results = SearchResults(mock_query, prefetch=0)
 
         total = results.total()
 
@@ -67,9 +98,8 @@ class TestSearchResultsLen:
 
     def test_total_caches_result(self) -> None:
         """Test that total() caches the result."""
-        mock_query = Mock()
-        mock_query.hits.return_value = 500
-        results = SearchResults(mock_query)
+        mock_query = create_mock_query(hits=500)
+        results = SearchResults(mock_query, prefetch=0)
 
         # Call total twice
         results.total()
@@ -78,24 +108,13 @@ class TestSearchResultsLen:
         # hits() should only be called once
         mock_query.hits.assert_called_once()
 
-    def test_hits_is_deprecated_alias_for_total(self) -> None:
-        """Test that hits() is a deprecated alias for total()."""
-        import warnings
-
-        mock_query = Mock()
-        mock_query.hits.return_value = 750
-        results = SearchResults(mock_query)
-
-        # hits() should emit a deprecation warning
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            hits_result = results.hits()
-
-            assert len(w) == 1
-            assert issubclass(w[0].category, DeprecationWarning)
-            assert "hits() is deprecated" in str(w[0].message)
+    def test_hits_is_alias_for_total(self) -> None:
+        """Test that hits() is an alias for total()."""
+        mock_query = create_mock_query(hits=750)
+        results = SearchResults(mock_query, prefetch=0)
 
         # hits() should return same value as total()
+        hits_result = results.hits()
         assert hits_result == 750
         assert hits_result == results.total()
 
@@ -105,8 +124,8 @@ class TestSearchResultsIteration:
 
     def test_empty_results(self) -> None:
         """Test iteration when no results are found."""
-        mock_query = Mock()
-        results = SearchResults(mock_query)
+        mock_query = create_mock_query()
+        results = SearchResults(mock_query, prefetch=0)
         results._exhausted = True
         results._cached_results = []
 
@@ -115,8 +134,8 @@ class TestSearchResultsIteration:
 
     def test_iteration_yields_cached_first(self) -> None:
         """Test that iteration yields cached results first."""
-        mock_query = Mock()
-        results = SearchResults(mock_query)
+        mock_query = create_mock_query()
+        results = SearchResults(mock_query, prefetch=0)
         results._exhausted = True
 
         # Pre-populate cache
@@ -132,8 +151,8 @@ class TestSearchResultsIteration:
 
     def test_iteration_respects_limit(self) -> None:
         """Test that iteration respects the limit parameter."""
-        mock_query = Mock()
-        results = SearchResults(mock_query, limit=3)
+        mock_query = create_mock_query()
+        results = SearchResults(mock_query, limit=3, prefetch=0)
         results._exhausted = True
 
         # Pre-populate cache with more than limit
@@ -150,8 +169,8 @@ class TestSearchResultsPages:
 
     def test_pages_returns_generator(self) -> None:
         """Test that pages() returns a generator."""
-        mock_query = Mock()
-        results = SearchResults(mock_query)
+        mock_query = create_mock_query()
+        results = SearchResults(mock_query, prefetch=0)
 
         pages_gen = results.pages()
 
@@ -165,10 +184,9 @@ class TestSearchResultsIntegration:
     def test_search_results_can_wrap_data_granules_query(self) -> None:
         """Test that SearchResults can wrap a DataGranules query object."""
         # This tests the interface compatibility
-        mock_query = Mock()
-        mock_query.hits.return_value = 100
+        mock_query = create_mock_query(hits=100)
 
-        results = SearchResults(mock_query)
+        results = SearchResults(mock_query, prefetch=0)
 
         # len() returns cached count (initially 0)
         assert len(results) == 0
@@ -193,8 +211,8 @@ class TestSearchResultsExport:
 
     def test_search_results_has_expected_interface(self) -> None:
         """Test SearchResults has the expected public interface."""
-        mock_query = Mock()
-        results = SearchResults(mock_query)
+        mock_query = create_mock_query()
+        results = SearchResults(mock_query, prefetch=0)
 
         # Core methods
         assert hasattr(results, "__iter__")
@@ -211,11 +229,15 @@ class TestAPIIntegrationWithSearchResults:
 
     def test_search_data_returns_search_results(self) -> None:
         """Test that search_data returns SearchResults."""
-        with patch("earthaccess.api.DataGranules") as mock_dg:
+        with (
+            patch("earthaccess.api.DataGranules") as mock_dg,
+            patch.object(SearchResults, "_fetch_page", return_value=[]),
+        ):
             mock_query = Mock()
             mock_query.hits.return_value = 0
             mock_query.get_all.return_value = []
             mock_query.parameters.return_value = mock_query
+            mock_query.headers = {}
             mock_dg.return_value = mock_query
 
             import earthaccess
@@ -227,11 +249,15 @@ class TestAPIIntegrationWithSearchResults:
 
     def test_search_datasets_returns_search_results(self) -> None:
         """Test that search_datasets returns SearchResults."""
-        with patch("earthaccess.api.DataCollections") as mock_dc:
+        with (
+            patch("earthaccess.api.DataCollections") as mock_dc,
+            patch.object(SearchResults, "_fetch_page", return_value=[]),
+        ):
             mock_query = Mock()
             mock_query.hits.return_value = 0
             mock_query.get_all.return_value = []
             mock_query.parameters.return_value = mock_query
+            mock_query.headers = {}
             mock_dc.return_value = mock_query
 
             import earthaccess
@@ -256,8 +282,8 @@ class TestSearchResultsCaching:
 
     def test_results_cached_after_iteration(self) -> None:
         """Test that results are cached after iterating."""
-        mock_query = Mock()
-        results = SearchResults(mock_query)
+        mock_query = create_mock_query()
+        results = SearchResults(mock_query, prefetch=0)
         results._exhausted = True
 
         mock_items = [Mock(spec=DataGranule) for _ in range(3)]
@@ -274,8 +300,8 @@ class TestSearchResultsCaching:
 
     def test_repr_shows_cached_count(self) -> None:
         """Test that repr shows cached count."""
-        mock_query = Mock()
-        results = SearchResults(mock_query)
+        mock_query = create_mock_query()
+        results = SearchResults(mock_query, prefetch=0)
         results._total_hits = 100
         results._cached_results = [Mock() for _ in range(25)]
 
@@ -290,8 +316,8 @@ class TestSearchResultsUsagePatterns:
 
     def test_pattern_direct_iteration(self) -> None:
         """Test typical usage: direct iteration."""
-        mock_query = Mock()
-        results = SearchResults(mock_query)
+        mock_query = create_mock_query()
+        results = SearchResults(mock_query, prefetch=0)
         results._exhausted = True
         results._cached_results = [Mock(spec=DataGranule) for _ in range(3)]
 
@@ -304,8 +330,8 @@ class TestSearchResultsUsagePatterns:
 
     def test_pattern_convert_to_list(self) -> None:
         """Test converting SearchResults to list."""
-        mock_query = Mock()
-        results = SearchResults(mock_query)
+        mock_query = create_mock_query()
+        results = SearchResults(mock_query, prefetch=0)
         results._exhausted = True
         results._cached_results = [Mock(spec=DataGranule) for _ in range(3)]
 
@@ -316,9 +342,8 @@ class TestSearchResultsUsagePatterns:
 
     def test_pattern_check_length_first(self) -> None:
         """Test checking total before iteration."""
-        mock_query = Mock()
-        mock_query.hits.return_value = 5000
-        results = SearchResults(mock_query)
+        mock_query = create_mock_query(hits=5000)
+        results = SearchResults(mock_query, prefetch=0)
 
         # Use total() to get CMR hits, not len()
         total = results.total()
@@ -334,9 +359,8 @@ class TestSearchResultsEdgeCases:
 
     def test_zero_results(self) -> None:
         """Test handling of zero results."""
-        mock_query = Mock()
-        mock_query.hits.return_value = 0
-        results = SearchResults(mock_query)
+        mock_query = create_mock_query(hits=0)
+        results = SearchResults(mock_query, prefetch=0)
         results._exhausted = True
         results._cached_results = []
 
@@ -345,17 +369,16 @@ class TestSearchResultsEdgeCases:
 
     def test_limit_zero(self) -> None:
         """Test with limit of zero."""
-        mock_query = Mock()
-        results = SearchResults(mock_query, limit=0)
+        mock_query = create_mock_query()
+        results = SearchResults(mock_query, limit=0, prefetch=0)
 
         # limit=0 should result in no items
         assert results.limit == 0
 
     def test_limit_larger_than_results(self) -> None:
         """Test when limit is larger than available results."""
-        mock_query = Mock()
-        mock_query.hits.return_value = 10
-        results = SearchResults(mock_query, limit=100)
+        mock_query = create_mock_query(hits=10)
+        results = SearchResults(mock_query, limit=100, prefetch=0)
         results._exhausted = True
         results._cached_results = [Mock(spec=DataGranule) for _ in range(10)]
 
@@ -366,8 +389,8 @@ class TestSearchResultsEdgeCases:
 
     def test_iteration_is_reentrant(self) -> None:
         """Test that iteration can be done multiple times."""
-        mock_query = Mock()
-        results = SearchResults(mock_query)
+        mock_query = create_mock_query()
+        results = SearchResults(mock_query, prefetch=0)
         results._exhausted = True
         results._cached_results = [Mock(spec=DataGranule) for _ in range(3)]
 

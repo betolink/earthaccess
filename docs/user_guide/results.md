@@ -153,7 +153,7 @@ stac_item = granule.to_stac()
 | `pages(page_size=2000)` | Iterate through results page by page |
 | `__iter__()` | Iterate through results one at a time |
 | `__len__()` | Get count of cached/loaded results |
-| `total()` | Get total number of matching results in CMR |
+| `total()` / `hits()` | Get total number of matching results in CMR |
 | `summary()` | Get aggregated statistics for cached results |
 | `show_map()` | Display interactive map of spatial extents |
 

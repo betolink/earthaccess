@@ -88,8 +88,8 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - Added `GranuleResults` and `CollectionResults` subclasses of `SearchResults`
   for type-specific handling of granule and collection search results.
   ([@betolink](https://github.com/betolink))
-- Added `total()` method to `SearchResults` to get total CMR hits (previously
-  returned by `len()`). The `len()` function now returns loaded count.
+- Added `total()` and `hits()` methods to `SearchResults` to get total CMR hits.
+  The `len()` function now returns the count of loaded/cached results.
   ([@betolink](https://github.com/betolink))
 - Added interactive map visualization with `show_map()` methods using lonboard.
   Requires optional `[widgets]` extra: `pip install earthaccess[widgets]`.
