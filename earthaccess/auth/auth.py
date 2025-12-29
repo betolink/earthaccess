@@ -156,6 +156,8 @@ class Auth(object):
         ```
     """
 
+    __module__ = "earthaccess.auth"
+
     def __init__(self) -> None:
         # Maybe all these predefined URLs should be in a constants.py file
         self.authenticated = False

@@ -49,6 +49,8 @@ class GranuleQuery(QueryBase):
         >>> stac_params = query.to_stac()
     """
 
+    __module__ = "earthaccess.search"
+
     def short_name(self, short_name: str) -> Self:
         """Filter by collection short name (product name).
 

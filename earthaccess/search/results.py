@@ -81,6 +81,8 @@ class CustomDict(dict):
 class DataCollection(CustomDict):
     """Dictionary-like object to represent a data collection from CMR."""
 
+    __module__ = "earthaccess.search"
+
     _basic_meta_fields_ = [
         "concept-id",
         "granule-count",
@@ -431,6 +433,8 @@ class DataCollection(CustomDict):
 
 class DataGranule(CustomDict):
     """Dictionary-like object to represent a granule from CMR."""
+
+    __module__ = "earthaccess.search"
 
     _basic_meta_fields_ = [
         "concept-id",
@@ -1075,6 +1079,8 @@ class SearchResults:
 
         >>> granule_list = list(results)  # doctest: +SKIP
     """
+
+    __module__ = "earthaccess.search"
 
     def __init__(self, query: Any, limit: Optional[int] = None) -> None:
         """Initialize SearchResults.

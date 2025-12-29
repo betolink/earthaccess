@@ -77,6 +77,8 @@ class Store:
         Direct instantiation is not supported as part of the public API.
     """
 
+    __module__ = "earthaccess.store"
+
     def __init__(
         self,
         auth: Any,

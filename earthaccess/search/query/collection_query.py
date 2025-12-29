@@ -42,6 +42,8 @@ class CollectionQuery(QueryBase):
         ... )
     """
 
+    __module__ = "earthaccess.search"
+
     def __init__(self, **kwargs: Any) -> None:
         """Initialize a collection query.
 

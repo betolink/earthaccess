@@ -32,6 +32,8 @@ class Asset:
         size: File size in bytes (optional)
     """
 
+    __module__ = "earthaccess.store"
+
     href: str
     title: Optional[str] = None
     description: Optional[str] = None
@@ -112,6 +114,8 @@ class AssetFilter:
         min_size: Minimum file size in bytes
         max_size: Maximum file size in bytes
     """
+
+    __module__ = "earthaccess.store"
 
     include_patterns: List[str] = field(default_factory=list)
     exclude_patterns: List[str] = field(default_factory=list)
