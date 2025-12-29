@@ -1221,6 +1221,26 @@ class SearchResults:
             # Get search_after header for next page
             search_after = self._last_search_after
 
+    def all(self) -> List[Union["DataGranule", "DataCollection"]]:
+        """Fetch and return all results as a list.
+
+        This method fetches all remaining results from CMR and returns them
+        as a list. Results are cached, so subsequent calls return the cached list.
+
+        Example:
+            >>> results = earthaccess.search_data(short_name="ATL06", count=100)
+            >>> granules = results.all()
+            >>> print(f"Got {len(granules)} granules")
+
+        Returns:
+            List of DataGranule or DataCollection objects
+
+        Note:
+            Equivalent to `list(results)`. For large result sets, consider
+            using `items()` or `pages()` to process results incrementally.
+        """
+        return list(self)
+
     def items(self) -> Iterator[Union["DataGranule", "DataCollection"]]:
         """Iterate through all results one at a time.
 

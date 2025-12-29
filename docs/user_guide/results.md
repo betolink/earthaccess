@@ -147,6 +147,7 @@ stac_item = granule.to_stac()
 
 | Method | Description |
 |--------|-------------|
+| `all()` | Fetch and return all results as a list |
 | `items()` | Iterate through results one at a time (pystac-client compatible) |
 | `pages(page_size=2000)` | Iterate through results page by page |
 | `__iter__()` | Iterate through results one at a time |
@@ -204,6 +205,28 @@ for page in results.pages(page_size=100):
     print(f"Processing batch of {len(page)} granules")
 ```
 
+### Fetching All Results
+
+Use `all()` to fetch and return all results as a list:
+
+```python
+results = earthaccess.search_data(
+    short_name="ATL06",
+    temporal=("2020-01-01", "2020-01-31"),
+    count=100
+)
+
+# Fetch all results at once
+granules = results.all()
+print(f"Got {len(granules)} granules")
+
+# Or use list() - equivalent
+granules = list(results)
+
+# Results are cached, so subsequent calls are fast
+granules_again = results.all()  # Returns cached list
+```
+
 ### Summary Statistics
 
 The `summary()` method computes aggregated statistics for cached results:
@@ -215,8 +238,8 @@ results = earthaccess.search_data(
     count=100
 )
 
-# Fetch results first (by iterating or converting to list)
-granule_list = list(results)
+# Fetch all results first
+granules = results.get_all()
 
 # Get summary statistics
 summary = results.summary()
