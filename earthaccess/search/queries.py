@@ -225,6 +225,52 @@ class DataCollections(CmrCollectionQuery):
         self.params["project"] = project
         return self
 
+    def bbox(
+        self,
+        west_or_bbox: Union[FloatLike, Sequence[FloatLike]],
+        south: Optional[FloatLike] = None,
+        east: Optional[FloatLike] = None,
+        north: Optional[FloatLike] = None,
+    ) -> Self:
+        """Filter by collections that overlap a bounding box. This is an alias for
+        bounding_box that accepts a sequence [west, south, east, north] for
+        pystac-client compatibility.
+
+        Can be called as:
+            - bbox([west, south, east, north])
+            - bbox((west, south, east, north))
+            - bbox(west, south, east, north)
+
+        Parameters:
+            west_or_bbox: Either the west coordinate or a sequence [west, south, east, north]
+            south: South coordinate (only if west_or_bbox is a single value)
+            east: East coordinate (only if west_or_bbox is a single value)
+            north: North coordinate (only if west_or_bbox is a single value)
+
+        Returns:
+            self
+
+        Raises:
+            ValueError: bbox doesn't have exactly 4 elements or a coordinate
+                could not be converted to a float.
+        """
+        # Handle both bbox([w,s,e,n]) and bbox(w,s,e,n) calling conventions
+        if south is None and east is None and north is None:
+            # Called with a single sequence argument
+            bbox_seq = west_or_bbox
+            if not hasattr(bbox_seq, "__len__") or len(bbox_seq) != 4:  # type: ignore[arg-type]
+                raise ValueError(
+                    "bbox must have exactly 4 elements: [west, south, east, north]"
+                )
+            return self.bounding_box(bbox_seq[0], bbox_seq[1], bbox_seq[2], bbox_seq[3])  # type: ignore[index]
+        else:
+            # Called with 4 separate arguments
+            if south is None or east is None or north is None:
+                raise ValueError(
+                    "bbox requires all 4 coordinates: west, south, east, north"
+                )
+            return self.bounding_box(west_or_bbox, south, east, north)  # type: ignore[arg-type]
+
     @override
     def parameters(self, **kwargs: Any) -> Self:
         """Provide query parameters as keyword arguments. The keyword needs to match the name
@@ -900,6 +946,52 @@ class DataGranules(CmrGranuleQuery):
         return super().bounding_box(
             lower_left_lon, lower_left_lat, upper_right_lon, upper_right_lat
         )
+
+    def bbox(
+        self,
+        west_or_bbox: Union[FloatLike, Sequence[FloatLike]],
+        south: Optional[FloatLike] = None,
+        east: Optional[FloatLike] = None,
+        north: Optional[FloatLike] = None,
+    ) -> Self:
+        """Filter by granules that overlap a bounding box. This is an alias for
+        bounding_box that accepts a sequence [west, south, east, north] for
+        pystac-client compatibility.
+
+        Can be called as:
+            - bbox([west, south, east, north])
+            - bbox((west, south, east, north))
+            - bbox(west, south, east, north)
+
+        Parameters:
+            west_or_bbox: Either the west coordinate or a sequence [west, south, east, north]
+            south: South coordinate (only if west_or_bbox is a single value)
+            east: East coordinate (only if west_or_bbox is a single value)
+            north: North coordinate (only if west_or_bbox is a single value)
+
+        Returns:
+            self
+
+        Raises:
+            ValueError: bbox doesn't have exactly 4 elements or a coordinate
+                could not be converted to a float.
+        """
+        # Handle both bbox([w,s,e,n]) and bbox(w,s,e,n) calling conventions
+        if south is None and east is None and north is None:
+            # Called with a single sequence argument
+            bbox_seq = west_or_bbox
+            if not hasattr(bbox_seq, "__len__") or len(bbox_seq) != 4:  # type: ignore[arg-type]
+                raise ValueError(
+                    "bbox must have exactly 4 elements: [west, south, east, north]"
+                )
+            return self.bounding_box(bbox_seq[0], bbox_seq[1], bbox_seq[2], bbox_seq[3])  # type: ignore[index]
+        else:
+            # Called with 4 separate arguments
+            if south is None or east is None or north is None:
+                raise ValueError(
+                    "bbox requires all 4 coordinates: west, south, east, north"
+                )
+            return self.bounding_box(west_or_bbox, south, east, north)  # type: ignore[arg-type]
 
     @override
     def line(self, coordinates: Sequence[PointLike]) -> Self:

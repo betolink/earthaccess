@@ -228,6 +228,7 @@ def search_datasets(
 def search_data(
     query: Optional[NewGranuleQuery] = None,
     count: int = -1,
+    max_items: Optional[int] = None,
     **kwargs: Any,
 ) -> GranuleResults:
     """Search for dataset files (granules) using NASA's CMR.
@@ -241,6 +242,8 @@ def search_data(
             the query parameters are extracted from this object. Cannot be used
             together with keyword arguments.
         count: Number of records to get, -1 = all
+        max_items: Alias for count (pystac-client compatible). If both are provided,
+            max_items takes precedence.
         kwargs (Dict):
             arguments to CMR:
 
@@ -333,6 +336,10 @@ def search_data(
             raise ValueError(f"Invalid query: {errors}")
         # Convert query to CMR parameters
         kwargs = query.to_cmr()
+
+    # max_items takes precedence over count for pystac-client compatibility
+    if max_items is not None:
+        count = max_items
 
     auth = earthaccess.__auth__
     if auth and auth.authenticated:
