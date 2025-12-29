@@ -1,17 +1,131 @@
 """Pytest configuration and shared fixtures for unit tests."""
 
 import contextlib
+import gzip
 import json
 import os.path
 from pathlib import Path
 
 import pytest
+from vcr.cassette import CassetteNotFoundError
+from vcr.serialize import deserialize, serialize
 
 # =============================================================================
 # VCR Configuration for pytest-recording
 # =============================================================================
 
 REDACTED_STRING = "REDACTED"
+MAX_ITEMS_PER_RESPONSE = 20  # Truncate CMR responses to reduce cassette size
+
+
+class CompressedPersister:
+    """VCR persister that transparently handles .yaml.gz compressed cassettes.
+
+    This persister automatically compresses cassettes using gzip when saving
+    and decompresses when loading. Files are stored with .yaml.gz extension.
+
+    Benefits:
+    - ~13x size reduction for typical CMR response cassettes
+    - Transparent to test code - no changes needed in tests
+    - Works with existing VCR/pytest-recording infrastructure
+    """
+
+    @classmethod
+    def load_cassette(cls, cassette_path, serializer):
+        """Load cassette from .yaml.gz compressed file.
+
+        Args:
+            cassette_path: Path to cassette (without .gz extension)
+            serializer: VCR serializer to use for deserialization
+
+        Returns:
+            Deserialized cassette data
+
+        Raises:
+            CassetteNotFoundError: If compressed cassette file doesn't exist
+        """
+        cassette_path = Path(cassette_path)
+        gz_path = cassette_path.with_suffix(".yaml.gz")
+
+        if not gz_path.is_file():
+            raise CassetteNotFoundError(f"Cassette not found: {gz_path}")
+
+        with gzip.open(gz_path, "rt", encoding="utf-8") as f:
+            data = f.read()
+
+        return deserialize(data, serializer)
+
+    @staticmethod
+    def save_cassette(cassette_path, cassette_dict, serializer):
+        """Save cassette as .yaml.gz compressed file.
+
+        Args:
+            cassette_path: Path to cassette (without .gz extension)
+            cassette_dict: Cassette data to serialize
+            serializer: VCR serializer to use for serialization
+        """
+        cassette_path = Path(cassette_path)
+        gz_path = cassette_path.with_suffix(".yaml.gz")
+
+        # Ensure parent directory exists
+        gz_path.parent.mkdir(parents=True, exist_ok=True)
+
+        data = serialize(cassette_dict, serializer)
+        with gzip.open(gz_path, "wt", encoding="utf-8") as f:
+            f.write(data)
+
+
+def truncate_response_items(response):
+    """Truncate large CMR response bodies to reduce cassette size.
+
+    CMR responses contain 'items' arrays that can have thousands of entries.
+    For testing pagination and parsing, we only need a small sample.
+
+    Args:
+        response: VCR response dict with 'body' containing 'string'
+
+    Returns:
+        Modified response with truncated items array
+    """
+    body = response["body"]["string"]
+
+    # Handle bytes vs string
+    if isinstance(body, bytes):
+        try:
+            body = body.decode("utf-8")
+        except UnicodeDecodeError:
+            return response
+
+    try:
+        payload = json.loads(body)
+    except json.JSONDecodeError:
+        return response
+
+    # Truncate 'items' array if present (CMR response format)
+    if isinstance(payload, dict) and "items" in payload:
+        if len(payload["items"]) > MAX_ITEMS_PER_RESPONSE:
+            payload["items"] = payload["items"][:MAX_ITEMS_PER_RESPONSE]
+            response["body"]["string"] = json.dumps(payload).encode("utf-8")
+
+    return response
+
+
+def chain_filters(*filters):
+    """Chain multiple VCR response filters together.
+
+    Args:
+        *filters: Response filter functions to chain
+
+    Returns:
+        Combined filter function that applies all filters in order
+    """
+
+    def combined(response):
+        for f in filters:
+            response = f(response)
+        return response
+
+    return combined
 
 
 def redact_login_request(request):
@@ -32,7 +146,11 @@ def redact_key_values(keys_to_redact):
         return payload
 
     def before_record_response(response):
-        body = response["body"]["string"].decode("utf8")
+        body = response["body"]["string"]
+
+        # Handle bytes
+        if isinstance(body, bytes):
+            body = body.decode("utf8")
 
         with contextlib.suppress(json.JSONDecodeError):
             payload = json.loads(body)
@@ -48,12 +166,22 @@ def redact_key_values(keys_to_redact):
     return before_record_response
 
 
+def pytest_recording_configure(config, vcr):
+    """Register custom compressed persister with VCR.
+
+    This hook is called by pytest-recording to allow VCR customization.
+    We use it to register our gzip-compressed cassette persister.
+    """
+    vcr.register_persister(CompressedPersister)
+
+
 @pytest.fixture(scope="module")
 def vcr_config():
     """VCR configuration for pytest-recording.
 
     This fixture configures VCR to:
-    - Store cassettes in module-specific subdirectories
+    - Store cassettes as compressed .yaml.gz files
+    - Truncate response items to reduce cassette size
     - Redact sensitive authentication data
     - Match requests by method, scheme, host, path, query, and headers
     - Decode compressed responses for easier inspection
@@ -80,15 +208,18 @@ def vcr_config():
         "filter_query_parameters": [
             ("client_id", REDACTED_STRING),
         ],
-        "before_record_response": redact_key_values(
-            [
-                "access_token",
-                "uid",
-                "first_name",
-                "last_name",
-                "email_address",
-                "nams_auid",
-            ]
+        "before_record_response": chain_filters(
+            truncate_response_items,
+            redact_key_values(
+                [
+                    "access_token",
+                    "uid",
+                    "first_name",
+                    "last_name",
+                    "email_address",
+                    "nams_auid",
+                ]
+            ),
         ),
         "before_record_request": redact_login_request,
     }
