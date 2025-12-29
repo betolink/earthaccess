@@ -35,7 +35,6 @@ from .search.query import (
 )
 from .store import Store
 from .store.target import TargetLocation
-from .utils import _validation as validate
 
 if TYPE_CHECKING:
     # Type checking stubs to help the type checker understand __getattr__ behavior
@@ -210,7 +209,7 @@ def search_datasets(
         # Convert query to CMR parameters
         kwargs = query.to_cmr()
 
-    if not validate.valid_dataset_parameters(**kwargs):
+    if not kwargs:
         logger.warning(
             "A valid set of parameters is needed to search for datasets on CMR"
         )

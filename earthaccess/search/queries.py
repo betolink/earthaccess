@@ -25,11 +25,12 @@ from typing_extensions import (
 
 from cmr import CollectionQuery as CmrCollectionQuery, GranuleQuery as CmrGranuleQuery
 from earthaccess.auth import Auth
+from earthaccess.search._utils import get_results
 from earthaccess.search.results import DataCollection, DataGranule
 from earthaccess.store.daac import find_provider, find_provider_by_shortname
-from earthaccess.utils._search import get_results
 
 logger = logging.getLogger(__name__)
+
 
 FloatLike: TypeAlias = Union[str, SupportsFloat]
 PointLike: TypeAlias = Tuple[FloatLike, FloatLike]

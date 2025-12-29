@@ -130,10 +130,7 @@ class TestSearchDatasetsWithCollectionQuery:
             mock_query.parameters.return_value = mock_query
             mock_dc.return_value = mock_query
 
-            with patch(
-                "earthaccess.api.validate.valid_dataset_parameters", return_value=True
-            ):
-                results = earthaccess.search_datasets(query=query)
+            results = earthaccess.search_datasets(query=query)
 
             # Returns SearchResults, not a list
             assert isinstance(results, SearchResults)
@@ -153,12 +150,9 @@ class TestSearchDatasetsWithCollectionQuery:
             mock_query.parameters.return_value = mock_query
             mock_dc.return_value = mock_query
 
-            with patch(
-                "earthaccess.api.validate.valid_dataset_parameters", return_value=True
-            ):
-                # Patch _fetch_page to avoid HTTP call during prefetch
-                with patch.object(SearchResults, "_fetch_page", return_value=[]):
-                    results = earthaccess.search_datasets(query=query, count=5)
+            # Patch _fetch_page to avoid HTTP call during prefetch
+            with patch.object(SearchResults, "_fetch_page", return_value=[]):
+                results = earthaccess.search_datasets(query=query, count=5)
 
             # Returns SearchResults with limit
             assert isinstance(results, SearchResults)
@@ -177,10 +171,7 @@ class TestSearchDatasetsWithCollectionQuery:
             mock_query.parameters.return_value = mock_query
             mock_dc.return_value = mock_query
 
-            with patch(
-                "earthaccess.api.validate.valid_dataset_parameters", return_value=True
-            ):
-                earthaccess.search_datasets(query=query)
+            earthaccess.search_datasets(query=query)
 
             call_kwargs = mock_query.parameters.call_args[1]
             assert "daac" in call_kwargs
@@ -195,10 +186,7 @@ class TestSearchDatasetsWithCollectionQuery:
             mock_query.parameters.return_value = mock_query
             mock_dc.return_value = mock_query
 
-            with patch(
-                "earthaccess.api.validate.valid_dataset_parameters", return_value=True
-            ):
-                earthaccess.search_datasets(keyword="ice", cloud_hosted=True)
+            earthaccess.search_datasets(keyword="ice", cloud_hosted=True)
 
             call_kwargs = mock_query.parameters.call_args[1]
             assert call_kwargs["keyword"] == "ice"

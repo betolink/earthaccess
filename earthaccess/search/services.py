@@ -10,7 +10,7 @@ import requests
 
 from cmr import ServiceQuery as CmrServiceQuery
 from earthaccess.auth import Auth
-from earthaccess.utils import _search as search
+from earthaccess.search._utils import get_results
 
 
 class DataServices(CmrServiceQuery):
@@ -49,4 +49,4 @@ class DataServices(CmrServiceQuery):
         Returns:
             Query results as a list
         """
-        return search.get_results(self.session, self, limit)
+        return get_results(self.session, self, limit)
