@@ -43,6 +43,39 @@ Our project follows the [SPEC0](https://scientific-python.org/specs/spec-0000/) 
 
 ## Migration guides
 
+### 1.0.0a2
+
+* `SessionWithHeaderRedirection` is now deprecated. Use `auth.get_session()` to get an
+  authenticated session, or `_create_earthdata_session()` for low-level session creation:
+
+  ```python
+  import earthaccess
+
+  # Recommended approach
+  auth = earthaccess.login()
+  session = auth.get_session()
+
+  # Or for low-level session creation
+  from earthaccess.auth import _create_earthdata_session
+  session = _create_earthdata_session("urs.earthdata.nasa.gov", ("user", "pass"))
+  ```
+
+* See the comprehensive [Migration Guide](../migration-guide.md) for upgrading from
+  v0.x to v1.0.0.
+
+### 1.0.0a1
+
+* `earthaccess.login()` must now be called explicitly before accessing data.
+  Automatic login behavior has been removed.
+
+* `len(results)` on `SearchResults` now returns the count of loaded/cached results,
+  not the total CMR hits. Use `results.total()` to get total matches in CMR.
+
+* Package structure has been reorganized. If you use internal imports, update them:
+  - `from earthaccess.query import GranuleQuery` → `from earthaccess.search import GranuleQuery`
+  - `from earthaccess.daac import DAACS` → `from earthaccess.store.daac import DAACS`
+  - Or use top-level imports: `from earthaccess import GranuleQuery`
+
 ### 0.14.0
 
 * `earthaccess.login()` will now raise an exception if Earthdata Login rejects credentials.

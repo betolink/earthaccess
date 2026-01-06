@@ -112,8 +112,30 @@ def _create_earthdata_session(
     return session
 
 
-# Backward compatibility alias - deprecated
-SessionWithHeaderRedirection = _create_earthdata_session
+@deprecated(
+    "SessionWithHeaderRedirection is deprecated. "
+    "Use auth.get_session() to get an authenticated session, "
+    "or _create_earthdata_session() for low-level session creation."
+)
+def SessionWithHeaderRedirection(
+    edl_hostname: str, auth: tuple[str, str] | None = None
+) -> requests.Session:
+    """Create a requests session configured for Earthdata authentication.
+
+    .. deprecated:: 1.0.0a2
+        Use :meth:`Auth.get_session` to get an authenticated session, or
+        :func:`_create_earthdata_session` for low-level session creation.
+
+    This function is a backward compatibility alias for ``_create_earthdata_session()``.
+
+    Parameters:
+        edl_hostname: The EDL hostname (e.g., "urs.earthdata.nasa.gov")
+        auth: Optional tuple of (username, password) for EDL authentication
+
+    Returns:
+        A configured requests.Session instance.
+    """
+    return _create_earthdata_session(edl_hostname, auth)
 
 
 class Auth(object):

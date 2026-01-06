@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Common Changelog](https://common-changelog.org/)
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [1.0.0a2] - 2026-01-06
+
+### Deprecated
+
+- **`SessionWithHeaderRedirection`** is now deprecated and will be removed in v2.0.0.
+  Use `auth.get_session()` to get an authenticated session, or `_create_earthdata_session()`
+  for low-level session creation. A `DeprecationWarning` will be raised when using
+  `SessionWithHeaderRedirection`.
+  ([@betolink](https://github.com/betolink))
+
+### Added
+
+- Added comprehensive [Migration Guide](docs/migration-guide.md) documenting how to migrate
+  from the `main` branch (v0.x) to the `nextgen` branch (v1.0.0 alpha releases).
+  ([@betolink](https://github.com/betolink))
+
 ## [1.0.0a1] - 2026-01-06
 
 ### Changed

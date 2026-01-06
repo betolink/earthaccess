@@ -63,6 +63,7 @@ plugins:
 nav:
   - "What is earthaccess?": "index.md"
   - "Quick start": "quick-start.md"
+  - "Migration Guide: v0.x → v1.0.0": "migration-guide.md"
   - "Work with us":
       - "contributing/index.md" # << Link target of the parent node
       - "Development Guide": "contributing/development.md"
