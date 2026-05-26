@@ -294,7 +294,7 @@ class Store:
                 timeout=1,
                 headers={"X-aws-ec2-metadata-token": token_.text},
             )
-        except Exception:
+        except Exception:  # noqa: BLE001
             return False
 
         return resp.status_code == _HTTP_OK and resp.content == b"us-west-2"
@@ -352,7 +352,7 @@ class Store:
         """
         return self.get_s3_filesystem(daac, concept_id, provider, endpoint)
 
-    def get_s3_filesystem(
+    def get_s3_filesystem(  # noqa: C901
         self,
         daac: str | None = None,
         concept_id: str | None = None,

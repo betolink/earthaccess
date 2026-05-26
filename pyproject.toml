@@ -201,8 +201,6 @@ ignore = [
   "B019",
   "B023",
   "B905",
-  "BLE001",
-  "C901",
   "COM812",
   "D1",
   "D205",
@@ -240,19 +238,7 @@ combine-as-imports = true
 
 [tool.ruff.lint.per-file-ignores]
 # Allow `print` and `pprint` in notebooks
-"*.ipynb" = [
-  "T201",
-  "T203",
-  "N803",
-  "RET504",
-  "ERA001",
-  "PLR2004",
-  "PD002",
-  "PD010",
-  "PD011",
-  "EM",
-  "ARG001",
-]
+"*.ipynb" = ["T201", "T203", "N803", "RET504", "ERA001", "PLR2004", "PD002", "PD010", "PD011", "EM", "ARG001", "BLE001"]
 "tests/**/*.py" = ["PLR2004"]
 
 [tool.ruff.lint.pydocstyle]
