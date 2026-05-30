@@ -31,7 +31,7 @@ class CustomDict(dict):
         self,
         collection: dict[str, Any],
         fields: list[str] | None = None,
-        cloud_hosted: bool = False,
+        cloud_hosted: bool = False,  # noqa: FBT001, FBT002
     ):
         super().__init__(collection)
         self.cloud_hosted = cloud_hosted
@@ -389,7 +389,7 @@ class DataGranule(CustomDict):
         self,
         collection: dict[str, Any],
         fields: list[str] | None = None,
-        cloud_hosted: bool = False,
+        cloud_hosted: bool = False,  # noqa: FBT001, FBT002
     ):
         super().__init__(collection)
         self.cloud_hosted = cloud_hosted
@@ -493,7 +493,7 @@ class DataGranule(CustomDict):
     def data_links(
         self,
         access: str | None = None,
-        in_region: bool = False,
+        in_region: bool = False,  # noqa: FBT001, FBT002
     ) -> list[str]:
         """Return data links for the requested granule access mode.
 
