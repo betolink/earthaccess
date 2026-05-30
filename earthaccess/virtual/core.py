@@ -20,6 +20,7 @@ from earthaccess.virtual._parser import get_urls_for_parser, resolve_parser
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    import distributed
     import xarray as xr
 
     from earthaccess.virtual._types import (
@@ -415,7 +416,7 @@ def _configure_fsspec_auth(token: str) -> None:
     HTTPFileSystem.clear_instance_cache()
 
 
-def dask_worker_init(token: str) -> "distributed.WorkerPlugin":
+def dask_worker_init(token: str) -> distributed.WorkerPlugin:
     """Return a Dask ``WorkerPlugin`` that configures fsspec EDL auth on every worker.
 
     Dask workers are separate processes and do not inherit the fsspec session
@@ -429,7 +430,7 @@ def dask_worker_init(token: str) -> "distributed.WorkerPlugin":
         A valid Earthdata Login Bearer token string.  Obtain one from the
         client process via ``earthaccess.__auth__.token["access_token"]``.
 
-    Examples
+    Examples:
     --------
     ::
 
