@@ -107,34 +107,41 @@ def resolve_parser(
 
 
 def get_urls_for_parser(
-    granules: list[earthaccess.DataGranule],
+    granules: list[earthaccess.DataGranule] | list[list[earthaccess.DataGranule]],
     parser: Any,
     access: AccessType,
-) -> list[str]:
+) -> list[str] | list[list[str]]:
     """Return one data URL per granule, formatted for the given parser.
 
     ``DMRPPParser`` expects the NASA DMR++ sidecar files, which live at the
     data URL with a ``.dmrpp`` suffix appended.  All other parsers receive the
     raw data URLs as-is.
 
+    When ``granules`` is a nested list (for two-level concatenation), the
+    returned value mirrors that nesting: ``list[list[str]]``.
+
     Parameters:
-        granules: The granules to generate URLs for.
+        granules: The granules to generate URLs for.  Either a flat
+            ``list[DataGranule]`` or a nested ``list[list[DataGranule]]``
+            for two-level concatenation.
         parser: A resolved (instantiated) parser object.
         access: ``"direct"`` (S3) or ``"indirect"`` (HTTPS).  Forwarded to
             ``DataGranule.data_links()``.
 
     Returns:
-        A list of URL strings, one per granule.
+        A flat or nested list of URL strings mirroring the input structure.
     """
     is_dmrpp = type(parser).__name__ == "DMRPPParser"
 
-    urls: list[str] = []
-    for granule in granules:
+    def _url(granule: earthaccess.DataGranule) -> str:
         url = granule.data_links(access=access)[0]
-        if is_dmrpp:
-            url = url + ".dmrpp"
-        urls.append(url)
-    return urls
+        return url + ".dmrpp" if is_dmrpp else url
+
+    # Detect nested input.
+    if granules and isinstance(granules[0], list):
+        return [[_url(g) for g in inner] for inner in granules]  # type: ignore[union-attr]
+
+    return [_url(g) for g in granules]  # type: ignore[arg-type]
 
 
 def homogenize_dataset_codec_level(ds: xr.Dataset, target_level: int = 7) -> xr.Dataset:

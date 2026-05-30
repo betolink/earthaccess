@@ -37,12 +37,12 @@ logger = logging.getLogger(__name__)
 
 
 def virtualize(  # noqa: PLR0913
-    granules: list[earthaccess.DataGranule],
+    granules: list[earthaccess.DataGranule] | list[list[earthaccess.DataGranule]],
     *,
     access: AccessType = "indirect",
     load: bool = False,
     group: str = "/",
-    concat_dim: str | None = None,
+    concat_dim: str | list[str] | None = None,
     mosaic_dims: list[str] | None = None,
     pad: str | None = None,
     loadable_variables: list[str] | None = None,
@@ -71,7 +71,10 @@ def virtualize(  # noqa: PLR0913
 
     Parameters:
         granules: One or more ``DataGranule`` objects from
-            ``earthaccess.search_data()``.
+            ``earthaccess.search_data()``.  For two-level nested
+            concatenation (e.g. ``concat_dim=["scan", "mirror_step"]``)
+            pass a nested list ``[[scan0_g0, scan0_g1], [scan1_g0, ...]]``
+            that mirrors the nesting of ``concat_dim``.
         access: Cloud access mode.  ``"indirect"`` (default) uses HTTPS
             (works anywhere); ``"direct"`` uses S3 (fastest inside AWS
             us-west-2 but requires S3 credentials).
@@ -81,8 +84,10 @@ def virtualize(  # noqa: PLR0913
             lazily-loaded ``xr.Dataset`` backed by dask arrays.
         group: HDF5/NetCDF4 group path to open.  Defaults to the root
             group ``"/"``.
-        concat_dim: Dimension name used to concatenate granules.  Required
-            when ``len(granules) > 1``.
+        concat_dim: Dimension name(s) used to concatenate granules.
+            Required when ``len(granules) > 1``.  Pass a list of strings
+            for nested concatenation (outermost dim first), mirroring the
+            nesting structure of ``granules``.
         mosaic_dims: Spatial dimensions to mosaic (e.g. ``['y', 'x']``).
             When provided, granules are placed into a common union grid
             before concatenation.  Requires ``loadable_variables`` to include
@@ -146,7 +151,16 @@ def virtualize(  # noqa: PLR0913
     if len(granules) == 0:
         msg = "No granules provided. At least one granule is required."
         raise ValueError(msg)
-    if len(granules) > 1 and concat_dim is None:
+
+    # Flatten one level to count total granules for the concat_dim check.
+    _is_nested = granules and isinstance(granules[0], list)
+    _flat: list[earthaccess.DataGranule] = (
+        [g for inner in granules for g in inner]  # type: ignore[union-attr]
+        if _is_nested
+        else granules  # type: ignore[assignment]
+    )
+
+    if len(_flat) > 1 and concat_dim is None:
         msg = (
             "concat_dim is required when virtualizing more than one granule. "
             "Pass concat_dim='<dimension_name>' to specify how to concatenate."
@@ -157,7 +171,7 @@ def virtualize(  # noqa: PLR0913
     # network activity.
     resolved_parser = resolve_parser(parser, group=group if group != "/" else None)
 
-    registry = build_obstore_registry(granules, access=access)
+    registry = build_obstore_registry(_flat, access=access)
 
     # Attempt to open with the requested parser; fall back to HDFParser if
     # DMR++ sidecars are not present.
@@ -193,7 +207,7 @@ def virtualize(  # noqa: PLR0913
             "HDFParser",
             group=group if group != "/" else None,
         )
-        registry = build_obstore_registry(granules, access=access)
+        registry = build_obstore_registry(_flat, access=access)
         vds = _open_virtual_mfdataset(
             granules=granules,
             parser=resolved_parser,
@@ -217,7 +231,7 @@ def virtualize(  # noqa: PLR0913
 
     return _load_via_kerchunk(
         vds=vds,
-        granules=granules,
+        granules=_flat,
         group=group,
         access=access,
         reference_dir=reference_dir,
@@ -231,11 +245,11 @@ def virtualize(  # noqa: PLR0913
 
 
 def _open_virtual_mfdataset(  # noqa: PLR0913
-    granules: list[earthaccess.DataGranule],
+    granules: list[earthaccess.DataGranule] | list[list[earthaccess.DataGranule]],
     parser: Any,
     registry: Any,
     access: AccessType,
-    concat_dim: str | None,
+    concat_dim: str | list[str] | None,
     mosaic_dims: list[str] | None,
     pad: str | None,
     loadable_variables: list[str] | None,
