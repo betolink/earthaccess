@@ -401,16 +401,36 @@ def _open_kerchunk(
     storage_options: dict[str, Any] | None = None,
     **kwargs: Any,
 ) -> xr.Dataset:
+    """Open a kerchunk reference file as an xarray Dataset.
+
+    Uses fsspec's reference filesystem + zarr.storage.FsspecStore so that
+    ``remote_options`` (including EDL Bearer token headers) are correctly
+    forwarded to the underlying aiohttp session for every chunk fetch.
+    ``xr.open_dataset(engine='kerchunk')`` uses a different storage_options
+    shape that does not propagate headers reliably, causing 401 errors on
+    NASA EDL-protected URLs.
+    """
     try:
+        import fsspec
         import xarray as xr
+        import zarr
     except ImportError as exc:
         msg = "earthaccess.open_virtual() requires `pip install earthaccess[virtualizarr]`"
-        raise ImportError(
-            msg,
-        ) from exc
+        raise ImportError(msg) from exc
 
-    store_opts = storage_options or {}
-    return xr.open_dataset(uri, engine="kerchunk", storage_options=store_opts, **kwargs)
+    opts = storage_options or {}
+    remote_protocol = opts.get("remote_protocol", "https")
+    remote_options = opts.get("remote_options", {})
+
+    fs = fsspec.filesystem(
+        "reference",
+        fo=uri,
+        remote_protocol=remote_protocol,
+        asynchronous=True,
+        remote_options={"asynchronous": True, **remote_options},
+    )
+    store = zarr.storage.FsspecStore(fs, read_only=True)
+    return xr.open_zarr(store, consolidated=False, **kwargs)
 
 
 # ---------------------------------------------------------------------------
