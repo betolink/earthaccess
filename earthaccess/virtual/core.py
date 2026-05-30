@@ -396,42 +396,13 @@ def _open_icechunk(
     return xr.open_zarr(store, **kwargs)
 
 
-def dask_worker_init(token: str) -> None:
-    """Configure fsspec on a Dask worker to authenticate against NASA EDL.
-
-    Dask workers are separate processes and do not inherit the fsspec session
-    created in the client process.  Call this function as a Dask worker
-    initializer so that every worker can fetch EDL-protected chunks.
-
-    Parameters
-    ----------
-    token:
-        A valid Earthdata Login Bearer token string.  Obtain one from the
-        client process via ``earthaccess.__auth__.token["access_token"]``.
-
-    Examples
-    --------
-    Pass as a Dask ``Client`` initializer so all workers are configured
-    before any compute task runs::
-
-        import earthaccess
-        from dask.distributed import Client
-
-        earthaccess.login()
-        token = earthaccess.__auth__.token["access_token"]
-
-        client = Client(
-            n_workers=8,
-            threads_per_worker=1,
-            worker_initializer=earthaccess.dask_worker_init,
-            initializer_args=[token],
-        )
-    """
+def _configure_fsspec_auth(token: str) -> None:
+    """Configure fsspec in the current process to authenticate against NASA EDL."""
     try:
         import fsspec
         from fsspec.implementations.http import HTTPFileSystem
     except ImportError as exc:
-        msg = "earthaccess.dask_worker_init() requires fsspec to be installed"
+        msg = "earthaccess requires fsspec to be installed"
         raise ImportError(msg) from exc
 
     fsspec.config.conf["https"] = {
@@ -442,6 +413,50 @@ def dask_worker_init(token: str) -> None:
         "asynchronous": True,
     }
     HTTPFileSystem.clear_instance_cache()
+
+
+def dask_worker_init(token: str) -> "distributed.WorkerPlugin":
+    """Return a Dask ``WorkerPlugin`` that configures fsspec EDL auth on every worker.
+
+    Dask workers are separate processes and do not inherit the fsspec session
+    created in the client process.  Register the returned plugin with the
+    ``Client`` so that every current and future worker is authenticated before
+    any compute task runs.
+
+    Parameters
+    ----------
+    token:
+        A valid Earthdata Login Bearer token string.  Obtain one from the
+        client process via ``earthaccess.__auth__.token["access_token"]``.
+
+    Examples
+    --------
+    ::
+
+        import earthaccess
+        from dask.distributed import Client
+
+        earthaccess.login()
+        token = earthaccess.__auth__.token["access_token"]
+
+        client = Client(n_workers=8, threads_per_worker=1)
+        client.register_plugin(earthaccess.dask_worker_init(token))
+    """
+    try:
+        from distributed import WorkerPlugin
+    except ImportError as exc:
+        msg = "earthaccess.dask_worker_init() requires dask.distributed to be installed"
+        raise ImportError(msg) from exc
+
+    _token = token
+
+    class _EDLAuthPlugin(WorkerPlugin):
+        name = "earthaccess_edl_auth"
+
+        def setup(self, worker: object) -> None:  # noqa: ARG002
+            _configure_fsspec_auth(_token)
+
+    return _EDLAuthPlugin()
 
 
 def _open_kerchunk(
