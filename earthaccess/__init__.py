@@ -25,7 +25,7 @@ from .search import DataCollection, DataCollections, DataGranule, DataGranules
 from .services import DataServices
 from .store import Store
 from .system import PROD, UAT
-from .virtual import open_virtual, virtualize
+from .virtual import dask_worker_init, open_virtual, virtualize
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +57,7 @@ __all__ = [
     "login",
     "open",
     # virtual
+    "dask_worker_init",
     "open_virtual",
     "search_data",
     "search_datasets",

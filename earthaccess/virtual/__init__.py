@@ -27,10 +27,11 @@ from earthaccess.virtual._parser import (
     SUPPORTED_PARSERS,
     homogenize_dataset_codec_level,
 )
-from earthaccess.virtual.core import open_virtual, virtualize
+from earthaccess.virtual.core import dask_worker_init, open_virtual, virtualize
 
 __all__ = [
     "SUPPORTED_PARSERS",
+    "dask_worker_init",
     "get_granule_credentials_endpoint_and_region",
     "homogenize_dataset_codec_level",
     "open_virtual",

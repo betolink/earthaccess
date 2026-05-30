@@ -396,6 +396,54 @@ def _open_icechunk(
     return xr.open_zarr(store, **kwargs)
 
 
+def dask_worker_init(token: str) -> None:
+    """Configure fsspec on a Dask worker to authenticate against NASA EDL.
+
+    Dask workers are separate processes and do not inherit the fsspec session
+    created in the client process.  Call this function as a Dask worker
+    initializer so that every worker can fetch EDL-protected chunks.
+
+    Parameters
+    ----------
+    token:
+        A valid Earthdata Login Bearer token string.  Obtain one from the
+        client process via ``earthaccess.__auth__.token["access_token"]``.
+
+    Examples
+    --------
+    Pass as a Dask ``Client`` initializer so all workers are configured
+    before any compute task runs::
+
+        import earthaccess
+        from dask.distributed import Client
+
+        earthaccess.login()
+        token = earthaccess.__auth__.token["access_token"]
+
+        client = Client(
+            n_workers=8,
+            threads_per_worker=1,
+            worker_initializer=earthaccess.dask_worker_init,
+            initializer_args=[token],
+        )
+    """
+    try:
+        import fsspec
+        from fsspec.implementations.http import HTTPFileSystem
+    except ImportError as exc:
+        msg = "earthaccess.dask_worker_init() requires fsspec to be installed"
+        raise ImportError(msg) from exc
+
+    fsspec.config.conf["https"] = {
+        "client_kwargs": {
+            "headers": {"Authorization": f"Bearer {token}"},
+            "trust_env": False,
+        },
+        "asynchronous": True,
+    }
+    HTTPFileSystem.clear_instance_cache()
+
+
 def _open_kerchunk(
     uri: str,
     storage_options: dict[str, Any] | None = None,
