@@ -43,6 +43,9 @@ def virtualize(  # noqa: PLR0913
     load: bool = False,
     group: str = "/",
     concat_dim: str | None = None,
+    mosaic_dims: list[str] | None = None,
+    pad: str | None = None,
+    loadable_variables: list[str] | None = None,
     preprocess: Callable[[xr.Dataset], xr.Dataset] | None = None,
     data_vars: DataVarsType = "all",
     coords: str = "different",
@@ -80,6 +83,17 @@ def virtualize(  # noqa: PLR0913
             group ``"/"``.
         concat_dim: Dimension name used to concatenate granules.  Required
             when ``len(granules) > 1``.
+        mosaic_dims: Spatial dimensions to mosaic (e.g. ``['y', 'x']``).
+            When provided, granules are placed into a common union grid
+            before concatenation.  Requires ``loadable_variables`` to include
+            the mosaic dimensions so their coordinates can be read.
+        pad: Padding strategy for ragged arrays.  One of ``"auto"``,
+            ``"none"``, or a dict mapping dimension names to target sizes.
+            Only used when granule shapes vary along a non-concat dimension.
+        loadable_variables: Coordinate variable names that must be loaded
+            into memory (not left virtual).  When ``mosaic_dims`` is used,
+            the mosaic dimensions must be listed here.  Also useful for
+            temporal coordinates that need to be read for concatenation.
         preprocess: Optional callable applied to each single-granule virtual
             dataset before combining.
         data_vars: Forwarded to ``xarray.combine_nested``.
@@ -154,6 +168,9 @@ def virtualize(  # noqa: PLR0913
             registry=registry,
             access=access,
             concat_dim=concat_dim,
+            mosaic_dims=mosaic_dims,
+            pad=pad,
+            loadable_variables=loadable_variables,
             preprocess=preprocess,
             parallel=parallel,
             data_vars=data_vars,
@@ -183,6 +200,9 @@ def virtualize(  # noqa: PLR0913
             registry=registry,
             access=access,
             concat_dim=concat_dim,
+            mosaic_dims=mosaic_dims,
+            pad=pad,
+            loadable_variables=loadable_variables,
             preprocess=preprocess,
             parallel=parallel,
             data_vars=data_vars,
@@ -216,6 +236,9 @@ def _open_virtual_mfdataset(  # noqa: PLR0913
     registry: Any,
     access: AccessType,
     concat_dim: str | None,
+    mosaic_dims: list[str] | None,
+    pad: str | None,
+    loadable_variables: list[str] | None,
     preprocess: Callable | None,
     parallel: ParallelType,
     data_vars: DataVarsType,
@@ -249,6 +272,9 @@ def _open_virtual_mfdataset(  # noqa: PLR0913
             parallel=parallel,
             combine="nested",
             concat_dim=concat_dim,
+            mosaic_dims=mosaic_dims,
+            pad=pad,
+            loadable_variables=loadable_variables,
             data_vars=data_vars,
             coords=coords,
             compat=compat,
