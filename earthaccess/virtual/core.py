@@ -832,4 +832,14 @@ def open_virtual(  # noqa: PLR0911
 
     if isinstance(uri, earthaccess.DataCollection):
         return _open_kerchunk_from_collection(uri, url, access=access, **kwargs)
+
+    # For local reference files (parquet/json) the referenced data URLs are
+    # remote NASA EDL-protected resources.  Always wire auth so that chunk
+    # fetches succeed without a 401.
+    if storage_options is None:
+        daac_fs = earthaccess.get_fsspec_https_session()
+        storage_options = {
+            "remote_protocol": "s3" if access == "direct" else "https",
+            "remote_options": {"asynchronous": True, **daac_fs.storage_options},
+        }
     return _open_kerchunk(url, storage_options=storage_options, **kwargs)
