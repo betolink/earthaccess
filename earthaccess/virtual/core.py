@@ -279,23 +279,25 @@ def _open_virtual_mfdataset(  # noqa: PLR0913
             message="Numcodecs codecs*",
             category=UserWarning,
         )
-        return vz.open_virtual_mfdataset(
-            urls=urls,
-            registry=registry,
-            parser=parser,
-            preprocess=preprocess,
-            parallel=parallel,
-            combine="nested",
-            concat_dim=concat_dim,
-            mosaic_dims=mosaic_dims,
-            pad=pad,
-            loadable_variables=loadable_variables,
-            data_vars=data_vars,
-            coords=coords,
-            compat=compat,
-            combine_attrs=combine_attrs,
-            **xr_combine_kwargs,
-        )
+        kwargs: dict[str, Any] = {
+            "urls": urls,
+            "registry": registry,
+            "parser": parser,
+            "preprocess": preprocess,
+            "parallel": parallel,
+            "combine": "nested",
+            "concat_dim": concat_dim,
+            "pad": pad,
+            "loadable_variables": loadable_variables,
+            "data_vars": data_vars,
+            "coords": coords,
+            "compat": compat,
+            "combine_attrs": combine_attrs,
+        }
+        if mosaic_dims is not None:
+            kwargs["mosaic_dims"] = mosaic_dims
+        kwargs.update(xr_combine_kwargs)
+        return vz.open_virtual_mfdataset(**kwargs)
 
 
 def _load_via_kerchunk(  # noqa: PLR0913
