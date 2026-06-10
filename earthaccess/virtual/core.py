@@ -768,15 +768,15 @@ def open_virtual(
 
     if _is_icechunk_uri(url):
         if collection is not None:
-            return _open_icechunk_from_collection(collection, url, access=access, **kwargs)
+            return _open_icechunk_from_collection(
+                collection, url, access=access, **kwargs
+            )
         return _open_icechunk(
             url, storage_options=storage_options, access=access, **kwargs
         )
 
     if not load:
-        uri_to_open = (
-            _sanitize_references_for_external(url) if force_external else url
-        )
+        uri_to_open = _sanitize_references_for_external(url) if force_external else url
         return _open_virtual_via_virtualizarr(uri_to_open, registry_url=url, **kwargs)
 
     if force_external:
