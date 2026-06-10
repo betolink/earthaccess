@@ -97,7 +97,7 @@ test = [
   "types-requests >=0.1",
   "types-setuptools >=0.1",
   "types-geopandas",
-  "vcrpy >=7.0.0",
+  "vcrpy >=8.0.0",
   "dask[distributed]>=2025.7.0",
   "xarray",
   "h5netcdf",
@@ -236,7 +236,21 @@ combine-as-imports = true
 
 [tool.ruff.lint.per-file-ignores]
 # Allow `print` and `pprint` in notebooks
-"*.ipynb" = ["T201", "T203", "N803", "RET504", "ERA001", "PLR2004", "PD002", "PD010", "PD011", "EM", "ARG001", "BLE001", "FBT"]
+"*.ipynb" = [
+  "T201",
+  "T203",
+  "N803",
+  "RET504",
+  "ERA001",
+  "PLR2004",
+  "PD002",
+  "PD010",
+  "PD011",
+  "EM",
+  "ARG001",
+  "BLE001",
+  "FBT",
+]
 "tests/**/*.py" = ["PLR2004", "FBT", "INP001"]
 "scripts/**/*.py" = ["INP001"]
 
