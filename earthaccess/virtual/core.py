@@ -685,7 +685,32 @@ def _open_virtual_via_virtualizarr(
     return vds
 
 
-def open_virtual(  # noqa: PLR0911
+def _resolve_virtual_url(
+    uri: str | Path | earthaccess.DataCollection,
+) -> tuple[str, earthaccess.DataCollection | None]:
+    if isinstance(uri, earthaccess.DataCollection):
+        url = uri.virtual_collection_url()
+        if url is None:
+            msg = (
+                f"Collection {uri.get('meta', {}).get('concept-id', '')} "
+                "does not have a virtual store (no VIRTUAL COLLECTION "
+                "URL found in its RelatedUrls)."
+            )
+            raise ValueError(msg)
+        return url, uri
+    return str(uri), None
+
+
+def _validate_virtual_uri(uri: object, url: str) -> None:
+    if not _is_icechunk_uri(url) and not _is_kerchunk_uri(url):
+        msg = (
+            f"Unrecognised virtual store URI: {uri}. "
+            "Expected a .icechunk, .parquet, or .json file/URI."
+        )
+        raise ValueError(msg)
+
+
+def open_virtual(
     uri: str | Path | earthaccess.DataCollection,
     *,
     access: str = "indirect",
@@ -738,49 +763,21 @@ def open_virtual(  # noqa: PLR0911
         >>> ds = earthaccess.open_virtual(collection)
         >>> ds = earthaccess.open_virtual(collection, force_external=True)
     """
-    if isinstance(uri, earthaccess.DataCollection):
-        url = uri.virtual_collection_url()
-        if url is None:
-            msg = (
-                f"Collection {uri.get('meta', {}).get('concept-id', '')} "
-                "does not have a virtual store (no VIRTUAL COLLECTION "
-                "URL found in its RelatedUrls)."
-            )
-            raise ValueError(
-                msg,
-            )
-        if not _is_icechunk_uri(url) and not _is_kerchunk_uri(url):
-            msg = (
-                f"Unrecognised virtual store URL in collection: {url}. "
-                "Expected a .icechunk, .parquet, or .json file."
-            )
-            raise ValueError(
-                msg,
-            )
-    else:
-        url = str(uri)
-
-    if not _is_icechunk_uri(url) and not _is_kerchunk_uri(url):
-        msg = (
-            f"Unrecognised virtual store URI: {uri}. "
-            "Expected a .icechunk, .parquet, or .json file/URI."
-        )
-        raise ValueError(
-            msg,
-        )
+    url, collection = _resolve_virtual_url(uri)
+    _validate_virtual_uri(uri, url)
 
     if _is_icechunk_uri(url):
-        if isinstance(uri, earthaccess.DataCollection):
-            return _open_icechunk_from_collection(uri, url, access=access, **kwargs)
+        if collection is not None:
+            return _open_icechunk_from_collection(collection, url, access=access, **kwargs)
         return _open_icechunk(
             url, storage_options=storage_options, access=access, **kwargs
         )
 
     if not load:
-        if force_external:
-            sanitized = _sanitize_references_for_external(url)
-            return _open_virtual_via_virtualizarr(sanitized, registry_url=url, **kwargs)
-        return _open_virtual_via_virtualizarr(url, **kwargs)
+        uri_to_open = (
+            _sanitize_references_for_external(url) if force_external else url
+        )
+        return _open_virtual_via_virtualizarr(uri_to_open, registry_url=url, **kwargs)
 
     if force_external:
         sanitized = _sanitize_references_for_external(url)
@@ -790,6 +787,6 @@ def open_virtual(  # noqa: PLR0911
         }
         return _open_kerchunk(sanitized, storage_options=opts, **kwargs)
 
-    if isinstance(uri, earthaccess.DataCollection):
-        return _open_kerchunk_from_collection(uri, url, access=access, **kwargs)
+    if collection is not None:
+        return _open_kerchunk_from_collection(collection, url, access=access, **kwargs)
     return _open_kerchunk(url, storage_options=storage_options, **kwargs)
