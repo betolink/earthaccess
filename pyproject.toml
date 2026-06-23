@@ -102,8 +102,7 @@ test = [
   "types-requests >=0.1",
   "types-setuptools >=0.1",
   "types-geopandas",
-  "vcrpy >=8.0.0",                                        # CI min-deps error if this is not pinned.
-  "aiohttp >=3.9,<3.12",
+  "vcrpy >=8.2.0",
   "dask[distributed]>=2025.7.0",
   "xarray",
   "h5netcdf",
