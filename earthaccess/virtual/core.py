@@ -449,6 +449,7 @@ def _open_kerchunk_from_collection(
         import fsspec
         import xarray as xr
         import zarr
+        import s3fs
     except ImportError as exc:
         msg = "earthaccess.open_virtual() requires `pip install earthaccess[virtualizarr]`"
         raise ImportError(
