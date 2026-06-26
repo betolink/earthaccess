@@ -419,7 +419,7 @@ class Store:
             token=creds["sessionToken"],
         )
 
-    @lru_cache
+    @lru_cache  # noqa:B019
     def get_fsspec_session(self) -> fsspec.AbstractFileSystem:
         """Returns a fsspec HTTPS session with bearer tokens that are used by CMR.
 
