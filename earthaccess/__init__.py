@@ -1,6 +1,5 @@
 import logging
 import threading
-from typing import Optional
 
 from .api import (
     auth_environ,
