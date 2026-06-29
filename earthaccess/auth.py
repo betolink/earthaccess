@@ -71,7 +71,7 @@ class BasicAuthResponseHook:
         r.close()
 
         prepared_request = r.request.copy()
-        cookies: CookieJar = prepared_request._cookies  # type: ignore[attr-defined]
+        cookies: CookieJar = prepared_request._cookies  # type: ignore[attr-defined] # noqa: SLF001
         requests.cookies.extract_cookies_to_jar(cookies, r.request, r.raw)
         prepared_request.prepare_cookies(cookies)
         prepared_request.prepare_auth(self.auth)
