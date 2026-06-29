@@ -312,7 +312,7 @@ class TestStoreSessions(unittest.TestCase):
                         side_effect=mock_download_file,
                     ):
                         # Test multi-threaded download
-                        pqdm(urls, store._download_file, n_jobs=n_threads)  # type: ignore
+                        pqdm(urls, store._download_file, n_jobs=n_threads)
 
                 # We make sure we reuse the token up to N threads
                 self.assertTrue(len(cloned_sessions) <= n_threads)
