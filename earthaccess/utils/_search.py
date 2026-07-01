@@ -27,7 +27,7 @@ def get_results(
         RuntimeError: The CMR query failed.
     """
     page_size = min(limit, 2000)
-    url = query._build_url()
+    url = query._build_url()  # noqa: SLF001
 
     results: list[Any] = []
     more_results = True

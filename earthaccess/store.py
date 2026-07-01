@@ -49,7 +49,9 @@ def _is_interactive() -> bool:
     Interactive sessions include Jupyter Notebooks, IPython REPL, and default Python REPL.
     """
     try:
-        from IPython import get_ipython  # type: ignore
+        from IPython import (  # type: ignore[import-not-found]  # noqa: PLC0415
+            get_ipython,
+        )
 
         # IPython Notebook or REPL:
         if get_ipython() is not None:
@@ -152,7 +154,7 @@ def _open_files(
         open_kw.setdefault("block_size", default_block_size)
 
         f = fs.open(url, **open_kw)
-        return EarthAccessFile(f, granule)  # type: ignore
+        return EarthAccessFile(f, granule)  # type: ignore[arg-type]
 
     # this {#n_jobs} is for the unittests as this method is not public and pqdm will have values at this point
     return pqdm(
@@ -419,7 +421,7 @@ class Store:
             token=creds["sessionToken"],
         )
 
-    @lru_cache
+    @lru_cache  # noqa:B019
     def get_fsspec_session(self) -> fsspec.AbstractFileSystem:
         """Returns a fsspec HTTPS session with bearer tokens that are used by CMR.
 
@@ -888,7 +890,7 @@ class Store:
             None
         """
         if not hasattr(self.thread_locals, "local_thread_session"):
-            local_thread_session = self.auth.get_session()  # type: ignore
+            local_thread_session = self.auth.get_session()
             local_thread_session.headers.update(original_session.headers)
             local_thread_session.cookies.update(original_session.cookies)
             local_thread_session.auth = original_session.auth
