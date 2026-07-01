@@ -309,7 +309,7 @@ def _load_via_kerchunk(  # noqa: PLR0913
 
 
 def _is_icechunk_uri(uri: str) -> bool:
-    return uri.startswith("icechunk://") or uri.endswith(".icechunk")
+    return uri.startswith("icechunk://") or "icechunk" in uri
 
 
 def _is_kerchunk_uri(uri: str) -> bool:
