@@ -49,7 +49,8 @@ def test_deprecation_warning_for_api():
 
 
 def test_deprecation_warning_for_store(auth):
-    store = Store(auth)
+    with mock.patch.object(Store, "set_requests_session"):
+        store = Store(auth)
     with (
         mock.patch.object(store, "get_s3_filesystem", return_value=mock.Mock()),
         warnings.catch_warnings(record=True) as w,
