@@ -1,5 +1,4 @@
 import logging
-import threading
 
 from .api import (
     auth_environ,
