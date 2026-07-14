@@ -69,7 +69,7 @@ plugins:
         - "user/tutorials/dask.ipynb"
         - "tutorials/virtual_data.ipynb"
         - "user/howto/edl.ipynb"
-        - "user/howto/fsspec.ipynb"
+        - "user/explanation/fsspec.ipynb"
       ignore:
         - "**/.ipynb_checkpoints/*"
 
