@@ -5,7 +5,7 @@ import os.path
 
 import earthaccess
 import responses
-from earthaccess.results import DataCollection
+from earthaccess.results import DataCollection, DataGranule
 from earthaccess.search import DataCollections
 from vcr.unittest import VCRTestCase  # type: ignore[import-untyped]
 
@@ -303,3 +303,36 @@ def test_get_citation_returns_none_when_doi_empty():
     collection = DataCollection({"umm": {"DOI": {"DOI": ""}}, "meta": {}})
 
     assert collection.citation(format="apa", language="en-US") is None
+
+
+def test_derived_s3_links_use_each_link_not_just_the_first():
+    """When a cloud granule only offers HTTPS links, each derived S3 link should
+    come from its own HTTPS link, not from the first one repeated.
+    """
+    granule = DataGranule(
+        {
+            "umm": {
+                "RelatedUrls": [
+                    {
+                        "URL": "https://data.example.nasa.gov/protected/coll/file_a.nc",
+                        "Type": "GET DATA",
+                    },
+                    {
+                        "URL": "https://data.example.nasa.gov/protected/coll/file_b.nc",
+                        "Type": "GET DATA",
+                    },
+                ],
+            },
+            "meta": {},
+        },
+        cloud_hosted=True,
+    )
+
+    s3_links = granule.data_links(in_region=True)
+
+    assert s3_links == [
+        "s3://protected/coll/file_a.nc",
+        "s3://protected/coll/file_b.nc",
+    ]
+    # Each input link maps to a distinct S3 URL; the first is not duplicated.
+    assert len(set(s3_links)) == len(s3_links)
