@@ -12,6 +12,10 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - `search_services` now respects the authenticated system (UAT vs PROD) instead
   of always querying PROD.
   ([#1223](https://github.com/earthaccess-dev/earthaccess/issues/1223))
+- For cloud granules that only offer HTTPS links, `data_links(in_region=True)`
+  now derives each S3 link from its own HTTPS link instead of repeating the
+  first one, so multi-file granules no longer drop their other files.
+  ([#1373](https://github.com/earthaccess-dev/earthaccess/pull/1373))
 
 ## [v0.18.0] - 2026-05-12
 
