@@ -183,7 +183,7 @@ def make_instance(
         # NOTE: This uses the first data_link listed in the granule. That's not
         #       guaranteed to be the right one.
         return earthaccess.open([granule])[0]
-    return EarthAccessFile(loads(data), granule)
+    return EarthAccessFile(loads(data), granule)  # noqa: S301
 
 
 def _get_url_granule_mapping(
