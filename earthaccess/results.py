@@ -393,19 +393,13 @@ class DataGranule(CustomDict):
                 return link["URL"]
         return None
 
-    def size(self) -> float:
+    @property
+    def _size(self) -> float:
         """Return the total granule size in MB.
 
         Returns:
             The total size for the granule in MB.
         """
-        warnings.warn(
-            "As of version 1.0, `DataGranule.size` will be accessed as an "
-            "attribute; e.g. use `DataCollection.size` **not** "
-            "`DataCollection.size()`",
-            category=FutureWarning,
-            stacklevel=2,
-        )
 
         try:
             data_granule = self["umm"]["DataGranule"]
@@ -429,6 +423,21 @@ class DataGranule(CustomDict):
             except Exception:  # noqa: BLE001
                 total_size = 0
         return total_size
+
+    def size(self) -> float:
+        """Return the total granule size in MB.
+
+        Returns:
+            The total size for the granule in MB.
+        """
+        warnings.warn(
+            "As of version 1.0, `DataGranule.size` will be accessed as an "
+            "attribute; e.g. use `DataCollection.size` **not** "
+            "`DataCollection.size()`",
+            category=FutureWarning,
+            stacklevel=2,
+        )
+        return self._size
 
     def _derive_s3_link(self, links: list[str]) -> list[str]:
         s3_links = []
