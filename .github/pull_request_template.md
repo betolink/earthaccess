@@ -16,6 +16,19 @@ resolved in that text, for example "resolves #1".
 
 ---
 
+#### AI usage disclosure
+
+Using AI tools is welcome. Per our [AI Policy](https://earthaccess.readthedocs.io/en/latest/ai_policy/),
+we just ask that you disclose any use of generative AI tools in this contribution.
+
+- [ ] I have disclosed AI tool usage below, or confirmed that no AI tools were used
+
+<!--
+If you used AI tools, note which tool(s) were used, how they were used, and which
+parts of this contribution are AI-generated. If you did not use AI tools, write
+"No AI tools were used."
+-->
+
 #### "Ready for review" checklist
 
 - [ ] Place this Pull Request (PR) in draft until it is ready for review (see below)

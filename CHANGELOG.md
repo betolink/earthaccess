@@ -7,6 +7,14 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Added
+
+- Added an AI policy documenting expectations for AI-assisted contributions,
+  including disclosure, code quality, copyright, and communication, along with
+  an AI usage disclosure prompt in the pull request template.
+  ([#1419](https://github.com/earthaccess-dev/earthaccess/pull/1419))
+  ([@danielfromearth](https://github.com/danielfromearth))
+
 ### Fixed
 
 - `search_services` now respects the authenticated system (UAT vs PROD) instead
