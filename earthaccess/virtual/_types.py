@@ -22,6 +22,12 @@ AccessType = Literal["direct", "indirect"]
 ParallelType = Literal["dask", "lithops", False]
 ReferenceFormatType = Literal["json", "parquet"]
 
+# Mirrors virtualizarr.open_virtual_mfdataset's ``combine`` parameter.
+CombineType = Literal["nested", "by_coords"]
+
+# Mirrors xarray.core.types.JoinOptions
+JoinType = Literal["outer", "inner", "left", "right", "exact", "override"]
+
 # Mirrors xarray.core.types.CompatOptions
 CompatType = Literal[
     "identical",

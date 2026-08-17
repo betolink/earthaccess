@@ -10,6 +10,7 @@ import json
 import logging
 import tempfile
 import warnings
+from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -25,8 +26,10 @@ if TYPE_CHECKING:
     from earthaccess.virtual._types import (
         AccessType,
         CombineAttrsType,
+        CombineType,
         CompatType,
         DataVarsType,
+        JoinType,
         ParallelType,
         ParserType,
         ReferenceFormatType,
@@ -36,24 +39,29 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def virtualize(  # noqa: PLR0913
+def virtualize(  # noqa: PLR0913, C901
     granules: list[earthaccess.DataGranule],
     *,
     access: AccessType = "indirect",
     load: bool = False,
     group: str = "/",
     concat_dim: str | None = None,
+    combine: CombineType = "nested",
     preprocess: Callable[[xr.Dataset], xr.Dataset] | None = None,
     data_vars: DataVarsType = "all",
     coords: str = "different",
     compat: CompatType = "no_conflicts",
     combine_attrs: CombineAttrsType = "drop_conflicts",
+    join: JoinType = "outer",
+    loadable_variables: list[str] | None = None,
+    drop_variables: list[str] | None = None,
     parallel: ParallelType = "dask",
     parser: ParserType = "DMRPPParser",
     reference_dir: str | None = None,
     reference_format: ReferenceFormatType = "json",
+    tree: bool = False,
     **xr_combine_kwargs: Any,
-) -> xr.Dataset:
+) -> xr.Dataset | xr.DataTree:
     """Create a virtual xarray Dataset from NASA Earthdata granules.
 
     Uses VirtualiZarr to open granules as virtual datasets backed by cloud
@@ -78,14 +86,25 @@ def virtualize(  # noqa: PLR0913
             lazily-loaded ``xr.Dataset`` backed by dask arrays.
         group: HDF5/NetCDF4 group path to open.  Defaults to the root
             group ``"/"``.
-        concat_dim: Dimension name used to concatenate granules.  Required
-            when ``len(granules) > 1``.
+        concat_dim: Dimension name used to concatenate granules along when
+            ``combine="nested"``.  Required when ``len(granules) > 1``.
+        combine: How to combine multiple granules.  ``"nested"`` (default)
+            stacks them in order along ``concat_dim``; ``"by_coords"`` aligns
+            them on their shared coordinates and does not take a
+            ``concat_dim``.
         preprocess: Optional callable applied to each single-granule virtual
             dataset before combining.
         data_vars: Forwarded to ``xarray.combine_nested``.
         coords: Forwarded to ``xarray.combine_nested``.
         compat: Forwarded to ``xarray.combine_nested``.
         combine_attrs: Forwarded to ``xarray.combine_nested``.
+        join: How coordinate values are combined when ``combine="by_coords"``
+            (``"outer"``, ``"inner"``, ``"left"``, ``"right"``, ``"exact"``,
+            ``"override"``).
+        loadable_variables: Variable names to load eagerly as real arrays
+            instead of virtual references.  Useful for index coordinates that
+            need to be sliced by label.
+        drop_variables: Variable names to omit from the opened dataset.
         parallel: Parallelism backend.  ``"dask"`` (default) wraps opens in
             ``dask.delayed``; ``"lithops"`` uses Lithops; ``False`` disables
             parallelism.
@@ -97,17 +116,26 @@ def virtualize(  # noqa: PLR0913
             ``load=True``.  A temporary directory is used when ``None``.
         reference_format: Serialisation format when ``load=True``.
             ``"json"`` (default) or ``"parquet"``.
+        tree: When ``True``, return an ``xr.DataTree`` via
+            ``open_virtual_datatree`` (one node per HDF5/NetCDF4 group).
+            Requires exactly one granule and ``load=False``.
         **xr_combine_kwargs: Additional keyword arguments forwarded to
             ``xarray.combine_nested``.
 
     Returns:
-        An ``xr.Dataset``.  With ``load=False`` the dataset contains
-        ``ManifestArray`` variables; with ``load=True`` it contains dask
-        arrays backed by the kerchunk reference store.
+        An ``xr.Dataset``, or an ``xr.DataTree`` when ``tree=True``.  With
+        ``load=False`` the dataset contains ``ManifestArray`` variables; with
+        ``load=True`` it contains dask arrays backed by the kerchunk reference
+        store.
 
     Raises:
         ValueError: If ``granules`` is empty.
-        ValueError: If ``len(granules) > 1`` and ``concat_dim`` is ``None``.
+        ValueError: If ``combine="nested"``, ``len(granules) > 1``, and
+            ``concat_dim`` is ``None``.
+        ValueError: If ``combine="by_coords"`` and ``concat_dim`` is not
+            ``None``.
+        ValueError: If ``tree=True`` with more than one granule, or with
+            ``load=True``.
         ValueError: If ``parser`` is an unrecognised string.
         ImportError: If ``earthaccess[virtualizarr]`` is not installed.
 
@@ -132,10 +160,29 @@ def virtualize(  # noqa: PLR0913
     if len(granules) == 0:
         msg = "No granules provided. At least one granule is required."
         raise ValueError(msg)
-    if len(granules) > 1 and concat_dim is None:
+
+    if tree:
+        if len(granules) != 1:
+            msg = (
+                "tree=True requires exactly one granule. "
+                "open_virtual_datatree only opens a single data source."
+            )
+            raise ValueError(msg)
+        if load:
+            msg = "tree=True is only supported with load=False."
+            raise ValueError(msg)
+    elif combine == "nested":
+        if len(granules) > 1 and concat_dim is None:
+            msg = (
+                "concat_dim is required when virtualizing more than one granule "
+                "with combine='nested'. Pass concat_dim='<dimension_name>' to "
+                "specify how to concatenate, or use combine='by_coords'."
+            )
+            raise ValueError(msg)
+    elif concat_dim is not None:
         msg = (
-            "concat_dim is required when virtualizing more than one granule. "
-            "Pass concat_dim='<dimension_name>' to specify how to concatenate."
+            "concat_dim is not valid with combine='by_coords'. Align granules "
+            "on their coordinates instead, or pass combine='nested'."
         )
         raise ValueError(msg)
 
@@ -145,23 +192,31 @@ def virtualize(  # noqa: PLR0913
 
     registry = build_obstore_registry(granules, access=access)
 
-    # Attempt to open with the requested parser; fall back to HDFParser if
-    # DMR++ sidecars are not present.
-    try:
-        vds = _open_virtual_mfdataset(
+    def _open_once(parser_obj: Any, obj_registry: Any) -> xr.Dataset | xr.DataTree:
+        return _open_virtual_dispatch(
             granules=granules,
-            parser=resolved_parser,
-            registry=registry,
+            parser=parser_obj,
+            registry=obj_registry,
             access=access,
             concat_dim=concat_dim,
+            combine=combine,
+            join=join,
             preprocess=preprocess,
+            loadable_variables=loadable_variables,
+            drop_variables=drop_variables,
             parallel=parallel,
             data_vars=data_vars,
             coords=coords,
             compat=compat,
             combine_attrs=combine_attrs,
+            tree=tree,
             **xr_combine_kwargs,
         )
+
+    # Attempt to open with the requested parser; fall back to HDFParser if
+    # DMR++ sidecars are not present.
+    try:
+        vds = _open_once(resolved_parser, registry)
     except FileNotFoundError:
         if type(resolved_parser).__name__ != "DMRPPParser":
             raise
@@ -177,23 +232,16 @@ def virtualize(  # noqa: PLR0913
             group=group if group != "/" else None,
         )
         registry = build_obstore_registry(granules, access=access)
-        vds = _open_virtual_mfdataset(
-            granules=granules,
-            parser=resolved_parser,
-            registry=registry,
-            access=access,
-            concat_dim=concat_dim,
-            preprocess=preprocess,
-            parallel=parallel,
-            data_vars=data_vars,
-            coords=coords,
-            compat=compat,
-            combine_attrs=combine_attrs,
-            **xr_combine_kwargs,
-        )
+        vds = _open_once(resolved_parser, registry)
 
     if not load:
         return vds
+
+    import xarray as xr
+
+    if not isinstance(vds, xr.Dataset):
+        msg = "load=True requires a Dataset; open with tree=False."
+        raise TypeError(msg)
 
     return _load_via_kerchunk(
         vds=vds,
@@ -210,13 +258,141 @@ def virtualize(  # noqa: PLR0913
 # ---------------------------------------------------------------------------
 
 
+def _open_virtual_dispatch(  # noqa: PLR0913
+    granules: list[earthaccess.DataGranule],
+    parser: Any,
+    registry: Any,
+    access: AccessType,
+    concat_dim: str | None,
+    combine: CombineType,
+    join: JoinType,
+    preprocess: Callable | None,
+    loadable_variables: list[str] | None,
+    drop_variables: list[str] | None,
+    parallel: ParallelType,
+    data_vars: DataVarsType,
+    coords: str,
+    compat: CompatType,
+    combine_attrs: CombineAttrsType,
+    *,
+    tree: bool,
+    **xr_combine_kwargs: Any,
+) -> xr.Dataset | xr.DataTree:
+    """Route granules to the correct VirtualiZarr opener.
+
+    ``tree=True`` uses ``open_virtual_datatree`` (single granule only), a
+    single granule uses ``open_virtual_dataset`` directly, and everything else
+    goes through ``open_virtual_mfdataset``.
+    """
+    if tree:
+        url = get_urls_for_parser(granules, parser, access=access)[0]
+        return _open_virtual_datatree(
+            url,
+            parser=parser,
+            registry=registry,
+            loadable_variables=loadable_variables,
+            **xr_combine_kwargs,
+        )
+
+    if len(granules) == 1:
+        url = get_urls_for_parser(granules, parser, access=access)[0]
+        return _open_virtual_dataset_single(
+            url,
+            parser=parser,
+            registry=registry,
+            preprocess=preprocess,
+            drop_variables=drop_variables,
+            loadable_variables=loadable_variables,
+            **xr_combine_kwargs,
+        )
+
+    return _open_virtual_mfdataset(
+        granules=granules,
+        parser=parser,
+        registry=registry,
+        access=access,
+        concat_dim=concat_dim,
+        combine=combine,
+        join=join,
+        preprocess=preprocess,
+        loadable_variables=loadable_variables,
+        drop_variables=drop_variables,
+        parallel=parallel,
+        data_vars=data_vars,
+        coords=coords,
+        compat=compat,
+        combine_attrs=combine_attrs,
+        **xr_combine_kwargs,
+    )
+
+
+def _open_virtual_dataset_single(  # noqa: PLR0913
+    url: str,
+    parser: Any,
+    registry: Any,
+    *,
+    preprocess: Callable | None,
+    drop_variables: list[str] | None,
+    loadable_variables: list[str] | None,
+    **kwargs: Any,
+) -> xr.Dataset:
+    """Open a single URL with ``vz.open_virtual_dataset``, then apply preprocess."""
+    try:
+        import virtualizarr as vz
+    except ImportError as exc:
+        msg = (
+            "earthaccess.virtualize() requires `pip install earthaccess[virtualizarr]`"
+        )
+        raise ImportError(msg) from exc
+
+    vds = vz.open_virtual_dataset(
+        url,
+        registry=registry,
+        parser=parser,
+        drop_variables=drop_variables,
+        loadable_variables=loadable_variables,
+        **kwargs,
+    )
+    return preprocess(vds) if preprocess else vds
+
+
+def _open_virtual_datatree(
+    url: str,
+    parser: Any,
+    registry: Any,
+    *,
+    loadable_variables: list[str] | None,
+    **kwargs: Any,
+) -> xr.DataTree:
+    """Open a single URL with ``vz.open_virtual_datatree`` (returns a DataTree)."""
+    try:
+        import virtualizarr as vz
+    except ImportError as exc:
+        msg = (
+            "earthaccess.virtualize() requires `pip install earthaccess[virtualizarr]`"
+        )
+        raise ImportError(msg) from exc
+
+    return vz.open_virtual_datatree(
+        url,
+        registry=registry,
+        parser=parser,
+        loadable_variables=loadable_variables,
+        **kwargs,
+    )
+
+
 def _open_virtual_mfdataset(  # noqa: PLR0913
     granules: list[earthaccess.DataGranule],
     parser: Any,
     registry: Any,
     access: AccessType,
     concat_dim: str | None,
+    combine: CombineType,
+    join: JoinType,
     preprocess: Callable | None,
+    loadable_variables: list[str] | None,
+    drop_variables: list[str] | None,
     parallel: ParallelType,
     data_vars: DataVarsType,
     coords: str,
@@ -247,12 +423,15 @@ def _open_virtual_mfdataset(  # noqa: PLR0913
             parser=parser,
             preprocess=preprocess,
             parallel=parallel,
-            combine="nested",
+            combine=combine,
             concat_dim=concat_dim,
+            join=join,
             data_vars=data_vars,
             coords=coords,
             compat=compat,
             combine_attrs=combine_attrs,
+            loadable_variables=loadable_variables,
+            drop_variables=drop_variables,
             **xr_combine_kwargs,
         )
 
@@ -309,17 +488,170 @@ def _load_via_kerchunk(  # noqa: PLR0913
 
 
 def _is_icechunk_uri(uri: str) -> bool:
-    return uri.startswith("icechunk://") or "icechunk" in uri
+    if uri.startswith("icechunk://") or "icechunk" in uri:
+        return True
+    return _is_local_icechunk_store(uri)
+
+
+def _is_local_icechunk_store(uri: str) -> bool:
+    """Return ``True`` if *uri* is a local directory containing an Icechunk repo."""
+    from urllib.parse import urlparse
+
+    parsed = urlparse(uri)
+    if parsed.scheme not in ("", "file"):
+        return False
+    path = Path(parsed.path) if parsed.scheme == "file" else Path(uri)
+    return (path / "snapshots" / "1CECHNKREP0F1RSTCMT0").is_file()
 
 
 def _is_kerchunk_uri(uri: str) -> bool:
     return uri.endswith((".parquet", ".json"))
 
 
+def _edl_bearer_token() -> str | None:
+    """Return the user's EDL access token, or ``None`` when not authenticated."""
+    try:
+        token = earthaccess.__auth__.token["access_token"]
+    except (AttributeError, TypeError, KeyError):
+        return None
+    return token
+
+
+def _s3_static_credentials(
+    collection: earthaccess.DataCollection,
+) -> Any:
+    """Return ``S3StaticCredentials`` built from a collection's cached credentials.
+
+    Safe to wrap in ``functools.partial`` as a ``get_credentials`` callback for
+    refreshable icechunk credentials: each invocation reads the collection's
+    (cached) temporary S3 credentials and returns a fresh set.
+    """
+    from datetime import UTC, datetime, timedelta
+
+    import icechunk
+
+    creds = collection.s3_credentials
+    return icechunk.S3StaticCredentials(
+        access_key_id=creds["accessKeyId"],
+        secret_access_key=creds["secretAccessKey"],
+        session_token=creds["sessionToken"],
+        expires_after=datetime.now(UTC) + timedelta(hours=1),
+    )
+
+
+def _build_vcc_credentials(
+    vccs: dict[str, Any] | None,
+    *,
+    collection: earthaccess.DataCollection | None,
+) -> dict[str, Any]:
+    """Build an ``authorize_virtual_chunk_access`` mapping from repo VCCs.
+
+    Maps each virtual chunk container ``url_prefix`` to an icechunk credential:
+
+    - ``s3://`` uses refreshable NASA S3 credentials when a ``collection`` is
+      available, otherwise credentials from the process environment.
+    - ``http(s)://`` uses the ``HttpAccess`` no-auth sentinel.
+    - ``file://`` uses the ``LocalFileSystemAccess`` no-auth sentinel.
+    - ``gs://``/``gcs://`` and ``azure://``/``az://``/``abfs://`` fall back to
+      environment credentials.
+
+    Credential selection is driven by ``collection`` presence.
+    """
+    from urllib.parse import urlparse
+
+    import icechunk
+
+    if not vccs:
+        return {}
+
+    mapping: dict[str, Any] = {}
+    for prefix in vccs:
+        scheme = urlparse(prefix).scheme
+        if scheme == "s3":
+            if collection is not None:
+                mapping[prefix] = icechunk.s3_credentials(
+                    get_credentials=partial(_s3_static_credentials, collection),
+                )
+            else:
+                mapping[prefix] = icechunk.s3_from_env_credentials()
+        elif scheme in ("http", "https"):
+            mapping[prefix] = icechunk.credentials.HttpAccess
+        elif scheme in ("file", ""):
+            mapping[prefix] = icechunk.credentials.LocalFileSystemAccess
+        elif scheme in ("gs", "gcs"):
+            mapping[prefix] = icechunk.gcs_from_env_credentials()
+        elif scheme in ("az", "azure", "abfs"):
+            mapping[prefix] = icechunk.azure_from_env_credentials()
+    return mapping
+
+
+def _inject_http_vcc_headers(config: Any, *, token: str) -> Any:
+    """Rebuild HTTP VCC store configs with the EDL bearer header.
+
+    Only containers pointing at NASA hosts get the header injected; other HTTP
+    containers stay anonymous so we never leak the token to arbitrary hosts.
+
+    Returns the (possibly new) config when at least one container was modified,
+    otherwise ``None``.
+    """
+    import icechunk
+
+    vccs = config.virtual_chunk_containers
+    if not vccs:
+        return None
+
+    modified = False
+    for prefix, vcc in vccs.items():
+        if prefix.startswith(("https://", "http://")) and _is_nasa_url(prefix):
+            store = icechunk.http_store(
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            config.set_virtual_chunk_container(
+                icechunk.VirtualChunkContainer(prefix, store, name=vcc.name),
+            )
+            modified = True
+    return config if modified else None
+
+
+def _authorize_vccs(
+    storage: Any,
+    *,
+    collection: earthaccess.DataCollection | None,
+    explicit: dict[str, Any] | None,
+) -> tuple[Any | None, dict[str, Any]]:
+    """Authorize the repo's virtual chunk containers for reading.
+
+    Fetches the repo config, builds a credential mapping for every VCC, injects
+    the EDL bearer header into NASA HTTP containers, and merges any explicit
+    user-supplied mapping on top (explicit keys win).
+
+    Returns a ``(config, mapping)`` pair. ``config`` is only non-``None`` when
+    it must be passed to ``Repository.open`` (i.e. HTTP header injection
+    modified it); ``mapping`` is the merged ``authorize_virtual_chunk_access``.
+    """
+    import icechunk
+
+    config = icechunk.Repository.fetch_config(storage)
+    vccs = config.virtual_chunk_containers if config is not None else None
+
+    mapping = _build_vcc_credentials(vccs, collection=collection)
+
+    config_to_pass: Any | None = None
+    token = _edl_bearer_token()
+    if token and vccs:
+        config_to_pass = _inject_http_vcc_headers(config, token=token)
+
+    if explicit:
+        mapping = {**mapping, **explicit}
+
+    return config_to_pass, mapping
+
+
 def _open_icechunk(
     uri: str,
     storage_options: dict[str, Any] | None = None,
     access: str = "indirect",
+    authorize_virtual_chunk_access: dict[str, Any] | None = None,
     **kwargs: Any,
 ) -> xr.Dataset:
     try:
@@ -345,12 +677,32 @@ def _open_icechunk(
             prefix=parsed.path.lstrip("/"),
             **opts,
         )
-    elif storage_options:
-        storage = icechunk.http_storage(uri, storage_options)
+    elif parsed.scheme in ("http", "https"):
+        if storage_options:
+            storage = icechunk.http_storage(uri, storage_options)
+        elif _is_nasa_url(uri) and (token := _edl_bearer_token()):
+            storage = icechunk.http_storage(
+                uri,
+                headers={"Authorization": f"Bearer {token}"},
+            )
+        else:
+            storage = icechunk.redirect_storage(uri)
+    elif parsed.scheme == "file":
+        storage = icechunk.local_filesystem_storage(parsed.path)
     else:
         storage = icechunk.local_filesystem_storage(uri)
 
-    repo = icechunk.Repository.open(storage=storage)
+    config, vcc_map = _authorize_vccs(
+        storage,
+        collection=None,
+        explicit=authorize_virtual_chunk_access,
+    )
+
+    repo = icechunk.Repository.open(
+        storage=storage,
+        config=config,
+        authorize_virtual_chunk_access=vcc_map or None,
+    )
     session = repo.readonly_session("main")
     store = session.store
     return xr.open_zarr(store, **kwargs)
@@ -478,6 +830,7 @@ def _open_icechunk_from_collection(
     collection: earthaccess.DataCollection,
     url: str,
     access: str = "indirect",
+    authorize_virtual_chunk_access: dict[str, Any] | None = None,
     **kwargs: Any,
 ) -> xr.Dataset:
     try:
@@ -510,13 +863,187 @@ def _open_icechunk_from_collection(
             prefix=parsed.path.lstrip("/"),
             get_credentials=lambda: ice_creds,
         )
+    elif _is_nasa_url(url) and (token := _edl_bearer_token()):
+        storage = icechunk.http_storage(
+            url,
+            headers={"Authorization": f"Bearer {token}"},
+        )
     else:
         storage = icechunk.redirect_storage(url)
 
-    repo = icechunk.Repository.open(storage=storage)
+    config, vcc_map = _authorize_vccs(
+        storage,
+        collection=collection,
+        explicit=authorize_virtual_chunk_access,
+    )
+
+    repo = icechunk.Repository.open(
+        storage=storage,
+        config=config,
+        authorize_virtual_chunk_access=vcc_map or None,
+    )
     session = repo.readonly_session("main")
     store = session.store
     return xr.open_zarr(store, **kwargs)
+
+
+# ---------------------------------------------------------------------------
+# write_virtual — create/append virtual datasets in an Icechunk store
+# ---------------------------------------------------------------------------
+
+
+def _derive_vccs_from_vds(vds: xr.Dataset) -> dict[str, Any]:
+    """Collect the virtual chunk containers needed to write *vds*.
+
+    Walks every ``ManifestArray`` in the dataset and derives one container per
+    unique ``scheme://host/`` prefix found in the virtual chunk references.
+    ``s3://`` containers are configured for ``us-west-2`` (the default NASA
+    cloud region); ``http(s)://`` containers need no credentials at write time.
+
+    Returns a mapping of ``url_prefix`` to an icechunk ``ObjectStoreConfig``.
+    """
+    from urllib.parse import urlparse
+
+    import icechunk
+
+    try:
+        from virtualizarr.manifests import ManifestArray
+    except ImportError as exc:
+        msg = (
+            "earthaccess.write_virtual() requires "
+            "`pip install earthaccess[virtualizarr]`"
+        )
+        raise ImportError(msg) from exc
+
+    prefixes: dict[str, str] = {}
+    for var in vds.variables.values():
+        data = var.data
+        if not isinstance(data, ManifestArray):
+            continue
+        for path in data.manifest:
+            parsed = urlparse(path)
+            if parsed.scheme in ("s3", "https", "http"):
+                prefixes[f"{parsed.scheme}://{parsed.netloc}/"] = parsed.scheme
+
+    if not prefixes:
+        msg = (
+            "write_virtual() requires a virtual dataset (load=False) backed by "
+            "ManifestArray variables; no virtual chunk references were found."
+        )
+        raise ValueError(msg)
+
+    vccs: dict[str, Any] = {}
+    for prefix, scheme in prefixes.items():
+        if scheme == "s3":
+            vccs[prefix] = icechunk.s3_store(region="us-west-2")
+        else:
+            vccs[prefix] = icechunk.http_store()
+    return vccs
+
+
+def _write_virtual_to_icechunk(
+    vds: xr.Dataset,
+    store: str,
+    *,
+    append_dim: str | None,
+    commit: bool,
+    storage_options: dict[str, Any] | None,
+) -> xr.Dataset:
+    """Create (or append to) an Icechunk store from a virtual dataset.
+
+    On first write the store is created with the containers derived from the
+    dataset's virtual chunk references.  On subsequent writes the existing repo
+    is opened and, when ``append_dim`` is given, the dataset is appended along
+    that dimension via VirtualiZarr's ``to_icechunk``.
+    """
+    from urllib.parse import urlparse
+
+    import icechunk
+
+    vccs = _derive_vccs_from_vds(vds)
+
+    parsed = urlparse(store)
+    if parsed.scheme == "s3":
+        opts = dict(storage_options) if storage_options else {"from_env": True}
+        storage = icechunk.s3_storage(
+            bucket=parsed.netloc,
+            prefix=parsed.path.lstrip("/"),
+            **opts,
+        )
+    else:
+        storage = icechunk.local_filesystem_storage(store)
+
+    if icechunk.Repository.exists(storage):
+        repo = icechunk.Repository.open(storage=storage)
+    else:
+        config = icechunk.RepositoryConfig.default()
+        for prefix, store_config in vccs.items():
+            config.set_virtual_chunk_container(
+                icechunk.VirtualChunkContainer(prefix, store_config),
+            )
+        repo = icechunk.Repository.create(storage=storage, config=config)
+        repo.save_config()
+
+    session = repo.writable_session("main")
+    vds.vz.to_icechunk(session.store, append_dim=append_dim)
+    if commit:
+        message = "write_virtual append" if append_dim else "write_virtual create"
+        session.commit(message)
+    return vds
+
+
+def write_virtual(
+    vds: xr.Dataset,
+    store: str | Path,
+    *,
+    append_dim: str | None = None,
+    commit: bool = True,
+    storage_options: dict[str, Any] | None = None,
+) -> xr.Dataset:
+    """Write (or append) a virtual dataset to an Icechunk store.
+
+    ``vds`` is the virtual dataset returned by ``earthaccess.virtualize()``
+    with ``load=False``.  On the first call the store is created at ``store``
+    (a local path or an ``s3://`` URI) with the virtual chunk containers
+    derived from the dataset's references.  Subsequent calls with
+    ``append_dim`` (e.g. ``"time"``) open the existing store and append the
+    dataset along that dimension.
+
+    Parameters:
+        vds: The virtual dataset to write (``ManifestArray``-backed).
+        store: Target Icechunk store location — a local path, or an
+            ``s3://bucket/prefix`` URI (write credentials from
+            ``storage_options`` or the environment).
+        append_dim: When set, append the dataset along this dimension instead
+            of writing to a new group.
+        commit: When ``True`` (default), commit the write to the store's
+            ``main`` branch.
+        storage_options: Extra options for ``s3://`` stores (e.g. AWS write
+            credentials).  Ignored for local paths.
+
+    Returns:
+        The input ``vds`` unchanged.
+
+    Raises:
+        ValueError: If ``vds`` contains no virtual chunk references.
+        ImportError: If ``earthaccess[virtualizarr]`` is not installed.
+    """
+    import importlib.util
+
+    if importlib.util.find_spec("icechunk") is None:
+        msg = (
+            "earthaccess.write_virtual() requires "
+            "`pip install earthaccess[virtualizarr]`"
+        )
+        raise ImportError(msg)
+
+    return _write_virtual_to_icechunk(
+        vds=vds,
+        store=str(store),
+        append_dim=append_dim,
+        commit=commit,
+        storage_options=storage_options,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -710,13 +1237,14 @@ def _validate_virtual_uri(uri: object, url: str) -> None:
         raise ValueError(msg)
 
 
-def open_virtual(
+def open_virtual(  # noqa: PLR0913
     uri: str | Path | earthaccess.DataCollection,
     *,
     access: str = "indirect",
     storage_options: dict[str, Any] | None = None,
     force_external: bool = False,
     load: bool = True,
+    authorize_virtual_chunk_access: dict[str, Any] | None = None,
     **kwargs: Any,
 ) -> xr.Dataset:
     """Open a URI or collection as a virtual xarray Dataset.
@@ -744,6 +1272,11 @@ def open_virtual(
             via the kerchunk engine.  When ``False``, returns a virtual dataset
             backed by ``ManifestArray`` objects via VirtualiZarr's
             ``open_virtual_dataset``.
+        authorize_virtual_chunk_access: Optional mapping of icechunk virtual
+            chunk container url-prefixes to credentials.  When omitted, the
+            containers are authorized automatically using the user's EDL
+            credentials (NASA S3 / HTTP).  When given, these entries override
+            the auto-detected ones.  Only applies to Icechunk stores.
         **kwargs: Additional keyword arguments forwarded to the opener.
 
     Returns:
@@ -769,10 +1302,18 @@ def open_virtual(
     if _is_icechunk_uri(url):
         if collection is not None:
             return _open_icechunk_from_collection(
-                collection, url, access=access, **kwargs
+                collection,
+                url,
+                access=access,
+                authorize_virtual_chunk_access=authorize_virtual_chunk_access,
+                **kwargs,
             )
         return _open_icechunk(
-            url, storage_options=storage_options, access=access, **kwargs
+            url,
+            storage_options=storage_options,
+            access=access,
+            authorize_virtual_chunk_access=authorize_virtual_chunk_access,
+            **kwargs,
         )
 
     if not load:

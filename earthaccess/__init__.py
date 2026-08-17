@@ -23,7 +23,7 @@ from .search import DataCollection, DataCollections, DataGranule, DataGranules
 from .services import DataServices
 from .store import Store
 from .system import PROD, UAT
-from .virtual import open_virtual, virtualize
+from .virtual import open_virtual, virtualize, write_virtual
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +61,7 @@ __all__ = [
     "search_services",
     "status",
     "virtualize",
+    "write_virtual",
 ]
 
 try:

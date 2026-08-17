@@ -1,7 +1,7 @@
 import json
 import uuid
 import warnings
-from functools import cache
+from functools import cache, cached_property
 from typing import Any, ClassVar
 
 import requests
@@ -325,6 +325,24 @@ class DataCollection(CustomDict):
             )
         return earthaccess.__auth__.get_s3_credentials(endpoint=endpoint)
 
+    @cached_property
+    def s3_credentials(self) -> dict[str, str]:
+        """Cached temporary S3 credentials for this collection.
+
+        The first access exchanges the EDL token for temporary S3 credentials
+        and caches the result on the instance, so repeated callers (e.g. the
+        icechunk VCC authorization path) do not hit the credentials endpoint
+        more than once.
+
+        Returns:
+            A dictionary with ``accessKeyId``, ``secretAccessKey``,
+            and ``sessionToken``.
+
+        Raises:
+            ValueError: If the collection has no ``S3CredentialsAPIEndpoint``.
+        """
+        return self.get_s3_credentials()
+
     def get_s3_filesystem(self) -> s3fs.S3FileSystem:
         """Return an authenticated ``s3fs.S3FileSystem`` for this collection.
 
@@ -441,6 +459,29 @@ class DataGranule(CustomDict):
             if "/s3credentials" in link["URL"]:
                 return link["URL"]
         return None
+
+    @cached_property
+    def s3_credentials(self) -> dict[str, str]:
+        """Cached temporary S3 credentials for this granule.
+
+        The credentials endpoint is read from the granule's ``RelatedUrls``
+        and the EDL token is exchanged once; the result is cached on the
+        instance.
+
+        Returns:
+            A dictionary with ``accessKeyId``, ``secretAccessKey``,
+            and ``sessionToken``.
+
+        Raises:
+            ValueError: If the granule has no ``s3credentials`` endpoint.
+        """
+        endpoint = self.get_s3_credentials_endpoint()
+        if not endpoint:
+            msg = "This granule does not provide an s3credentials endpoint."
+            raise ValueError(
+                msg,
+            )
+        return earthaccess.__auth__.get_s3_credentials(endpoint=endpoint)
 
     def size(self) -> float:
         """Return the total granule size in MB.

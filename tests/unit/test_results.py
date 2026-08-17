@@ -4,6 +4,7 @@ import logging
 import os.path
 
 import earthaccess
+import pytest
 import responses
 from earthaccess.results import DataCollection, DataGranule
 from earthaccess.search import DataCollections
@@ -336,3 +337,82 @@ def test_derived_s3_links_use_each_link_not_just_the_first():
     ]
     # Each input link maps to a distinct S3 URL; the first is not duplicated.
     assert len(set(s3_links)) == len(s3_links)
+
+
+def test_collection_s3_credentials_is_cached():
+    """DataCollection.s3_credentials fetches the endpoint once and caches it."""
+    from unittest.mock import patch
+
+    from earthaccess.auth import Auth
+
+    creds = {
+        "accessKeyId": "KEY",
+        "secretAccessKey": "SECRET",
+        "sessionToken": "TOKEN",
+    }
+    collection = DataCollection(
+        {
+            "umm": {
+                "DirectDistributionInformation": {
+                    "S3CredentialsAPIEndpoint": "https://data.example.nasa.gov/s3credentials",
+                },
+            },
+            "meta": {},
+        }
+    )
+
+    with patch.object(Auth, "get_s3_credentials", return_value=creds) as mock:
+        assert collection.s3_credentials == creds
+        assert collection.s3_credentials == creds
+        mock.assert_called_once_with(
+            endpoint="https://data.example.nasa.gov/s3credentials",
+        )
+
+
+def test_collection_s3_credentials_raises_without_endpoint():
+    """DataCollection.s3_credentials raises when no S3CredentialsAPIEndpoint exists."""
+    collection = DataCollection(
+        {"umm": {"DirectDistributionInformation": {}}, "meta": {}}
+    )
+
+    with pytest.raises(ValueError, match="S3CredentialsAPIEndpoint"):
+        _ = collection.s3_credentials
+
+
+def test_granule_s3_credentials_is_cached():
+    """DataGranule.s3_credentials derives the endpoint and caches the result."""
+    from unittest.mock import patch
+
+    from earthaccess.auth import Auth
+
+    creds = {
+        "accessKeyId": "KEY",
+        "secretAccessKey": "SECRET",
+        "sessionToken": "TOKEN",
+    }
+    granule = DataGranule(
+        {
+            "umm": {
+                "RelatedUrls": [
+                    {
+                        "URL": "https://data.example.nasa.gov/s3credentials",
+                        "Type": "GET DATA",
+                    },
+                ],
+            },
+            "meta": {},
+        }
+    )
+
+    with patch.object(Auth, "get_s3_credentials", return_value=creds) as mock:
+        assert granule.s3_credentials == creds
+        assert granule.s3_credentials == creds
+        mock.assert_called_once()
+
+
+def test_granule_s3_credentials_raises_without_endpoint():
+    """DataGranule.s3_credentials raises when no s3credentials endpoint exists."""
+    granule = DataGranule({"umm": {"RelatedUrls": []}, "meta": {}})
+
+    with pytest.raises(ValueError, match="s3credentials endpoint"):
+        _ = granule.s3_credentials

@@ -68,6 +68,7 @@ plugins:
         - "user/tutorials/dmrpp-virtualizarr.ipynb"
         - "user/tutorials/dask.ipynb"
         - "tutorials/virtual_data.ipynb"
+        - "tutorials/virtualize_combine_tree.ipynb"
         - "user/howto/edl.ipynb"
         - "user/explanation/fsspec.ipynb"
       ignore:

@@ -27,7 +27,7 @@ from earthaccess.virtual._parser import (
     SUPPORTED_PARSERS,
     homogenize_dataset_codec_level,
 )
-from earthaccess.virtual.core import open_virtual, virtualize
+from earthaccess.virtual.core import open_virtual, virtualize, write_virtual
 
 __all__ = [
     "SUPPORTED_PARSERS",
@@ -35,4 +35,5 @@ __all__ = [
     "homogenize_dataset_codec_level",
     "open_virtual",
     "virtualize",
+    "write_virtual",
 ]

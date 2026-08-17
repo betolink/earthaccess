@@ -73,7 +73,7 @@ virtualizarr = [
   "numpy >=1.26.4",
   "zarr >=3.1.1",
   "virtualizarr >=2.1.2",
-  "icechunk",
+  "icechunk>=2.1",
   "kerchunk>=0.2.9",
   "dask",
   "h5py >=3.14.0",

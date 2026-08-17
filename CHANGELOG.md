@@ -7,6 +7,28 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Added
+
+- `open_virtual()` now authorizes Icechunk virtual chunk containers
+  (`authorize_virtual_chunk_access`) automatically, so stores whose virtual
+  chunks point at NASA HTTP/S3 data can be read with the user's EDL
+  credentials. A new `authorize_virtual_chunk_access` keyword lets users
+  override the auto-detected credentials.
+- New `write_virtual()` function writes a virtual dataset (`virtualize(...,
+  load=False)`) to an Icechunk store, and can append new virtualized granules
+  along a dimension via `append_dim`.
+- `DataCollection.s3_credentials` and `DataGranule.s3_credentials` cached
+  properties expose temporary S3 credentials from collection/granule metadata
+  without re-hitting the credentials endpoint.
+- Icechunk virtual stores are now detected by their on-disk marker, so local
+  directories holding a repository can be passed to `open_virtual()` without
+  "icechunk" in the path.
+- `virtualize()` now supports `combine="by_coords"` (align granules on shared
+  coordinates instead of concatenating), `join`, `loadable_variables`,
+  `drop_variables`, and `tree=True` (return an `xr.DataTree` via
+  `open_virtual_datatree` for multi-group granules). Single-granule calls are
+  opened directly with `open_virtual_dataset`.
+
 ### Fixed
 
 - `search_services` now respects the authenticated system (UAT vs PROD) instead
@@ -16,6 +38,11 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   now derives each S3 link from its own HTTPS link instead of repeating the
   first one, so multi-file granules no longer drop their other files.
   ([#1373](https://github.com/earthaccess-dev/earthaccess/pull/1373))
+- `open_virtual()` on an `https://` Icechunk URI no longer misroutes to local
+  storage; NASA HTTPS stores are opened with the EDL bearer header.
+- NASA HTTPS virtual stores are opened via authenticated `http_storage` instead
+  of anonymous `redirect_storage` when the user is logged in.
+
 
 ## [v0.18.0] - 2026-05-12
 
