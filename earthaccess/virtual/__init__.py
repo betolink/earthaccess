@@ -10,12 +10,14 @@ from earthaccess.virtual.dmrpp import (
     open_virtual_dataset,
     open_virtual_mfdataset,
 )
-from earthaccess.virtual.kerchunk import consolidate_metadata
+from earthaccess.virtual.core import open_virtual, virtualize, write_virtual
 
 __all__ = [
     "open_virtual_dataset",
     "open_virtual_mfdataset",
     "get_granule_credentials_endpoint_and_region",
-    "consolidate_metadata",
-    "SUPPORTED_PARSERS",
+    "homogenize_dataset_codec_level",
+    "open_virtual",
+    "virtualize",
+    "write_virtual",
 ]

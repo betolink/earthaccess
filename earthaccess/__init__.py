@@ -84,9 +84,8 @@ from .search.query import (
     Polygon,
 )
 from .store import Store
-from .store.assets import Asset, AssetFilter
-from .store.target import TargetLocation
-from .virtual import consolidate_metadata, open_virtual_dataset, open_virtual_mfdataset
+from .system import PROD, UAT
+from .virtual import open_virtual, virtualize, write_virtual
 
 logger = logging.getLogger(__name__)
 
@@ -106,39 +105,14 @@ __all__ = [
     "granule_query",
     "collection_query",
     "open",
-    "download",
-    "auth_environ",
-    # search.py
-    "DataGranule",
-    "DataGranules",
-    "DataCollection",
-    "DataCollections",
-    "DataServices",
-    # results.py
-    "SearchResults",
-    # auth.py
-    "Auth",
-    # assets.py
-    "Asset",
-    "AssetFilter",
-    # store.py
-    "Store",
-    # target_filesystem.py
-    "TargetLocation",
-    # kerchunk
-    "consolidate_metadata",
-    # virtualizarr
-    "open_virtual_dataset",
-    "open_virtual_mfdataset",
-    "PROD",
-    "UAT",
-    # query package (new query builders)
-    "GranuleQuery",
-    "CollectionQuery",
-    "BoundingBox",
-    "DateRange",
-    "Point",
-    "Polygon",
+    # virtual
+    "open_virtual",
+    "search_data",
+    "search_datasets",
+    "search_services",
+    "status",
+    "virtualize",
+    "write_virtual",
 ]
 
 __version__ = version("earthaccess")

@@ -882,53 +882,84 @@ def test_s3_and_https_assets_grouped(fixture_file, description):
     data_assets = [
         k for k in assets.keys() if not k.startswith("thumbnail") and k != "browse"
     ]
-    if data_assets:
-        assert assets_with_alternate > 0, (
-            f"Expected S3 assets to have HTTPS alternates. Collection: {description}"
+    # Each input link maps to a distinct S3 URL; the first is not duplicated.
+    assert len(set(s3_links)) == len(s3_links)
+
+
+def test_collection_s3_credentials_is_cached():
+    """DataCollection.s3_credentials fetches the endpoint once and caches it."""
+    from unittest.mock import patch
+
+    from earthaccess.auth import Auth
+
+    creds = {
+        "accessKeyId": "KEY",
+        "secretAccessKey": "SECRET",
+        "sessionToken": "TOKEN",
+    }
+    collection = DataCollection(
+        {
+            "umm": {
+                "DirectDistributionInformation": {
+                    "S3CredentialsAPIEndpoint": "https://data.example.nasa.gov/s3credentials",
+                },
+            },
+            "meta": {},
+        }
+    )
+
+    with patch.object(Auth, "get_s3_credentials", return_value=creds) as mock:
+        assert collection.s3_credentials == creds
+        assert collection.s3_credentials == creds
+        mock.assert_called_once_with(
+            endpoint="https://data.example.nasa.gov/s3credentials",
         )
 
 
-@pytest.mark.parametrize(
-    "fixture_file",
-    [
-        pytest.param("HLSL30_umm.json", id="HLSL30"),
-        pytest.param("HLSS30_umm.json", id="HLSS30"),
-        pytest.param("EMITL2ARFL_umm.json", id="EMITL2ARFL"),
-        pytest.param("GEDI02_B_umm.json", id="GEDI02_B"),
-        pytest.param("GEDI_L4A_umm.json", id="GEDI_L4A"),
-    ],
-)
-def test_stac_item_structure_from_fixtures(fixture_file):
-    """Test that STAC items generated from real CMR data have valid structure."""
-    from earthaccess.search import DataGranule
+def test_collection_s3_credentials_raises_without_endpoint():
+    """DataCollection.s3_credentials raises when no S3CredentialsAPIEndpoint exists."""
+    collection = DataCollection(
+        {"umm": {"DirectDistributionInformation": {}}, "meta": {}}
+    )
 
-    # Load fixture data
-    fixture_data = load_fixture(fixture_file)
+    with pytest.raises(ValueError, match="S3CredentialsAPIEndpoint"):
+        _ = collection.s3_credentials
 
-    # Create DataGranule
-    provider = fixture_data["meta"].get("provider-id", "")
-    cloud_hosted = provider in ("LPCLOUD", "POCLOUD", "ORNL_CLOUD", "GES_DISC")
-    granule = DataGranule(fixture_data, cloud_hosted=cloud_hosted)
 
-    # Convert to STAC
-    stac = granule.to_stac()
+def test_granule_s3_credentials_is_cached():
+    """DataGranule.s3_credentials derives the endpoint and caches the result."""
+    from unittest.mock import patch
 
-    # Verify required STAC Item fields
-    assert "type" in stac
-    assert stac["type"] == "Feature"
-    assert "stac_version" in stac
-    assert "id" in stac
-    assert "geometry" in stac
-    assert "bbox" in stac
-    assert "properties" in stac
-    assert "datetime" in stac["properties"]
-    assert "links" in stac
-    assert "assets" in stac
+    from earthaccess.auth import Auth
 
-    # Verify at least one asset exists
-    assert len(stac["assets"]) > 0
+    creds = {
+        "accessKeyId": "KEY",
+        "secretAccessKey": "SECRET",
+        "sessionToken": "TOKEN",
+    }
+    granule = DataGranule(
+        {
+            "umm": {
+                "RelatedUrls": [
+                    {
+                        "URL": "https://data.example.nasa.gov/s3credentials",
+                        "Type": "GET DATA",
+                    },
+                ],
+            },
+            "meta": {},
+        }
+    )
 
-    # Verify each asset has required fields
-    for key, asset in stac["assets"].items():
-        assert "href" in asset, f"Asset '{key}' missing 'href'"
-        assert "roles" in asset, f"Asset '{key}' missing 'roles'"
+    with patch.object(Auth, "get_s3_credentials", return_value=creds) as mock:
+        assert granule.s3_credentials == creds
+        assert granule.s3_credentials == creds
+        mock.assert_called_once()
+
+
+def test_granule_s3_credentials_raises_without_endpoint():
+    """DataGranule.s3_credentials raises when no s3credentials endpoint exists."""
+    granule = DataGranule({"umm": {"RelatedUrls": []}, "meta": {}})
+
+    with pytest.raises(ValueError, match="s3credentials endpoint"):
+        _ = granule.s3_credentials

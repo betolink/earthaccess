@@ -53,7 +53,15 @@ Documentation = "https://earthaccess.readthedocs.io"
 Changelog = "https://github.com/nsidc/earthaccess/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
-kerchunk = [
+# IMPORTANT: When adding a new optional dependencies group, include it in this
+# "all" optional dependencies group.
+all = ["earthaccess[virtualizarr]"]
+
+virtualizarr = [
+  "numpy >=1.26.4",
+  "zarr >=3.1.1",
+  "virtualizarr >=2.1.2",
+  "icechunk>=2.1",
   "kerchunk>=0.2.9",
   "dask",
   "h5py >=3.14.0",
