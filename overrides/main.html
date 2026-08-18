@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block scripts %}
+  {{ super() }}
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const toc = document.querySelector(".md-sidebar--secondary");
+      if (!toc || !toc.querySelector(".md-nav")) return;
+
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "toc-toggle";
+      button.title = "Toggle the table of contents.";
+      button.textContent = "On this page";
+      button.setAttribute("aria-expanded", "false");
+      button.addEventListener("click", () => {
+        const collapsed = toc.toggleAttribute("hidden");
+        button.setAttribute("aria-expanded", String(!collapsed));
+      });
+
+      toc.setAttribute("hidden", "");
+      document.querySelector(".md-content__inner")?.appendChild(button);
+    });
+  </script>
+{% endblock %}

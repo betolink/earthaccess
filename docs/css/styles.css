@@ -22,3 +22,34 @@
   border-bottom: 3px solid currentColor;
   padding-bottom: 0;
 }
+
+/* Collapsible right-hand in-page TOC (see overrides/main.html).
+ * The toggle button is collapsed by default so rendered notebooks
+ * get the full content width.
+ */
+.toc-toggle {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 20;
+  padding: 0.4rem 0.8rem;
+  border: none;
+  border-radius: 2rem;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 0.75rem;
+  color: var(--md-primary-bg);
+  background: var(--md-primary-fg-color);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.toc-toggle:hover,
+.toc-toggle:focus-visible {
+  filter: brightness(1.1);
+}
+
+@media screen and (max-width: 76.234375em) {
+  .toc-toggle {
+    display: none;
+  }
+}

@@ -8,6 +8,7 @@ __pycache__
 htmlcov
 dist
 site
+.cache
 .coverage
 .coverage.*
 coverage.xml
