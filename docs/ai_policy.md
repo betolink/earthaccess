@@ -60,17 +60,8 @@ The use of an AI agent that writes code and then submits a pull request autonomo
 not permitted. A human must check any generated code and submit a pull request according
 to the 'Responsibility' section above.
 
-## Other Resources
-
-While these do not formally form part of earthaccess's AI policy, the following resources
-may be helpful in understanding some pitfalls associated with using AI to contribute to
-earthaccess:
-
-- https://llvm.org/docs/AIToolPolicy.html
-- https://blog.scientific-python.org/scientific-python/community-considerations-around-ai/
-- https://github.com/melissawm/open-source-ai-contribution-policies
 
 ## Acknowledgements
 
-We thank the SciPy developers for their AI policy, upon which this document is
-largely based, and the SymPy developers, upon whose policy SciPy's is in turn based.
+We thank the SciPy developers for their [AI policy](https://scipy.github.io/devdocs/dev/conduct/ai_policy.html), upon which this document is
+largely based, and the SymPy developers for their [AI policy](https://docs.sympy.org/dev/contributing/ai-generated-code-policy.html), upon whose policy SciPy's is in turn based.
