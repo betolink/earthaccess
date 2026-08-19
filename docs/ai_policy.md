@@ -4,6 +4,13 @@
 that can generate, edit, and review software code, create and manipulate
 images, or generate human-like communication.
 
+## Scope
+
+This policy applies to contributions from the wider community. Automated
+processes operated by the earthaccess maintainer team (for example, dependency
+updates and other repository automations) run under separate maintainer
+oversight and are not governed by the requirements below.
+
 ## Responsibility
 
 You are responsible for any code you submit to earthaccess's repositories, regardless
