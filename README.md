@@ -61,6 +61,13 @@ python -m pip install earthaccess
 
 ### How to access NASA Earth Science data
 
+**You'll need a free NASA Earthdata Login (EDL) account.** If you don't have one yet,
+[register for a free EDL account](https://urs.earthdata.nasa.gov/). `earthaccess.login()`
+prompts you for these credentials (or reads them from a `.netrc` file or environment
+variables). See
+[Authenticate with Earthdata Login](https://earthaccess.readthedocs.io/en/latest/user/howto/authenticate/)
+for details.
+
 With _earthaccess_, data is 3 steps away!
 
 ```python
