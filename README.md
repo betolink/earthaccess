@@ -6,10 +6,6 @@
 
 <p align="center">
 
-<a href="https://github.com/earthaccess-dev/earthaccess/actions/workflows/test.yml" target="_blank">
-    <img src="https://github.com/earthaccess-dev/earthaccess/actions/workflows/test.yml/badge.svg" alt="Unit Tests status" />
-</a>
-
 <a href="https://zenodo.org/badge/latestdoi/399867529" target="_blank">
     <img src="https://zenodo.org/badge/399867529.svg" alt="DOI" />
 </a>
@@ -32,6 +28,10 @@
 
 <a href='https://earthaccess.readthedocs.io/en/latest/?badge=latest'>
     <img src='https://readthedocs.org/projects/earthaccess/badge/?version=latest' alt='Documentation Status' />
+</a>
+
+<a href="https://github.com/earthaccess-dev/earthaccess/actions/workflows/test.yml" target="_blank">
+    <img src="https://github.com/earthaccess-dev/earthaccess/actions/workflows/test.yml/badge.svg" alt="Unit Tests status" />
 </a>
 
 </p>
