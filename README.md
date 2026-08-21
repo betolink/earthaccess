@@ -113,6 +113,27 @@ We'd love to see you there! :open_hands:
 The _minimum_ supported Python version is **3.12**.
 
 
+## How `earthaccess` relates to other tools
+
+`earthaccess` ties search, authentication, and data access together into a single workflow, building on existing open-source tools rather than replacing
+them. Other tools in the NASA Earth science data ecosystem include:
+
+- **[python-cmr](https://github.com/nasa/python_cmr)** — wraps NASA's Common Metadata
+  Repository (CMR) search API. `earthaccess` builds on it, adding provider-aware
+  resolution, cloud-hosting filters, and rich result objects.
+- **[asf_search](https://github.com/asfadmin/Discovery-asf_search)** — search and access
+  tailored to synthetic aperture radar (SAR) data, whereas `earthaccess` is mission- and
+  domain-agnostic.
+- **[icepyx](https://github.com/icesat2py/icepyx)** — ICESat-2-specific search and access
+  that uses `earthaccess` for authentication.
+- **[earthdatalogin](https://github.com/boettiger-lab/earthdatalogin)** — analogous
+  authentication and access tool for the R ecosystem.
+- **[fsspec](https://github.com/fsspec/filesystem_spec) / [s3fs](https://github.com/fsspec/s3fs)**
+  — general-purpose filesystem libraries that advanced users can compose manually;
+  `earthaccess` encapsulates the NASA-specific authentication and cloud-detection logic
+  on top of them.
+
+
 ## How to Contribute to `earthaccess`
 
 If you want to contribute to `earthaccess` checkout the [Contributing Guide](https://earthaccess.readthedocs.io/en/latest/contributor/).
