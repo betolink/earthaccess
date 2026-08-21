@@ -134,6 +134,32 @@ them. Other tools in the NASA Earth science data ecosystem include:
   on top of them.
 
 
+## Citing `earthaccess`
+
+If you use `earthaccess` in your work, please cite it. The version-specific
+citation can be generated from the "Cite this repository" button on the
+[GitHub repository](https://github.com/earthaccess-dev/earthaccess) (powered by
+`CITATION.cff`). For convenience, a general citation using the Zenodo DOI is:
+
+> Barrett, A., Battisto, C., Bourbeau, J., Carroll, I., Daniels, C., Fisher, M.,
+> Kaufman, D., Kennedy, J., Lopez, L., Lowndes, J., Scheick, J., Steiker, A., &
+> Varghese, S. _earthaccess_ [Computer software]. Zenodo.
+> https://doi.org/10.5281/zenodo.8365009
+
+```bibtex
+@software{earthaccess,
+  author    = {Barrett, Andrew and Battisto, Chris and Bourbeau, James and Carroll, Ian and Daniels, Chuck and Fisher, Matt and Kaufman, Daniel and Kennedy, Joseph and Lopez, Luis and Lowndes, Julia and Scheick, Jessica and Steiker, Amy and Varghese, Sherwin},
+  title     = {earthaccess},
+  year      = {2026},
+  publisher = {Zenodo},
+  doi       = {10.5281/zenodo.8365009},
+  url       = {https://doi.org/10.5281/zenodo.8365009}
+}
+```
+
+<!-- TODO: replace with the JOSS paper citation once the JOSS submission is published. -->
+
+
 ## How to Contribute to `earthaccess`
 
 If you want to contribute to `earthaccess` checkout the [Contributing Guide](https://earthaccess.readthedocs.io/en/latest/contributor/).
