@@ -15,7 +15,7 @@ from typing import Any, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
-from earthaccess.results import DataCollection, DataGranule
+from earthaccess.search import DataCollection, DataGranule
 from earthaccess.virtual._credentials import (
     get_granule_credentials_endpoint_and_region,
 )
@@ -679,7 +679,7 @@ class TestOpenIcechunkFromCollection:
             p.stop()
 
     def _collection(self):
-        from earthaccess.results import DataCollection
+        from earthaccess.search import DataCollection
 
         return DataCollection({"umm": {}, "meta": {}})
 
@@ -721,7 +721,7 @@ class TestOpenIcechunkFromCollection:
     def test_collection_s3_vccs_authorized_with_refreshable_creds(self):
         """S3 VCCs on a collection use refreshable credentials from the collection."""
         import icechunk
-        from earthaccess.results import DataCollection
+        from earthaccess.search import DataCollection
         from earthaccess.virtual.core import _open_icechunk_from_collection
 
         collection = DataCollection({"umm": {}, "meta": {}})
@@ -774,7 +774,7 @@ class TestVccAuthorization:
 
     def test_s3_vcc_with_collection_uses_refreshable_creds(self):
         import icechunk
-        from earthaccess.results import DataCollection
+        from earthaccess.search import DataCollection
         from earthaccess.virtual.core import _build_vcc_credentials
 
         collection = DataCollection({"umm": {}, "meta": {}})

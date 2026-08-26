@@ -176,13 +176,13 @@ def redact_key_values(keys_to_redact):
     return before_record_response
 
 
-def pytest_recording_configure(config, vcr):
-    """Register custom compressed persister with VCR.
-
-    This hook is called by pytest-recording to allow VCR customization.
-    We use it to register our gzip-compressed cassette persister.
-    """
-    vcr.register_persister(CompressedPersister)
+# def pytest_recording_configure(config, vcr):
+#     """Register custom compressed persister with VCR.
+# 
+#     This hook is called by pytest-recording to allow VCR customization.
+#     We use it to register our gzip-compressed cassette persister.
+#     """
+#     vcr.register_persister(CompressedPersister)
 
 
 @pytest.fixture(scope="module")
