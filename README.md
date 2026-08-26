@@ -148,7 +148,7 @@ citation can be generated from the "Cite this repository" button on the
 
 ```bibtex
 @software{earthaccess,
-  author    = {Barrett, Andrew and Battisto, Chris and Bourbeau, James and Carroll, Ian and Daniels, Chuck and Fisher, Matt and Kaufman, Daniel and Kennedy, Joseph and Lopez, Luis and Lowndes, Julia and Scheick, Jessica and Steiker, Amy and Varghese, Sherwin},
+  author    = {Barrett, Andrew and Battisto, Chris and Bourbeau, James and Carroll, Ian and Daniels, Chuck and Fisher, Matt and Kaufman, Daniel and Kennedy, Joseph H. and Lopez, Luis and Lowndes, Julia and Scheick, Jessica and Steiker, Amy and Varghese, Sherwin},
   title     = {earthaccess},
   year      = {2026},
   publisher = {Zenodo},
