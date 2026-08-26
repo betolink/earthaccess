@@ -30,14 +30,10 @@ def get_results(
     url = query._build_url()  # noqa: SLF001
 
     results: list[Any] = []
-    more_results = True
     headers = dict(query.headers or {})
 
-    while more_results:
+    while True:
         response = session.get(url, headers=headers, params={"page_size": page_size})
-
-        if cmr_search_after := response.headers.get("cmr-search-after"):
-            headers["cmr-search-after"] = cmr_search_after
 
         try:
             response.raise_for_status()
@@ -45,9 +41,17 @@ def get_results(
             raise RuntimeError(ex.response.text) from ex
 
         latest = response.json()["items"]
-
         results.extend(latest)
 
-        more_results = page_size <= len(latest) and len(results) < limit
+        # CMR returns a `cmr-search-after` header on every page that contains
+        # results, including the final page (which may be shorter than
+        # `page_size`). The only reliable way to detect the end of the result
+        # set is to issue one more request and observe an empty page, so we
+        # keep paging as long as the header is present.
+        cmr_search_after = response.headers.get("cmr-search-after")
+        if not cmr_search_after or len(results) >= limit:
+            break
+
+        headers["cmr-search-after"] = cmr_search_after
 
     return results
