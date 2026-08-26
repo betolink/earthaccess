@@ -129,12 +129,12 @@ nav:
           - Granules:
               - "Granule Queries": "user-reference/granules/granules-query.md"
               - "Granule Results": "user-reference/granules/granules.md"
-           - Store:
-               - "Store": "user-reference/store/store.md"
-           - Auth:
-               - "Auth": "user-reference/auth/auth.md"
-           - Virtual:
-               - "Virtual Datasets": "api/virtual/virtual.md"
+          - Store:
+              - "Store": "user-reference/store/store.md"
+          - Auth:
+              - "Auth": "user-reference/auth/auth.md"
+          - Virtual:
+              - "Virtual Datasets": "api/virtual/virtual.md"
       - Glossary:
           - "NASA Glossary": "user-reference/glossary/nasa-glossary.md"
           - "Cloud Computing Terminology": "user-reference/glossary/cloud-glossary.md"
