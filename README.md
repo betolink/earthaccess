@@ -142,7 +142,7 @@ citation can be generated from the "Cite this repository" button on the
 `CITATION.cff`). For convenience, a general citation using the Zenodo DOI is:
 
 > Barrett, A., Battisto, C., Bourbeau, J., Carroll, I., Daniels, C., Fisher, M.,
-> Kaufman, D., Kennedy, J., Lopez, L., Lowndes, J., Scheick, J., Steiker, A., &
+> Kaufman, D., Kennedy, J.H., Lopez, L., Lowndes, J., Scheick, J., Steiker, A., &
 > Varghese, S. _earthaccess_ [Computer software]. Zenodo.
 > https://doi.org/10.5281/zenodo.8365009
 
