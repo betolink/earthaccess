@@ -16,8 +16,8 @@ __all__ = [
     "open_virtual_dataset",
     "open_virtual_mfdataset",
     "get_granule_credentials_endpoint_and_region",
-    "homogenize_dataset_codec_level",
     "open_virtual",
     "virtualize",
     "write_virtual",
+    "SUPPORTED_PARSERS",
 ]
