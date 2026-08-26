@@ -13,7 +13,7 @@ all_providers = [
     provider
     for daac_info in DAACS
     for provider in set(
-        list(daac_info["cloud-providers"]) + list(daac_info["on-prem-providers"])
+        list(daac_info["cloud-providers"]) + list(daac_info["on-prem-providers"]),
     )
 ]
 
@@ -24,10 +24,8 @@ def top_collections(
     num: int = 100,
 ) -> list[str]:
     if num > 2000:
-        raise RuntimeError(
-            "Paging not supported, can only get up to 2000 top collections"
-        )
-
+        msg = ("Paging not supported, can only get up to 2000 top collections",)
+        raise RuntimeError(msg)
     response = requests.post(
         "https://cmr.earthdata.nasa.gov/search/collections.json",
         data={
@@ -42,10 +40,7 @@ def top_collections(
             "sort_key[]": "-usage_score",
         },
     )
-    collection_ids = [
-        collection["id"] for collection in response.json()["feed"]["entry"]
-    ]
-    return collection_ids
+    return [collection["id"] for collection in response.json()["feed"]["entry"]]
 
 
 def main():

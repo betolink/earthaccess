@@ -1,9 +1,24 @@
 # DAACS ~= NASA Earthdata data centers
-from typing import Optional, Union
+
+from typing import TypedDict
 
 import requests
 
-DAACS = [
+DAACConfig = TypedDict(
+    "DAACConfig",
+    {
+        "short-name": str,
+        "name": str,
+        "homepage": str,
+        "cloud-providers": list[str],
+        "on-prem-providers": list[str],
+        "s3-credentials": str,
+        "eulas": list[str],
+    },
+)
+
+
+DAACS: list[DAACConfig] = [
     {
         "short-name": "NSIDC",
         "name": "National Snow and Ice Data Center",
@@ -119,28 +134,26 @@ DAAC_TEST_URLS = [
 
 
 def find_provider(
-    daac_short_name: Optional[str] = None, cloud_hosted: Optional[bool] = None
-) -> Union[str, None]:
+    daac_short_name: str | None = None,
+    cloud_hosted: bool | None = None,  # noqa: FBT001
+) -> str | None:
     for daac in DAACS:
         if daac_short_name == daac["short-name"]:
             if cloud_hosted:
                 if len(daac["cloud-providers"]) > 0:
                     return daac["cloud-providers"][0]
-                else:
-                    # We found the DAAC, but it does not have cloud data
-                    return daac["on-prem-providers"][0]
-            else:
-                # return on prem provider code
+                # We found the DAAC, but it does not have cloud data
                 return daac["on-prem-providers"][0]
+            # return on prem provider code
+            return daac["on-prem-providers"][0]
     return None
 
 
-def find_provider_by_shortname(short_name: str, cloud_hosted: bool) -> Union[str, None]:
+def find_provider_by_shortname(short_name: str, cloud_hosted: bool) -> str | None:  # noqa: FBT001
     base_url = "https://cmr.earthdata.nasa.gov/search/collections.umm_json?"
     providers = requests.get(
-        f"{base_url}&cloud_hosted={cloud_hosted}&short_name={short_name}"
+        f"{base_url}&cloud_hosted={cloud_hosted}&short_name={short_name}",
     ).json()
     if int(providers["hits"]) > 0:
         return providers["items"][0]["meta"]["provider-id"]
-    else:
-        return None
+    return None

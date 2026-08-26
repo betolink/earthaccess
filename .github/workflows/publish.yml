@@ -8,29 +8,28 @@ jobs:
     name: Build package
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: verify version matches git tag
         run: scripts/verify_tag.sh
 
-      - uses: hynek/build-and-inspect-python-package@v2
+      - uses: hynek/build-and-inspect-python-package@d44ca7d91762de7a7d5436ddae667c6da6d1c3df # v2
 
   publish:
     name: Publish to PyPI
     needs: ["build"]
     runs-on: ubuntu-latest
-    environment: pypi
+    environment:
+      name: pypi
+      url: https://pypi.org/p/earthaccess
     permissions:
       id-token: write
     steps:
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: Packages
           path: dist
 
-      - uses: pypa/gh-action-pypi-publish@release/v1
-        # NOTE: This is not the current best practice. Instead, we should use
-        # "trusted publishing":
-        # https://github.com/pypa/gh-action-pypi-publish?tab=readme-ov-file#trusted-publishing
-        with:
-          password: ${{ secrets.PYPI_TOKEN }}
+      - uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # release/v1
