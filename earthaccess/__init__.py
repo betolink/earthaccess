@@ -84,12 +84,32 @@ from .search.query import (
     Polygon,
 )
 from .store import Store
-from .system import PROD, UAT
 from .virtual import open_virtual, virtualize, write_virtual
 
 logger = logging.getLogger(__name__)
 
 __all__ = [
+    # system.py
+    "PROD",
+    "UAT",
+    # auth.py
+    "Auth",
+    # search.py
+    "DataCollection",
+    "DataCollections",
+    "DataGranule",
+    "DataGranules",
+    "DataServices",
+    "SearchResults",
+    # query package (new query builders)
+    "GranuleQuery",
+    "CollectionQuery",
+    "BoundingBox",
+    "DateRange",
+    "Point",
+    "Polygon",
+    # store.py
+    "Store",
     # api.py
     "login",
     "status",
@@ -105,12 +125,10 @@ __all__ = [
     "granule_query",
     "collection_query",
     "open",
+    "download",
+    "auth_environ",
     # virtual
     "open_virtual",
-    "search_data",
-    "search_datasets",
-    "search_services",
-    "status",
     "virtualize",
     "write_virtual",
 ]
