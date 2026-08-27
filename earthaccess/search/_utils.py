@@ -45,8 +45,14 @@ def get_results(
         items = response.json()["items"]
         results.extend(items)
 
-        # Stop if we've reached the limit or there are no more results
-        if len(items) < page_size or len(results) >= limit:
+        # Stop if we've reached the limit or the page was empty.
+        #
+        # Note: CMR may return fewer than `page_size` items on a page even
+        # when more results remain (observed in production for some queries),
+        # so a short page must NOT be treated as the end of results. The only
+        # reliable signals that pagination is complete are an empty page or
+        # having reached the requested `limit`.
+        if len(items) == 0 or len(results) >= limit:
             break
 
         # Use search-after for next page

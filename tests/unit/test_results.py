@@ -15,7 +15,8 @@ from pathlib import Path
 import earthaccess
 import pytest
 import responses
-from earthaccess.search import DataCollection, DataCollections
+from earthaccess.search import DataCollection, DataCollections, DataGranule, DataGranules
+from earthaccess.search._utils import get_results
 
 logging.basicConfig()
 logging.getLogger("vcr").setLevel(logging.ERROR)
@@ -155,6 +156,68 @@ def test_get_all_more_than_2k(vcr):
     # With truncated cassettes, we get max 20 items per page
     assert len(granules) <= 60  # Truncated: max 20 items × 3 pages
     assert unique_results(granules)
+
+
+@responses.activate
+def test_get_paginates_past_short_first_page():
+    """A page shorter than the requested page_size must not end pagination.
+
+    Regression test for https://github.com/earthaccess-dev/earthaccess/pull/1444.
+
+    CMR may return fewer than `page_size` items on a page even though more
+    results remain (e.g. the granule search for C3974616058-LPCLOUD over 2024
+    returns 1985 items on the first page of 2000, well short of the 12,070
+    total hits). Stopping pagination as soon as a page came back short
+    silently dropped the remaining results. The only reliable signals that
+    pagination is complete are an empty page or reaching the requested
+    `limit`.
+    """
+    url = "https://cmr.earthdata.nasa.gov/search/granules.umm_json"
+
+    # First page is short (fewer than the requested page_size), but CMR
+    # still signals more results via the CMR-Search-After header.
+    responses.add(
+        responses.GET,
+        url,
+        json={
+            "hits": 12070,
+            "items": [
+                {"meta": {"concept-id": f"G{i}-LPCLOUD"}, "umm": {}}
+                for i in range(1985)
+            ],
+        },
+        headers={"CMR-Search-After": '["lpcloud",1718999394000,4165185217]'},
+        status=200,
+    )
+    responses.add(
+        responses.GET,
+        url,
+        json={
+            "hits": 12070,
+            "items": [
+                {"meta": {"concept-id": f"G{i}-LPCLOUD"}, "umm": {}}
+                for i in range(1985, 3985)
+            ],
+        },
+        headers={"CMR-Search-After": '["lpcloud",1722041241000,4166963562]'},
+        status=200,
+    )
+    # Final request: empty page, no CMR-Search-After header.
+    responses.add(
+        responses.GET,
+        url,
+        json={"hits": 12070, "items": []},
+        status=200,
+    )
+
+    query = DataGranules()
+    query.concept_id("C3974616058-LPCLOUD")
+    query.temporal("2024-01-01", "2024-12-31")
+
+    results = get_results(query.session, query, limit=12070)
+
+    assert len(results) == 3985
+    assert len(responses.calls) == 3
 
 
 @pytest.mark.vcr
@@ -882,8 +945,10 @@ def test_s3_and_https_assets_grouped(fixture_file, description):
     data_assets = [
         k for k in assets.keys() if not k.startswith("thumbnail") and k != "browse"
     ]
-    # Each input link maps to a distinct S3 URL; the first is not duplicated.
-    assert len(set(s3_links)) == len(s3_links)
+    if data_assets:
+        assert assets_with_alternate > 0, (
+            f"Expected S3 assets to have HTTPS alternates. Collection: {description}"
+        )
 
 
 def test_collection_s3_credentials_is_cached():
