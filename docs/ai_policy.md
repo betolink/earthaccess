@@ -25,7 +25,7 @@ descriptions.
 You must disclose whether AI has been used to assist in the development of
 your pull request. The pull request template includes a disclosure checkbox;
 please complete it for every pull request, including those where no AI tools
-were used. If AI has been used, document which tool(s) were used, how they were
+were used. If AI has been used, document which tool(s) and version(s) were used, how they were
 used, and specify what code or text is AI generated. We will reject any pull request
 that does not include the disclosure.
 
