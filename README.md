@@ -118,6 +118,8 @@ The _minimum_ supported Python version is **3.12**.
 `earthaccess` ties search, authentication, and data access together into a single workflow, building on existing open-source tools rather than replacing
 them. Other tools in the NASA Earth science data ecosystem include:
 
+- **[VirtualiZarr](https://github.com/zarr-developers/VirtualiZarr)** — builds a virtual Zarr store interface over archival files (netCDF/HDF5) without duplicating data. `earthaccess` integrates it directly via `earthaccess.virtualize()`, turning a set of granules into a virtual xarray `Dataset`, which supports cloud-native access patterns without downloads required.
+
 - **[python-cmr](https://github.com/nasa/python_cmr)** — wraps NASA's Common Metadata
   Repository (CMR) search API. `earthaccess` builds on it, adding provider-aware
   resolution, cloud-hosting filters, and rich result objects.
