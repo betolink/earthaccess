@@ -1,6 +1,6 @@
 # Documentation for `Store`
 
-::: earthaccess.store.Store
+::: earthaccess.store.core.Store
     options:
       inherited_members: true
     show_root_heading: true

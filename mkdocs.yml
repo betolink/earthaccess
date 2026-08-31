@@ -90,6 +90,12 @@ nav:
           - "Icechunk Virtual Cloud Cubes": "implementation-plan-icechunk-vcc.md"
           - "Virtualizing and Combining Granule Trees": "implementation-plan-virtualize-combine-tree.md"
   - "Resources": "resources.md"
+  - Architecture & Design:
+      - "Overview": "refactoring.md"
+      - "STAC Module Architecture": "refactoring/stac-module-architecture.md"
+      - "Implementation Phases (Historical)": "refactoring/stac-implementation-log.md"
+      - "Architecture Comparison": "refactoring/stac-comparison.md"
+      - "Next-Gen Vision": "refactoring/earthaccess-nextgen.md"
   - USER GUIDE:
       - "user_guide/index.md"
       - "Authentication": "user_guide/authenticate.md"

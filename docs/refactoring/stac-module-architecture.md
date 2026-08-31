@@ -278,5 +278,5 @@ To add a new mapping (e.g., a new CMR URL type), add a test fixture with that UR
 - [STAC API Reference (user-facing)](../api/stac/overview.md) — how to use `.to_stac()`, `StacItemQuery`, and the converters
 - [STAC Implementation Log](./stac-implementation-log.md) — historical record of how this module was built (Phases 1–8)
 - [Architecture Comparison](./stac-comparison.md) — design tradeoffs considered during development
-- [Refactoring Index](./index.md) — hub linking all architecture documentation
+- [Refactoring Overview](./../refactoring.md) — hub linking all architecture documentation
 - [STAC Specification](https://stacspec.org/)

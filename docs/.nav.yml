@@ -72,7 +72,7 @@ nav:
           - "Naming conventions": "contributor/reference/naming-convention.md"
 
   - Architecture & Design:
-      - "Overview": "refactoring/index.md"
+      - "Overview": "refactoring.md"
       - "STAC Module Architecture": "refactoring/stac-module-architecture.md"
       - "Implementation Phases (Historical)": "refactoring/stac-implementation-log.md"
       - "Architecture Comparison": "refactoring/stac-comparison.md"

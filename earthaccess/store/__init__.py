@@ -97,7 +97,7 @@ _lazy_imports = {
     "open_files": "earthaccess.store.file_wrapper",
     "optimal_block_size": "earthaccess.store.file_wrapper",
     # store module
-    "Store": "earthaccess.store.store",
+    "Store": "earthaccess.store.core",
     # streaming module
     "StreamingAuthContext": "earthaccess.store.streaming",
     "StreamingExecutor": "earthaccess.store.streaming",
