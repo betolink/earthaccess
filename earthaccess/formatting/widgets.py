@@ -312,7 +312,7 @@ def plot(
     Granules with global coverage (e.g. MUR SST) are drawn as outline-only
     boxes so they do not fill the whole map and hide the basemap.
 
-    When more than 25 footprints are shown, the default fill opacity is
+    When more than 20 footprints are shown, the default fill opacity is
     reduced so overlapping polygons stay distinguishable from the base map.
 
     Parameters:
@@ -356,8 +356,8 @@ def plot(
     # Dial the opacity down as the number of items grows so the base map and
     # individual boundaries stay visible (only for the default color).
     n_results = min(len(cached), max_items)
-    if n_results > 25 and fill_color_defaulted:
-        fill_alpha = max(8, int(80 * (25 / n_results)))
+    if n_results > 20 and fill_color_defaulted:
+        fill_alpha = max(5, int(60 * (20 / n_results)))
         fill_color = [*fill_color[:3], fill_alpha]
 
     # Convert to GeoDataFrame

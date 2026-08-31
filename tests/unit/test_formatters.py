@@ -1203,11 +1203,11 @@ def test_plot_reduces_fill_opacity_for_many_granules():
         def __init__(self, granules):
             self._cached_results = granules
 
-    # <= 25 footprints keep the full default opacity
+    # <= 20 footprints keep the full default opacity
     small = FakeResults([make_granule(i) for i in range(10)])
     assert plot(small).layers[0].get_fill_color[3] == 80
 
-    # > 25 footprints are drawn more transparently
+    # > 20 footprints are drawn more transparently
     large = FakeResults([make_granule(i) for i in range(100)])
     alpha_large = plot(large).layers[0].get_fill_color[3]
     assert alpha_large < 80
