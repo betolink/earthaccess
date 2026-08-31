@@ -451,7 +451,7 @@ def _repr_search_results_html(
                   <th style="width: 18%;">Date</th>
                   <th style="width: 12%;">Size</th>
                   <th style="width: 15%;">File Type</th>
-                  <th style="width: 10%;">Link</th>
+                  <th style="width: 10%;">Assets</th>
                 </tr>
         """
 
@@ -699,8 +699,8 @@ def _granule_row_with_index(granule: "DataGranule", idx: int, widget_id: str) ->
     link_html = ""
     if len(assets) > 1:
         link_html = (
-            f'<a href="javascript:void(0);" onclick="event.stopPropagation(); toggleDetail_{widget_id}({idx})" '
-            f'title="Show {len(assets)} files" style="cursor: pointer;">📁</a>'
+            f'<span onclick="event.stopPropagation(); toggleDetail_{widget_id}({idx})" '
+            f'title="Show {len(assets)} files" style="cursor: pointer;">📁</span>'
         )
     else:
         data_links = granule.data_links()
