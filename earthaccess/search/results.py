@@ -10,6 +10,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from functools import cache, cached_property
+from pathlib import Path
 from typing import Any, Callable, Dict, Iterator, List, Optional, Union
 
 import pystac
@@ -1579,6 +1580,9 @@ class SearchResults:
         self._total_hits: Optional[int] = None
         self._exhausted = False
         self._last_search_after: Optional[str] = None
+        self.verification: Optional[Dict[str, Any]] = None
+        self._stored_fingerprint: Optional[str] = None
+        self._saved_at: Optional[str] = None
 
         # Prefetch initial results
         if prefetch > 0:
@@ -2147,6 +2151,56 @@ class SearchResults:
             Use :meth:`explore` instead.
         """
         return self.explore(max_items=max_items, **kwargs)
+
+    def save(self, path: Union[str, Path]) -> Path:
+        """Save this search to a compressed JSON payload.
+
+        The payload records the replayable query parameters, how many results
+        were loaded, the CMR hit count, a fingerprint over the sorted
+        concept-IDs, and the loaded results. Reload with :meth:`load`, which by
+        default re-runs the query against CMR to verify the search hasn't
+        changed.
+
+        Parameters:
+            path: Where to write the payload (``.gz`` recommended).
+
+        Returns:
+            The path the payload was written to.
+
+        Examples:
+            >>> results = earthaccess.search_data(short_name="ATL06", count=10)
+            >>> list(results)
+            >>> results.save("atl06_search.json.gz")
+        """
+        from earthaccess.search.persistence import save
+
+        return save(self, path)
+
+    @classmethod
+    def load(cls, path: Union[str, Path], verify: bool = True) -> "SearchResults":
+        """Load a search saved with :meth:`save`.
+
+        By default the saved query is re-run against CMR and compared with what
+        was saved; the returned results expose a comparison report via
+        ``results.verification``. Pass ``verify=False`` to load from disk
+        without a network round-trip.
+
+        Parameters:
+            path: Path to the saved payload.
+            verify: If True (default), re-run the query and compare fingerprints
+                and hit counts. If False, load offline.
+
+        Returns:
+            A SearchResults instance with the saved results loaded.
+
+        Examples:
+            >>> results = SearchResults.load("atl06_search.json.gz")
+            >>> results.verification["unchanged"]
+            True
+        """
+        from earthaccess.search.persistence import load
+
+        return load(path, verify=verify)
 
 
 class GranuleResults(SearchResults):

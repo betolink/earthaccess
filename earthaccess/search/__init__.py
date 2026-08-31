@@ -7,6 +7,7 @@ and working with search results.
 # Re-export base query classes from cmr package for backward compatibility
 # These are used internally by DataCollections and DataGranules
 from cmr import CollectionQuery as CmrCollectionQuery, GranuleQuery as CmrGranuleQuery
+from earthaccess.search.persistence import load_search, save_search
 from earthaccess.search.queries import DataCollections, DataGranules
 
 # New query builder classes (earthaccess-native, no cmr dependency)
@@ -61,4 +62,7 @@ __all__ = [
     "CollectionResults",
     # Service class
     "DataServices",
+    # Persistence
+    "save_search",
+    "load_search",
 ]

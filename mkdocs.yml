@@ -111,6 +111,7 @@ nav:
       - "Authenticate with Earthdata Login": "user/howto/authenticate.md"
       - "Search for data using filters": "user/howto/search-granules.md"
       - "Access data": "user/howto/access-data.md"
+      - "Reproduce, save, and verify searches": "user/howto/reproduce-search.md"
       - "Direct S3 access - Open/stream files in the cloud": "user/howto/cloud.md"
       - "Using authenticated sessions to access data": "user/howto/edl.ipynb"
       - "Remote access and caching with earthaccess": "user/explanation/fsspec.ipynb"

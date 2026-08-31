@@ -74,6 +74,8 @@ from .search import (
     DataGranules,
     DataServices,
     SearchResults,
+    load_search,
+    save_search,
 )
 from .search.query import (
     BoundingBox,
@@ -131,6 +133,9 @@ __all__ = [
     "open_virtual",
     "virtualize",
     "write_virtual",
+    # persistence
+    "save_search",
+    "load_search",
 ]
 
 __version__ = version("earthaccess")
