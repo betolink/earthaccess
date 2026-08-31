@@ -745,8 +745,8 @@ def test_repr_search_results_granule_collapsible_assets():
 
     # S3 (direct-access) and HTTPS access both shown as icons on the same line
     assert "☁️" in html
-    assert "📄" in html
-    assert '☁️</a><a href="https://' in html  # cloud (S3) then file (HTTPS) links
+    assert "⬇️" in html
+    assert '☁️</a><a href="https://' in html  # cloud (S3) then download (HTTPS) links
 
     # Browse image (thumbnail) is embedded in the detail row
     assert "<img src=" in html

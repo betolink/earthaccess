@@ -665,7 +665,7 @@ def _granule_row_with_index(granule: "DataGranule", idx: int, widget_id: str) ->
             access_links.append(asset.alternate)
         link_icons = []
         for url in access_links:
-            icon = "☁️" if url.startswith("s3://") else "📄"
+            icon = "☁️" if url.startswith("s3://") else "⬇️"
             link_icons.append(
                 f'<a href="{url}" target="_blank" title="{url}" style="flex: 0 0 auto;">{icon}</a>'
             )
