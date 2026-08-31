@@ -1,12 +1,13 @@
 # Implementation Plan: Icechunk Virtual Chunk Container (VCC) Support
 
-> Status: **DRAFT — awaiting review**
+> Status: **IMPLEMENTED** — shipped in the `nextgen-virtual` branch
 >
-> This document describes how we will add Virtual Chunk Container (VCC)
+> This document started as a plan for adding Virtual Chunk Container (VCC)
 > authorization and icechunk read/write/append workflows to `earthaccess`.
-> It is written so we can compare it against the code as we refactor.
-> Development follows TDD: we write the high-level tests first, then the
-> implementation, then run the full lint/type/test suite.
+> The work described below is **complete**: `open_virtual()` authorizes VCCs
+> automatically (with an explicit-override escape hatch) and the new
+> `write_virtual()` create/append workflow is exported and covered by unit
+> and integration tests (see [Implementation Status](#12-definition-of-done)).
 
 ---
 
@@ -25,7 +26,7 @@ Today `earthaccess.open_virtual()` opens Icechunk stores **without** any
 2. We cannot open NASA stores whose VCCs point at other NASA buckets/URLs.
 3. We cannot *write* or *append* virtual datasets to an Icechunk store.
 
-This plan adds:
+This implementation delivers:
 
 - Automatic VCC authorization when **opening** Icechunk stores (HTTP or S3,
   from a `DataCollection` or a plain URI / local path).
@@ -53,23 +54,23 @@ Reference material:
 
 ---
 
-## 3. Current state (what we are changing)
+## 3. Current state (what was changed)
 
-`earthaccess/virtual/core.py` currently contains:
+`earthaccess/virtual/core.py` now implements the full VCC workflow:
 
-```python
-def _open_icechunk(uri, storage_options=None, access="indirect", **kwargs):
-    # builds icechunk storage (s3/http/local)
-    repo = icechunk.Repository.open(storage=storage)          # <-- no VCC auth
-    session = repo.readonly_session("main")
-    return xr.open_zarr(session.store, **kwargs)
-
-def _open_icechunk_from_collection(collection, url, access="indirect", **kwargs):
-    # builds storage (s3_storage w/ refreshable creds | redirect_storage)
-    repo = icechunk.Repository.open(storage=storage)          # <-- no VCC auth
-    session = repo.readonly_session("main")
-    return xr.open_zarr(session.store, **kwargs)
-```
+- `_open_icechunk` / `_open_icechunk_from_collection` open the store and pass
+  an `authorize_virtual_chunk_access` mapping to `Repository.open(...)`, so
+  virtual chunk containers resolve instead of failing.
+- `_derive_vccs_from_vds` / `_vccs_from_collection` build the VCC mapping from
+  the repo's declared containers (or the collection's credentials), then
+  `authorize_vccs()` **merges explicit user overrides over the auto-detected
+  mapping** (explicit keys win).
+- `open_virtual()` gained an `authorize_virtual_chunk_access` keyword; when
+  omitted, containers are authorized automatically with the user's EDL
+  credentials (NASA S3 / HTTP), and when given, entries override auto-detection.
+- New `write_virtual()` creates and appends a virtual dataset (a
+  `virtualize(..., load=False)` VDS) to a local or `s3://` Icechunk store,
+  declaring the VCCs derived from the dataset's chunk references.
 
 Also relevant:
 
@@ -425,11 +426,11 @@ local store → HTTP indirect:
 
 ## 12. Definition of done
 
-- [ ] `open_virtual` opens NASA HTTP/S3 icechunk stores (with VCCs) end-to-end.
-- [ ] `open_virtual` opens local `.icechunk` stores whose VCCs point at NASA HTTP/S3.
-- [ ] `write_virtual` creates and appends a VDS in a local store.
-- [ ] `write_virtual` creates/appends in an S3 store given write creds.
-- [ ] `authorize_virtual_chunk_access` is exposed and overrides auto-detection.
-- [ ] Unit tests cover each workflow; integration tests gated on network/creds.
-- [ ] Notebook + CHANGELOG updated.
-- [ ] `ruff` / `mypy` / `pytest` green.
+- [x] `open_virtual` opens NASA HTTP/S3 icechunk stores (with VCCs) end-to-end.
+- [x] `open_virtual` opens local `.icechunk` stores whose VCCs point at NASA HTTP/S3.
+- [x] `write_virtual` creates and appends a VDS in a local store.
+- [x] `write_virtual` creates/appends in an S3 store given write creds.
+- [x] `authorize_virtual_chunk_access` is exposed and overrides auto-detection.
+- [x] Unit tests cover each workflow; integration tests gated on network/creds.
+- [x] Notebook + CHANGELOG updated.
+- [x] `ruff` / `mypy` / `pytest` green.
