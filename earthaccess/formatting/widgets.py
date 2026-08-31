@@ -312,6 +312,9 @@ def plot(
     Granules with global coverage (e.g. MUR SST) are drawn as outline-only
     boxes so they do not fill the whole map and hide the basemap.
 
+    When more than 25 footprints are shown, the default fill opacity is
+    reduced so overlapping polygons stay distinguishable from the base map.
+
     Parameters:
         results: A SearchResults instance with cached results
         max_items: Maximum number of bounding boxes to display (default 10000)
@@ -335,6 +338,7 @@ def plot(
     from lonboard import Map, PolygonLayer
 
     # Default colors
+    fill_color_defaulted = fill_color is None
     if fill_color is None:
         fill_color = [0, 100, 200, 80]  # Semi-transparent blue
     if line_color is None:
@@ -347,6 +351,14 @@ def plot(
             "No cached results to display. "
             "Iterate over the SearchResults first to populate the cache."
         )
+
+    # With many overlapping footprints, stacked filled polygons get very dark.
+    # Dial the opacity down as the number of items grows so the base map and
+    # individual boundaries stay visible (only for the default color).
+    n_results = min(len(cached), max_items)
+    if n_results > 25 and fill_color_defaulted:
+        fill_alpha = max(8, int(80 * (25 / n_results)))
+        fill_color = [*fill_color[:3], fill_alpha]
 
     # Convert to GeoDataFrame
     gdf = _bboxes_to_geodataframe(cached, max_items=max_items)

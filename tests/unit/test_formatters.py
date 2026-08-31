@@ -1169,6 +1169,54 @@ def test_plot_splits_global_coverage():
     assert (0, 100, 200, 80) in fills  # regional layer keeps default fill
 
 
+def test_plot_reduces_fill_opacity_for_many_granules():
+    """The default fill opacity drops with many overlapping footprints."""
+    pytest.importorskip("lonboard")
+
+    from earthaccess.formatting.widgets import plot
+
+    def make_granule(i):
+        return DataGranule(
+            {
+                "umm": {
+                    "GranuleUR": f"g{i}",
+                    "SpatialExtent": {
+                        "HorizontalSpatialDomain": {
+                            "Geometry": {
+                                "BoundingRectangles": [
+                                    {
+                                        "WestBoundingCoordinate": -10,
+                                        "SouthBoundingCoordinate": 40,
+                                        "EastBoundingCoordinate": 10,
+                                        "NorthBoundingCoordinate": 50,
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                },
+                "meta": {"concept-id": f"G{i}"},
+            }
+        )
+
+    class FakeResults:
+        def __init__(self, granules):
+            self._cached_results = granules
+
+    # <= 25 footprints keep the full default opacity
+    small = FakeResults([make_granule(i) for i in range(10)])
+    assert plot(small).layers[0].get_fill_color[3] == 80
+
+    # > 25 footprints are drawn more transparently
+    large = FakeResults([make_granule(i) for i in range(100)])
+    alpha_large = plot(large).layers[0].get_fill_color[3]
+    assert alpha_large < 80
+
+    # An explicitly passed fill_color is never overridden
+    explicit = plot(large, fill_color=[255, 0, 0, 128]).layers[0].get_fill_color
+    assert explicit == [255, 0, 0, 128]
+
+
 def test_query_bounding_box_legacy_params():
     """The search ROI is read from the legacy query param dict."""
     from types import SimpleNamespace
