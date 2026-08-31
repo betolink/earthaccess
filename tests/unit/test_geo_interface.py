@@ -1,5 +1,5 @@
 import pytest
-from earthaccess.results import DataGranule
+from earthaccess.search.results import DataCollection, DataGranule
 
 # Mapping from test case identifier to UMMG Geometry with the GeoJSON expected
 # to be the value of the __geo_interface__ property of a DataGranule that
@@ -267,6 +267,7 @@ TEST_CASES = {
 def test_geo_interface(test_case: dict[str, object]):
     geometry = test_case["geometry"]
     geojson = test_case["geojson"]
+
     granule = DataGranule(
         {"umm": {"SpatialExtent": {"HorizontalSpatialDomain": {"Geometry": geometry}}}},
     )
@@ -279,3 +280,37 @@ def test_missing_horizontal_spatial_domain_raises():
 
     with pytest.raises(ValueError):
         _ = granule.__geo_interface__
+
+
+@pytest.mark.parametrize("test_case", TEST_CASES.values(), ids=TEST_CASES.keys())
+def test_collection_geo_interface(test_case: dict[str, object]):
+    geometry = test_case["geometry"]
+    geojson = test_case["geojson"]
+
+    collection = DataCollection(
+        {"umm": {"SpatialExtent": {"HorizontalSpatialDomain": {"Geometry": geometry}}}},
+    )
+
+    assert collection.__geo_interface__ == geojson
+
+
+def test_collection_missing_horizontal_spatial_domain_raises():
+    collection = DataCollection({"umm": {"SpatialExtent": {}}})
+
+    with pytest.raises(ValueError):
+        _ = collection.__geo_interface__
+
+
+def test_collection_invalid_geometry_raises():
+    collection = DataCollection(
+        {
+            "umm": {
+                "SpatialExtent": {
+                    "HorizontalSpatialDomain": {"Geometry": {"BadKey": []}}
+                }
+            }
+        }
+    )
+
+    with pytest.raises(ValueError):
+        _ = collection.__geo_interface__
