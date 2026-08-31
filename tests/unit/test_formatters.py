@@ -17,7 +17,9 @@ from earthaccess.formatting.html import (
     _is_granule,
 )
 from earthaccess.search import DataCollection, DataGranule
-from earthaccess.search.results import SearchResults
+from earthaccess.search.results import EXTENSION_TO_TYPE, SearchResults
+
+from tests.unit.fixtures import load_granule_fixture
 
 
 def test_load_static_files():
@@ -556,6 +558,134 @@ def test_data_granule_repr_html():
     assert isinstance(html, str)
     assert "test-granule-123" in html
     assert "100" in html  # Size
+
+
+# =============================================================================
+# Tests for DataGranule.data_type (file type column)
+# =============================================================================
+
+
+def _make_granule(fixture_name):
+    """Build a DataGranule from a granule fixture, inferring cloud hosting."""
+    fixture = load_granule_fixture(fixture_name)
+    cloud = fixture["meta"].get("provider-id", "") in (
+        "LPCLOUD",
+        "POCLOUD",
+        "ORNL_CLOUD",
+        "GES_DISC",
+    )
+    return DataGranule(fixture, cloud_hosted=cloud)
+
+
+def test_extension_to_type_map_has_common_formats():
+    """The extension map covers the formats we expect to see in CMR granules."""
+    assert EXTENSION_TO_TYPE[".tif"] == "COG"
+    assert EXTENSION_TO_TYPE[".h5"] == "HDF5"
+    assert EXTENSION_TO_TYPE[".nc"] == "NetCDF"
+    assert EXTENSION_TO_TYPE[".jpg"] == "JPEG"
+
+
+@pytest.mark.parametrize(
+    "fixture_name,expected",
+    [
+        pytest.param("HLSS30_umm", "COG, JPEG(thumbs)", id="HLSS30"),
+        pytest.param("HLSL30_umm", "COG, JPEG(thumbs)", id="HLSL30"),
+        pytest.param("EMITL2ARFL_umm", "NetCDF, PNG(thumbs)", id="EMITL2ARFL"),
+        pytest.param("GEDI02_B_umm", "HDF5, PNG(thumbs)", id="GEDI02_B"),
+        pytest.param("GEDI_L4A_umm", "HDF5", id="GEDI_L4A"),
+    ],
+)
+def test_granule_data_type(fixture_name, expected):
+    """data_type() derives distinct file types from a granule's GET DATA links."""
+    granule = _make_granule(fixture_name)
+    assert granule.data_type() == expected
+
+
+def test_granule_data_type_unknown_without_links():
+    """data_type() falls back to Unknown when no GET DATA links exist."""
+    granule = DataGranule(
+        {
+            "umm": {
+                "GranuleUR": "no-links-granule",
+                "RelatedUrls": [
+                    {"URL": "https://example.com/data", "Type": "GET DATA"}
+                ],
+            },
+            "meta": {"concept-id": "G1-TEST"},
+        }
+    )
+    assert granule.data_type() == "Unknown"
+
+
+def test_granule_data_type_hybrid_get_data():
+    """A GET DATA link list with mixed extensions lists all distinct types."""
+    granule = DataGranule(
+        {
+            "umm": {
+                "GranuleUR": "hybrid-granule",
+                "RelatedUrls": [
+                    {
+                        "URL": "https://data.example.gov/granule.tif",
+                        "Type": "GET DATA",
+                    },
+                    {
+                        "URL": "https://data.example.gov/granule.nc",
+                        "Type": "GET DATA",
+                    },
+                    {
+                        "URL": "https://data.example.gov/granule.jpg",
+                        "Type": "GET DATA",
+                    },
+                ],
+            },
+            "meta": {"concept-id": "G2-TEST"},
+        }
+    )
+    assert granule.data_type() == "COG, NetCDF, JPEG"
+
+
+def test_repr_search_results_uses_file_type_column():
+    """The granule results table shows file types instead of the cloud column."""
+    mock_query = MagicMock()
+    granule = _make_granule("HLSS30_umm")
+    results = SearchResults(mock_query)
+    results._total_hits = 1
+    results._cached_results = [granule]
+
+    html = _repr_search_results_html(results)
+
+    assert "File Type" in html
+    assert "COG, JPEG(thumbs)" in html
+    assert '<th style="width: 10%;">Cloud</th>' not in html
+
+
+def test_collection_data_type_from_archive_info():
+    """Collection data_type() reads Format from FileDistributionInformation."""
+    collection = DataCollection(
+        {
+            "umm": {
+                "ShortName": "TEST",
+                "ArchiveAndDistributionInformation": {
+                    "FileDistributionInformation": [
+                        {"Format": "HDF-EOS5", "AverageFileSize": 10.0}
+                    ]
+                },
+            },
+            "meta": {"concept-id": "C1-TEST", "provider-id": "TEST"},
+        }
+    )
+    assert collection.data_type() == "HDF-EOS5"
+
+
+def test_collection_data_type_empty_without_archive_info():
+    """Collection data_type() is empty when no FileDistributionInformation."""
+    collection = DataCollection(
+        {
+            "umm": {"ShortName": "TEST"},
+            "meta": {"concept-id": "C1-TEST", "provider-id": "TEST"},
+        }
+    )
+    assert collection.data_type() == ""
 
 
 # =============================================================================

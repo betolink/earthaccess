@@ -450,7 +450,7 @@ def _repr_search_results_html(
                   <th style="width: 40%;">Name</th>
                   <th style="width: 20%;">Date</th>
                   <th style="width: 15%;">Size</th>
-                  <th style="width: 10%;">Cloud</th>
+                  <th style="width: 10%;">File Type</th>
                   <th style="width: 10%;">Link</th>
                 </tr>
         """
@@ -638,8 +638,8 @@ def _granule_row_with_index(granule: "DataGranule", idx: int) -> str:
     # Size
     size = round(granule.size(), 2)
 
-    # Cloud
-    cloud_icon = "☁️" if granule.cloud_hosted else "🖥️"
+    # File type
+    file_type = granule.data_type()
 
     # First data link
     data_links = granule.data_links()
@@ -656,7 +656,7 @@ def _granule_row_with_index(granule: "DataGranule", idx: int) -> str:
       <td title="{granule_ur}"><code style="font-size: 0.8em;">{name_display}</code></td>
       <td>{date_str}</td>
       <td>{size} MB</td>
-      <td>{cloud_icon}</td>
+      <td>{file_type}</td>
       <td>{link_html}</td>
     </tr>
     """
@@ -839,8 +839,8 @@ def _granule_row(granule: "DataGranule") -> str:
     # Size
     size = round(granule.size(), 2)
 
-    # Cloud
-    cloud_icon = "☁️" if granule.cloud_hosted else "🖥️"
+    # File type
+    file_type = granule.data_type()
 
     # First data link
     data_links = granule.data_links()
@@ -856,7 +856,7 @@ def _granule_row(granule: "DataGranule") -> str:
       <td title="{granule_ur}"><code style="font-size: 0.8em;">{name_display}</code></td>
       <td>{date_str}</td>
       <td>{size} MB</td>
-      <td>{cloud_icon}</td>
+      <td>{file_type}</td>
       <td>{link_html}</td>
     </tr>
     """

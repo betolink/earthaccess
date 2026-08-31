@@ -5,6 +5,7 @@ for representing and working with NASA CMR search results.
 """
 
 import json
+import os
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -32,6 +33,34 @@ def _citation(*, doi: str, format: str, language: str) -> str:
     )
     response.raise_for_status()
     return response.text
+
+
+# Map common file extensions to human-readable data types. Used to derive a
+# granule's file type(s) from the extension of its GET DATA links when the
+# collection does not advertise one (e.g. via ArchiveAndDistributionInformation).
+EXTENSION_TO_TYPE: Dict[str, str] = {
+    ".tif": "COG",
+    ".tiff": "COG",
+    ".h5": "HDF5",
+    ".hdf": "HDF5",
+    ".hdf5": "HDF5",
+    ".he5": "HDF5",
+    ".nc": "NetCDF",
+    ".nc4": "NetCDF",
+    ".zarr": "Zarr",
+    ".csv": "CSV",
+    ".txt": "Text",
+    ".json": "JSON",
+    ".xml": "XML",
+    ".png": "PNG",
+    ".jpg": "JPEG",
+    ".jpeg": "JPEG",
+}
+
+
+def _extension_from_url(url: str) -> str:
+    """Return the file extension of a URL's path, lowercased."""
+    return os.path.splitext(url.split("?")[0].split("#")[0])[1].lower()
 
 
 class CustomDict(dict):
@@ -214,16 +243,26 @@ class DataCollection(CustomDict):
         return self["meta"]["concept-id"]
 
     def data_type(self) -> str:
-        """Placeholder.
+        """Return the collection's data file type, if advertised.
+
+        Reads the ``Format`` field from the collection's
+        ``ArchiveAndDistributionInformation.FileDistributionInformation``
+        (e.g. ``"HDF-EOS5"`` or ``"COG"``).
 
         Returns:
-            The collection data type, i.e. HDF5, CSV etc., if available.
+            The collection data type, e.g. HDF5, CSV etc., or ``""``
+            if the collection does not advertise one.
         """
-        return str(
+        file_dist = (
             self["umm"]
             .get("ArchiveAndDistributionInformation", {})
-            .get("FileDistributionInformation", "")
+            .get("FileDistributionInformation")
         )
+        if isinstance(file_dist, list) and file_dist:
+            for entry in file_dist:
+                if isinstance(entry, dict) and entry.get("Format"):
+                    return str(entry["Format"])
+        return ""
 
     def version(self) -> str:
         """Placeholder.
@@ -948,6 +987,35 @@ class DataGranule(CustomDict):
         """
         links = self._filter_related_links("GET RELATED VISUALIZATION")
         return links
+
+    def data_type(self) -> str:
+        """Return the granule's data file type(s).
+
+        Derives distinct file types from the extensions of the granule's
+        ``GET DATA`` links, e.g. ``"COG"`` for HLS or ``"NetCDF"`` for EMIT.
+        Browse/thumbnail images (``GET RELATED VISUALIZATION``) are appended
+        with a ``(thumbs)`` suffix so multi-file granules read like
+        ``"COG, JPEG(thumbs)"``. Falls back to ``"Unknown"`` when no link
+        extension is recognized.
+
+        Returns:
+            A comma-separated list of distinct file types for this granule.
+        """
+        types: List[str] = []
+        for link in self.data_links():
+            ftype = EXTENSION_TO_TYPE.get(_extension_from_url(link))
+            if ftype and ftype not in types:
+                types.append(ftype)
+
+        thumb_types: List[str] = []
+        for link in self.dataviz_links():
+            ftype = EXTENSION_TO_TYPE.get(_extension_from_url(link))
+            if ftype and ftype not in thumb_types:
+                thumb_types.append(ftype)
+        if thumb_types:
+            types.append(f"{', '.join(thumb_types)}(thumbs)")
+
+        return ", ".join(types) if types else "Unknown"
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert the granule to a plain dictionary.
