@@ -121,6 +121,7 @@ nav:
           - "DMRPP + VirtualiZarr": "user/tutorials/dmrpp-virtualizarr.ipynb"
       - Advanced Search:
           - "Advanced Search tutorials": "tutorials/advanced-search/index.md"
+          - "Filtering granules by file (band) patterns": "tutorials/advanced-search/filter-bands.ipynb"
           - "Search for data using filters": "user/howto/search-granules.md"
           - "Accessing datasets under an ACL": "user/tutorials/restricted-datasets.ipynb"
       - Results Class:
