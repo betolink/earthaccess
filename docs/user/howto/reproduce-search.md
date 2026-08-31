@@ -143,3 +143,18 @@ results for a reproducible workflow.
 
 See also the [Search persistence API reference](../../api/index.md#search-persistence)
 and the [Granule Results API reference](../../api/granules/granules.md).
+
+## Known limitations
+
+- **Spatial filters via `search_data(query=...)`**: passing a query object built
+  with a `polygon` filter to `earthaccess.search_data(query=...)` /
+  `search_datasets(query=...)` currently fails, because the query builder
+  flattens the coordinates into a CMR string that the internal query layer
+  cannot consume. This is a pre-existing bug, unrelated to search persistence.
+  Workarounds:
+  - use the keyword form instead, e.g.
+    `earthaccess.search_data(short_name="ATL06", polygon=[...])`, or
+  - build the query with `loaded.rebuild_query()` from a saved search (which
+    produces a valid query object for all filter types), or
+  - use `loaded.query_params` with `search_data(**params)`.
+  This will be fixed in a future release.
