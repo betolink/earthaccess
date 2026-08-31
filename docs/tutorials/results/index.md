@@ -34,6 +34,13 @@ Each `DataGranule` / `DataCollection` also carries convenience fields and
 methods (`summary()`, `doi()`, `concept_id()`, `data_links()`, `size()`,
 `__geo_interface__`, …).
 
+## Tutorials
+
+- [Results Class Overview](results-class.ipynb) — a hands-on walkthrough of the
+  lazy container: the `repr`, `total()` vs `len()`, indexing/slicing,
+  iteration, `all()`, `pages()`, `items()`, `filter()`, `summary()`, and
+  `to_stac()`.
+
 ## Try it next
 
 - [Results API reference](../../api/granules/granules.md) — `DataGranule`
