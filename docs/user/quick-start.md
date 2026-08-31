@@ -87,7 +87,7 @@ results = earthaccess.search_data(
 
 !!! tip "Rich Display in Jupyter"
 
-    When working in Jupyter notebooks, search results display rich HTML representations automatically. Just evaluate a result in a cell to see formatted metadata, file sizes, and links. You can also visualize spatial coverage with `results.plot()` (requires `pip install earthaccess[widgets]`).
+    When working in Jupyter notebooks, search results display rich HTML representations automatically. Just evaluate a result in a cell to see formatted metadata, file sizes, and links. You can also visualize spatial coverage with `results.explore()` (requires `pip install earthaccess[widgets]`).
 
 ### Step 3. Download the files
 

@@ -12,7 +12,7 @@ In this section you will learn to:
 - Iterate, index, and slice results: `len()`, `[0]`, `[-1]`, `[:10]`, `list()`.
 - Query the CMR hit count with `total()` / `hits()` without downloading results.
 - Fetch everything with `all()` or stream page-by-page with `pages()`.
-- Summarize loaded results with `summary()`, map them with `plot()`, and
+- Summarize loaded results with `summary()`, map them with `explore()`, and
   convert them to STAC with `to_stac()`.
 
 ## The result container
@@ -26,7 +26,7 @@ In this section you will learn to:
 - `pages(page_size=...)` — iterate over pages of results.
 - `summary()` — aggregate metadata (total, loaded, size, cloud count, temporal
   range) for loaded results.
-- `plot()` — an interactive map of the results' spatial extents (needs the
+- `explore()` — an interactive map of the results' spatial extents (needs the
   `[widgets]` extra).
 - `to_stac()` — convert loaded results to `pystac` items/collections.
 

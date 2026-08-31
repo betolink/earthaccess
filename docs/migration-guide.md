@@ -228,16 +228,16 @@ pip install earthaccess[widgets]
 ```
 
 ```python
-# Plot map for search results
+# Explore map for search results
 granules = earthaccess.search_data(short_name="ATL06", count=100)
-granules.plot()
+granules.explore()
 
-# Plot single granule
-granules[0].plot()
+# Explore single granule
+granules[0].explore()
 
-# Plot collection extent
+# Explore collection extent
 collections = earthaccess.search_datasets(short_name="ATL06")
-collections[0].plot()
+collections[0].explore()
 ```
 
 ---
@@ -399,7 +399,7 @@ from earthaccess.search.query import BoundingBox
 |--------|-------------|
 | `to_stac()` | Convert to STAC format |
 | `to_dict()` | Convert to dictionary |
-| `plot()` | Display interactive map (requires `[widgets]`) |
+| `explore()` | Display interactive map (requires `[widgets]`) |
 
 ### New Classes
 
@@ -569,7 +569,7 @@ granules = earthaccess.search_data(query=query)
 stac_item = granules[0].to_stac()
 
 # Use interactive maps (if widgets installed)
-granules.plot()
+granules.explore()
 
 # Use filtering
 large_granules = granules.filter(min_size=1000)

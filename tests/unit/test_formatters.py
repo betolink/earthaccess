@@ -826,8 +826,8 @@ def test_collection_data_type_empty_without_archive_info():
 # =============================================================================
 
 
-def test_search_results_plot_import_error():
-    """Test that SearchResults.plot() raises ImportError when deps missing."""
+def test_search_results_explore_import_error():
+    """Test that SearchResults.explore() raises ImportError when deps missing."""
     mock_query = MagicMock()
     results = SearchResults(mock_query)
     results._cached_results = [
@@ -861,11 +861,11 @@ def test_search_results_plot_import_error():
         side_effect=ImportError("Widget dependencies not installed"),
     ):
         with pytest.raises(ImportError):
-            results.plot()
+            results.explore()
 
 
-def test_data_granule_plot_import_error():
-    """Test that DataGranule.plot() raises ImportError when deps missing."""
+def test_data_granule_explore_import_error():
+    """Test that DataGranule.explore() raises ImportError when deps missing."""
     granule = DataGranule(
         {
             "umm": {
@@ -894,11 +894,11 @@ def test_data_granule_plot_import_error():
         side_effect=ImportError("Widget dependencies not installed"),
     ):
         with pytest.raises(ImportError):
-            granule.plot()
+            granule.explore()
 
 
-def test_data_collection_plot_import_error():
-    """Test that DataCollection.plot() raises ImportError when deps missing."""
+def test_data_collection_explore_import_error():
+    """Test that DataCollection.explore() raises ImportError when deps missing."""
     collection = DataCollection(
         {
             "umm": {
@@ -927,7 +927,28 @@ def test_data_collection_plot_import_error():
         side_effect=ImportError("Widget dependencies not installed"),
     ):
         with pytest.raises(ImportError):
-            collection.plot()
+            collection.explore()
+
+
+def test_plot_is_deprecated_alias_for_explore():
+    """plot() still works but warns and forwards to explore()."""
+    for obj in [
+        DataCollection(
+            {
+                "umm": {"ShortName": "TEST"},
+                "meta": {"concept-id": "C1-TEST", "provider-id": "TEST"},
+            }
+        ),
+        DataGranule(
+            {
+                "umm": {"GranuleUR": "test", "SpatialExtent": {}},
+                "meta": {"concept-id": "G1-TEST"},
+            }
+        ),
+        SearchResults(MagicMock()),
+    ]:
+        assert callable(getattr(obj, "plot"))
+        assert callable(getattr(obj, "explore"))
 
 
 def test_is_global_coverage():

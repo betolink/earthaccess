@@ -15,6 +15,7 @@ from typing import Any, Callable, Dict, Iterator, List, Optional, Union
 import pystac
 import requests
 import s3fs
+from typing_extensions import deprecated
 
 import earthaccess
 from earthaccess.formatting import (
@@ -548,7 +549,7 @@ class DataCollection(CustomDict):
         """
         return _repr_collection_html(self)
 
-    def plot(self, **kwargs: Any) -> Any:
+    def explore(self, **kwargs: Any) -> Any:
         """Display an interactive map with the spatial extent of this collection.
 
         Requires the [widgets] extra: pip install earthaccess[widgets]
@@ -565,11 +566,20 @@ class DataCollection(CustomDict):
 
         Examples:
             >>> collection = earthaccess.search_datasets(short_name="ATL06")[0]
-            >>> collection.plot()  # Display interactive map
+            >>> collection.explore()  # Display interactive map
         """
         from earthaccess.formatting.widgets import plot_collection
 
         return plot_collection(self, **kwargs)
+
+    @deprecated("Use explore() instead")
+    def plot(self, **kwargs: Any) -> Any:
+        """Alias for :meth:`explore`; deprecated.
+
+        .. deprecated:: 1.0.0a2
+            Use :meth:`explore` instead.
+        """
+        return self.explore(**kwargs)
 
 
 @dataclass(frozen=True)
@@ -864,7 +874,7 @@ class DataGranule(CustomDict):
         granule_html_repr = _repr_granule_html(self)
         return granule_html_repr
 
-    def plot(self, **kwargs: Any) -> Any:
+    def explore(self, **kwargs: Any) -> Any:
         """Display an interactive map with the bounding box for this granule.
 
         Requires the [widgets] extra: pip install earthaccess[widgets]
@@ -881,11 +891,20 @@ class DataGranule(CustomDict):
 
         Examples:
             >>> granule = results[0]
-            >>> granule.plot()  # Display interactive map
+            >>> granule.explore()  # Display interactive map
         """
         from earthaccess.formatting.widgets import plot_granule
 
         return plot_granule(self, **kwargs)
+
+    @deprecated("Use explore() instead")
+    def plot(self, **kwargs: Any) -> Any:
+        """Alias for :meth:`explore`; deprecated.
+
+        .. deprecated:: 1.0.0a2
+            Use :meth:`explore` instead.
+        """
+        return self.explore(**kwargs)
 
     def __hash__(self) -> int:  # type: ignore[override]
         return hash(self["meta"]["concept-id"])
@@ -2091,7 +2110,7 @@ class SearchResults:
                 stac_items.append(item.to_stac())
         return stac_items
 
-    def plot(self, max_items: int = 10000, **kwargs):
+    def explore(self, max_items: int = 10000, **kwargs):
         """Display an interactive map with bounding boxes for cached results.
 
         This method creates a lonboard map visualization showing the spatial
@@ -2111,11 +2130,20 @@ class SearchResults:
         Examples:
             >>> results = earthaccess.search_data(short_name="ATL06", count=100)
             >>> list(results)  # Fetch results first
-            >>> results.plot()  # Display interactive map
+            >>> results.explore()  # Display interactive map
         """
         from earthaccess.formatting.widgets import plot
 
         return plot(self, max_items=max_items, **kwargs)
+
+    @deprecated("Use explore() instead")
+    def plot(self, max_items: int = 10000, **kwargs):
+        """Alias for :meth:`explore`; deprecated.
+
+        .. deprecated:: 1.0.0a2
+            Use :meth:`explore` instead.
+        """
+        return self.explore(max_items=max_items, **kwargs)
 
 
 class GranuleResults(SearchResults):
