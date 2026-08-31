@@ -125,6 +125,8 @@ nav:
           - "Accessing datasets under an ACL": "user/tutorials/restricted-datasets.ipynb"
       - Results Class:
           - "Results Class tutorials": "tutorials/results/index.md"
+      - Access to selected datasets:
+          - "Access to selected datasets": "tutorials/access-datasets/index.md"
           - "Streaming data from EMIT": "user/tutorials/emit-earthaccess.ipynb"
           - "Analyzing sea level rise in the cloud": "user/tutorials/SSL.ipynb"
           - "Accessing remote files": "user/tutorials/file-access.ipynb"

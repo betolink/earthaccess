@@ -34,17 +34,6 @@ Each `DataGranule` / `DataCollection` also carries convenience fields and
 methods (`summary()`, `doi()`, `concept_id()`, `data_links()`, `size()`,
 `__geo_interface__`, …).
 
-## Tutorials
-
-- [Streaming data from EMIT](../../user/tutorials/emit-earthaccess.ipynb) — search, summarize, and
-  stream granules from NASA's EMIT mission (uses `search_data`,
-  `search_datasets`, `open`).
-- [Analyzing sea level rise in the cloud](../../user/tutorials/SSL.ipynb) — a full workflow that
-  searches, opens, and analyzes data end-to-end (uses `search_data`,
-  `search_datasets`, `open`).
-- [Accessing remote files with earthaccess](../../user/tutorials/file-access.ipynb) — open remote
-  files and inspect results (uses `search_data`, `open`).
-
 ## Try it next
 
 - [Results API reference](../../api/granules/granules.md) — `DataGranule`
@@ -53,3 +42,5 @@ methods (`summary()`, `doi()`, `concept_id()`, `data_links()`, `size()`,
   `DataCollection` reference.
 - [How search works](../../user/explanation/search.md) — what the result
   containers wrap.
+- [Access to selected datasets](../access-datasets/index.md) — end-to-end
+  workflows on specific NASA missions that use these result containers.
