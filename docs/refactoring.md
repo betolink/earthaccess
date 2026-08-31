@@ -360,6 +360,7 @@ This document is the high-level overview. The sibling documents under
 | [STAC Implementation Log](./refactoring/stac-implementation-log.md) | Historical record of the phased STAC implementation |
 | [Implementation Roadmap](./refactoring/nextgen-implementation.md) | The phased implementation plan tracked in `IMPLEMENTATION_TODO.md` |
 | [Icechunk Virtual Chunk Containers](./refactoring/icechunk-vcc.md) | VCC authorization, `write_virtual()`, and credential selection rules |
+| [Virtualize: combine strategies](./refactoring/virtualize-combine-tree.md) | `combine="by_coords"`, single-file shortcut, and `tree=True` DataTrees |
 | [Virtual DMRPP Groups](./refactoring/vz_dmrpp_groups.md) | DMR++ group virtualization details |
 
 For users, the [User Guide](user/index.md) and [Search & Access API](api/index.md)
