@@ -40,6 +40,12 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   `DataGranule.data_links()` has arguments, so it was **not** changed to a property at
   this time).
 
+### Added
+
+- Python 3.14 is now supported.
+  ([#1307](https://github.com/earthaccess-dev/earthaccess/issues/1307))
+  ([@danielfromearth](https://github.com/danielfromearth))
+
 ### Fixed
 
 - `search_services` now respects the authenticated system (UAT vs PROD) instead
