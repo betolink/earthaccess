@@ -212,6 +212,7 @@ def test_repr_search_results_html_with_granules():
     assert "5" in html  # Cached count
     assert "SC:ATL06.005:123456" in html or "ATL06" in html
     assert "Browse Results" in html  # Collapsible section with pagination
+    assert '<details style="margin-top: 10px;">' in html  # collapsed by default
 
 
 def test_repr_search_results_html_with_collections():

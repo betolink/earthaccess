@@ -601,7 +601,7 @@ def _repr_search_results_html(
           </div>
         </div>
         {summary_html}
-        <details style="margin-top: 10px;" open>
+        <details style="margin-top: 10px;">
           <summary style="cursor: pointer; padding: 5px; background: var(--ea-bg-tertiary, #f5f5f5); border-radius: 3px;">
             <b>Browse Results</b>
           </summary>
