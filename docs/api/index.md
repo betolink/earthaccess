@@ -20,3 +20,11 @@ This library handles authentication with NASA’s OAuth2 API (EDL) and provides 
       inherited_members: true
     show_root_heading: true
     show_source: false
+
+## Search persistence
+
+::: earthaccess.search.persistence
+    options:
+      inherited_members: true
+    show_root_heading: true
+    show_source: false

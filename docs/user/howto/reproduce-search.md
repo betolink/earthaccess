@@ -116,3 +116,6 @@ results for a reproducible workflow.
 - `earthaccess.load_search(path, verify=True)` — load and verify.
 - `SearchResults.save(path)` — method form.
 - `SearchResults.load(path, verify=True)` — classmethod form.
+
+See also the [Search persistence API reference](../../api/index.md#search-persistence)
+and the [Granule Results API reference](../../api/granules/granules.md).
