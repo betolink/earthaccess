@@ -48,15 +48,15 @@ def _repr_auth_html(auth: "Auth") -> str:
     if not auth.authenticated:
         return f"""
         {css_inline}
-        <div class="bootstrap">
+        <div class="bootstrap ea-container">
           <div class="container-fluid border" style="padding: 15px; max-width: 500px;">
             <div class="row">
               <div class="col-12">
-                <h5 style="margin-bottom: 10px; color: #666;">
+                <h5 style="margin-bottom: 10px; color: var(--ea-text-secondary);">
                   <span style="font-size: 1.2em;">🔒</span> Earthdata Login
                 </h5>
-                <div style="background: #fff3cd; padding: 10px; border-radius: 5px; border-left: 4px solid #ffc107;">
-                  <p style="margin: 0; color: #856404;">
+                <div style="background: var(--ea-warning-bg); padding: 10px; border-radius: 5px; border-left: 4px solid var(--ea-warning);">
+                  <p style="margin: 0; color: var(--ea-warning-text);">
                     <b>Not Authenticated</b><br>
                     <span style="font-size: 0.9em;">Use <code>earthaccess.login()</code> to authenticate.</span>
                   </p>
@@ -99,15 +99,13 @@ def _repr_auth_html(auth: "Auth") -> str:
             # Check if expired
             now = datetime.now(exp_dt.tzinfo)
             if exp_dt < now:
-                exp_status = '<span style="color: #dc3545;">Expired</span>'
+                exp_status = '<span style="color: var(--ea-danger);">Expired</span>'
             else:
                 days_left = (exp_dt - now).days
                 if days_left > 7:
-                    exp_status = (
-                        f'<span style="color: #28a745;">Valid ({days_left} days)</span>'
-                    )
+                    exp_status = f'<span style="color: var(--ea-success);">Valid ({days_left} days)</span>'
                 else:
-                    exp_status = f'<span style="color: #ffc107;">Expires soon ({days_left} days)</span>'
+                    exp_status = f'<span style="color: var(--ea-warning);">Expires soon ({days_left} days)</span>'
         except Exception:
             exp_display = expiration
             exp_status = ""
@@ -128,17 +126,17 @@ def _repr_auth_html(auth: "Auth") -> str:
     if username:
         user_display = f"<code>{username}</code>"
     else:
-        user_display = '<span style="color: #666; font-style: italic;">Token-based (no username)</span>'
+        user_display = '<span style="color: var(--ea-text-secondary); font-style: italic;">Token-based (no username)</span>'
 
     return f"""
     {css_inline}
-    <div class="bootstrap">
+    <div class="bootstrap ea-container">
       <div class="container-fluid border" style="padding: 15px; max-width: 550px;">
         <div class="row">
           <div class="col-12">
             <h5 style="margin-bottom: 10px;">
               <span style="font-size: 1.2em;">🌍</span> Earthdata Login
-              <span class="badge" style="background: #28a745; color: white; font-size: 0.7em; padding: 3px 8px; border-radius: 10px; vertical-align: middle;">Authenticated</span>
+              <span class="badge" style="background: var(--ea-success); color: white; font-size: 0.7em; padding: 3px 8px; border-radius: 10px; vertical-align: middle;">Authenticated</span>
             </h5>
           </div>
         </div>
@@ -157,10 +155,10 @@ def _repr_auth_html(auth: "Auth") -> str:
         <div class="row">
           <div class="col-12">
             <details>
-              <summary style="cursor: pointer; padding: 5px; background: #f8f9fa; border-radius: 3px;">
+              <summary style="cursor: pointer; padding: 5px; background: var(--ea-bg-secondary); border-radius: 3px;">
                 <b>Token Details</b>
               </summary>
-              <div style="margin-top: 8px; padding: 10px; background: #f8f9fa; border-radius: 3px; font-size: 0.9em;">
+              <div style="margin-top: 8px; padding: 10px; background: var(--ea-bg-secondary); border-radius: 3px; font-size: 0.9em;">
                 <p style="margin: 3px 0;"><b>Token:</b> <code>{token_display}</code></p>
                 <p style="margin: 3px 0;"><b>Expires:</b> {exp_display} {exp_status}</p>
               </div>
@@ -212,7 +210,7 @@ def _repr_granule_html(granule: "DataGranule") -> str:
 
     return f"""
     {css_inline}
-    <div class="bootstrap">
+    <div class="bootstrap ea-container">
       <div class="container-fluid border" style="padding: 10px;">
         <div class="row">
           <div class="col-8">
@@ -294,12 +292,12 @@ def _repr_collection_html(collection: "DataCollection") -> str:
 
     return f"""
     {css_inline}
-    <div class="bootstrap">
+    <div class="bootstrap ea-container">
       <div class="container-fluid border" style="padding: 10px;">
         <div class="row">
           <div class="col-12">
             <h5 style="margin-bottom: 5px;">{short_name} {f"v{version}" if version else ""}</h5>
-            <p style="margin: 2px 0; color: #666; font-style: italic;">{title}</p>
+            <p style="margin: 2px 0; color: var(--ea-text-secondary); font-style: italic;">{title}</p>
           </div>
         </div>
         <hr style="margin: 8px 0;">
@@ -401,7 +399,7 @@ def _repr_search_results_html(
             # Only show size summary for granules
             summary_html = f"""
             <div class="row" style="margin-top: 5px;">
-              <div class="col-12" style="font-size: 0.85em; color: #555;">
+              <div class="col-12" style="font-size: 0.85em; color: var(--ea-text-secondary);">
                 <b>Summary</b>: {summary["total_size_mb"]:.1f} MB total | {cloud_str}{summary["temporal_range"] or ""}
               </div>
             </div>
@@ -410,7 +408,7 @@ def _repr_search_results_html(
             # For collections, just show cloud count and temporal range
             summary_html = f"""
             <div class="row" style="margin-top: 5px;">
-              <div class="col-12" style="font-size: 0.85em; color: #555;">
+              <div class="col-12" style="font-size: 0.85em; color: var(--ea-text-secondary);">
                 <b>Summary</b>: {cloud_str}{summary["temporal_range"] or ""}
               </div>
             </div>
@@ -544,7 +542,7 @@ def _repr_search_results_html(
     if more_available:
         remaining = (total_hits or 0) - cached_count
         load_more_hint = f"""
-        <div style="margin-top: 8px; padding: 8px; background: #fff3cd; border-radius: 3px; font-size: 0.85em; color: #856404;">
+        <div style="margin-top: 8px; padding: 8px; background: var(--ea-warning-bg); border-radius: 3px; font-size: 0.85em; color: var(--ea-warning-text);">
           <b>Note:</b> {remaining:,} more results available. Use <code>list(results)</code> or iterate to load all, then display again.
         </div>
         """
@@ -570,7 +568,7 @@ def _repr_search_results_html(
           <div style="display: flex; align-items: center; gap: 8px;">
             <label style="font-size: 0.85em; color: var(--ea-text-secondary, #555); margin: 0;">
               Per page:
-              <select onchange="changePageSize_{widget_id}(this.value)" style="margin-left: 4px; padding: 2px 4px; border-radius: 3px; border: 1px solid #ccc;">
+              <select onchange="changePageSize_{widget_id}(this.value)" style="margin-left: 4px; padding: 2px 4px; border-radius: 3px; border: 1px solid var(--ea-border-color);">
                 {page_size_options}
               </select>
             </label>
@@ -587,7 +585,7 @@ def _repr_search_results_html(
 
     return f"""
     {css_inline}
-    <div class="bootstrap" id="widget-{widget_id}">
+    <div class="bootstrap ea-container" id="widget-{widget_id}">
       <div class="container-fluid border" style="padding: 10px;">
         <div class="row">
           <div class="col-12">
@@ -655,9 +653,9 @@ def _granule_row_with_index(granule: "DataGranule", idx: int, widget_id: str) ->
         label = asset.title or asset.href.split("/")[-1]
         role_badge = ""
         if asset.is_data():
-            role_badge = '<span style="background: #28a745; color: white; padding: 1px 5px; border-radius: 8px; font-size: 0.7em;">data</span>'
+            role_badge = '<span style="background: var(--ea-success); color: white; padding: 1px 5px; border-radius: 8px; font-size: 0.7em;">data</span>'
         elif asset.is_thumbnail():
-            role_badge = '<span style="background: #ffc107; color: #333; padding: 1px 5px; border-radius: 8px; font-size: 0.7em;">thumb</span>'
+            role_badge = '<span style="background: var(--ea-warning); color: var(--ea-text-primary); padding: 1px 5px; border-radius: 8px; font-size: 0.7em;">thumb</span>'
         size_str = f"{asset.size / (1024 * 1024):.2f} MB" if asset.size else "—"
 
         # One link per access scheme: S3 gets a cloud icon, HTTPS gets a file icon.
@@ -675,10 +673,10 @@ def _granule_row_with_index(granule: "DataGranule", idx: int, widget_id: str) ->
 
         asset_rows.append(
             f"""
-            <div style="display: flex; align-items: center; gap: 8px; padding: 3px 0; border-bottom: 1px solid #eee;">
-              <span style="flex: 0 0 18px; color: #888;">{role_badge}</span>
+            <div style="display: flex; align-items: center; gap: 8px; padding: 3px 0; border-bottom: 1px solid var(--ea-border-color);">
+              <span style="flex: 0 0 18px; color: var(--ea-text-muted);">{role_badge}</span>
               <code style="flex: 1; font-size: 0.8em; word-break: break-all;">{label}</code>
-              <span style="flex: 0 0 auto; color: #888; font-size: 0.75em;">{size_str}</span>
+              <span style="flex: 0 0 auto; color: var(--ea-text-muted); font-size: 0.75em;">{size_str}</span>
               {access_html}
             </div>
             """
@@ -686,13 +684,13 @@ def _granule_row_with_index(granule: "DataGranule", idx: int, widget_id: str) ->
     assets_html = (
         "".join(asset_rows)
         if asset_rows
-        else "<p style='color: #999;'>No assets found.</p>"
+        else "<p style='color: var(--ea-text-muted);'>No assets found.</p>"
     )
 
     # File count badge in the main row
     file_badge = ""
     if assets:
-        file_badge = f'<span style="background: #6c757d; color: white; padding: 2px 6px; border-radius: 10px; font-size: 0.75em; margin-left: 4px;">{len(assets)}</span>'
+        file_badge = f'<span style="background: var(--ea-btn-secondary-bg); color: white; padding: 2px 6px; border-radius: 10px; font-size: 0.75em; margin-left: 4px;">{len(assets)}</span>'
 
     # Link column: for multi-file granules this expands the asset list; for
     # single-file granules it links directly to the (only) data file.
@@ -713,8 +711,8 @@ def _granule_row_with_index(granule: "DataGranule", idx: int, widget_id: str) ->
     # Main row with toggle button
     main_row = f"""
     <tr data-idx="{idx}" style="cursor: pointer;" onclick="toggleDetail_{widget_id}({idx})">
-      <td style="color: #888; text-align: center;">
-        <span id="toggle-{widget_id}-{idx}" style="font-size: 0.8em; color: #666;">▶</span>
+      <td style="color: var(--ea-text-muted); text-align: center;">
+        <span id="toggle-{widget_id}-{idx}" style="font-size: 0.8em; color: var(--ea-text-secondary);">▶</span>
       </td>
       <td title="{granule_ur}"><code style="font-size: 0.8em;">{name_display}</code>{file_badge}</td>
       <td>{date_str}</td>
@@ -731,7 +729,7 @@ def _granule_row_with_index(granule: "DataGranule", idx: int, widget_id: str) ->
         thumb_url = dataviz[0]
         thumb_html = f"""
             <a href="{thumb_url}" target="_blank" title="View full-size browse image">
-              <img src="{thumb_url}" alt="Browse image" style="width: 100%; max-height: 140px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd; margin-bottom: 8px; background: #f0f0f0;" onerror="this.style.display='none';">
+              <img src="{thumb_url}" alt="Browse image" style="width: 100%; max-height: 140px; object-fit: cover; border-radius: 4px; border: 1px solid var(--ea-border-color); margin-bottom: 8px; background: var(--ea-bg-tertiary);" onerror="this.style.display='none';">
             </a>
         """
 
@@ -785,7 +783,7 @@ def _collection_row_with_index(
     if doi:
         doi_html = f'<a href="https://doi.org/{doi}" target="_blank" style="font-size: 0.8em;">{doi[:30]}{"..." if len(doi) > 30 else ""}</a>'
     else:
-        doi_html = '<span style="color: #999;">—</span>'
+        doi_html = '<span style="color: var(--ea-text-muted);">—</span>'
 
     # Cloud
     cloud_info = collection.get_umm("DirectDistributionInformation")
@@ -814,7 +812,7 @@ def _collection_row_with_index(
     landing = collection.landing_page()
     get_data = collection.get_data()
     link_count = (1 if landing else 0) + len(get_data)
-    links_badge = f'<span style="background: #007bff; color: white; padding: 2px 6px; border-radius: 10px; font-size: 0.75em;">{link_count}</span>'
+    links_badge = f'<span style="background: var(--ea-btn-primary-bg); color: white; padding: 2px 6px; border-radius: 10px; font-size: 0.75em;">{link_count}</span>'
 
     # Build detail row content
     # Temporal extent
@@ -858,14 +856,14 @@ def _collection_row_with_index(
     format_html = (
         f'<span style="font-size: 0.8em;">{data_format}</span>'
         if data_format
-        else '<span style="color: #999;">—</span>'
+        else '<span style="color: var(--ea-text-muted);">—</span>'
     )
 
     # Main row with toggle button
     main_row = f"""
     <tr data-idx="{idx}" style="cursor: pointer;" onclick="toggleDetail_{widget_id}({idx})">
       <td style="text-align: center;">
-        <span id="toggle-{widget_id}-{idx}" style="font-size: 0.8em; color: #666;">▶</span>
+        <span id="toggle-{widget_id}-{idx}" style="font-size: 0.8em; color: var(--ea-text-secondary);">▶</span>
       </td>
       <td title="{short_name}"><code style="font-size: 0.85em;">{name_display}</code></td>
       <td>{format_html}</td>

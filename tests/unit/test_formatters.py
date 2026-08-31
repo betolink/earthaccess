@@ -701,6 +701,24 @@ def test_repr_search_results_uses_file_type_column():
     assert '<th style="width: 10%;">Cloud</th>' not in html
 
 
+def test_repr_search_results_theme_aware():
+    """The results repr uses theme variables and the ea-container hook class."""
+    mock_query = MagicMock()
+    granule = _make_granule("HLSS30_umm")
+    results = SearchResults(mock_query)
+    results._total_hits = 1
+    results._cached_results = [granule]
+
+    html = _repr_search_results_html(results)
+
+    # Root hook so Jupyter dark-theme CSS selectors apply
+    assert 'class="bootstrap ea-container"' in html
+    # Colors come from CSS custom properties, not hardcoded hex
+    assert "var(--ea-" in html
+    for hardcoded in ["color: #666", "color: #888", "background: #f8f9fa"]:
+        assert hardcoded not in html
+
+
 def test_repr_search_results_granule_collapsible_assets():
     """Granule rows expand to a detail row listing individual asset files."""
     mock_query = MagicMock()
