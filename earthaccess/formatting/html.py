@@ -724,12 +724,24 @@ def _granule_row_with_index(granule: "DataGranule", idx: int, widget_id: str) ->
     </tr>
     """
 
+    # Thumbnail image (browse) for the detail row, if the granule has one
+    thumb_html = ""
+    dataviz = granule.dataviz_links()
+    if dataviz:
+        thumb_url = dataviz[0]
+        thumb_html = f"""
+            <a href="{thumb_url}" target="_blank" title="View full-size browse image">
+              <img src="{thumb_url}" alt="Browse image" style="width: 100%; max-height: 140px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd; margin-bottom: 8px; background: #f0f0f0;" onerror="this.style.display='none';">
+            </a>
+        """
+
     # Detail row (hidden by default)
     detail_row = f"""
     <tr id="detail-{widget_id}-{idx}" style="display: none; background: var(--ea-bg-tertiary, #f9f9f9);">
       <td colspan="6" style="padding: 10px 15px;">
         <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 10px;">
           <div>
+            {thumb_html}
             <p style="margin: 4px 0;"><b>Concept ID:</b> <code style="font-size: 0.85em;">{concept_id}</code></p>
             <p style="margin: 4px 0;"><b>File Type:</b> {file_type}</p>
             <p style="margin: 4px 0;"><b>Size:</b> {size} MB</p>

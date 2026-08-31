@@ -730,6 +730,23 @@ def test_repr_search_results_granule_collapsible_assets():
     assert "📄" in html
     assert '☁️</a><a href="https://' in html  # cloud (S3) then file (HTTPS) links
 
+    # Browse image (thumbnail) is embedded in the detail row
+    assert "<img src=" in html
+    assert ".jpg" in html
+
+
+def test_repr_search_results_granule_no_thumbnail():
+    """Granules without a browse image render no <img> in the detail row."""
+    mock_query = MagicMock()
+    granule = _make_granule("GEDI_L4A_umm")
+    results = SearchResults(mock_query)
+    results._total_hits = 1
+    results._cached_results = [granule]
+
+    html = _repr_search_results_html(results)
+
+    assert "<img src=" not in html
+
 
 def test_repr_search_results_granule_main_row_link():
     """Multi-file granules expand via the main-row link; single-file link directly."""
