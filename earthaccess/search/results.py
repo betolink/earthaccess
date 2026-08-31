@@ -499,7 +499,7 @@ class DataCollection(CustomDict):
         """
         return _repr_collection_html(self)
 
-    def plot(self, **kwargs):
+    def plot(self, **kwargs: Any) -> Any:
         """Display an interactive map with the spatial extent of this collection.
 
         Requires the [widgets] extra: pip install earthaccess[widgets]
@@ -815,7 +815,7 @@ class DataGranule(CustomDict):
         granule_html_repr = _repr_granule_html(self)
         return granule_html_repr
 
-    def plot(self, **kwargs):
+    def plot(self, **kwargs: Any) -> Any:
         """Display an interactive map with the bounding box for this granule.
 
         Requires the [widgets] extra: pip install earthaccess[widgets]

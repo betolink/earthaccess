@@ -60,7 +60,7 @@ Our project follows the [SPEC0](https://scientific-python.org/specs/spec-0000/) 
   session = _create_earthdata_session("urs.earthdata.nasa.gov", ("user", "pass"))
   ```
 
-* See the comprehensive [Migration Guide](../migration-guide.md) for upgrading from
+* See the comprehensive [Migration Guide](../../migration-guide.md) for upgrading from
   v0.x to v1.0.0.
 
 ### 1.0.0a1

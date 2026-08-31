@@ -49,7 +49,7 @@ plugins:
   - autorefs
   - redirects:
       redirect_maps:
-        "CODE_OF_CONDUCT.md": "contributing/code-of-conduct.md"
+        "CODE_OF_CONDUCT.md": "contributor/code-of-conduct.md"
   - mkdocs-jupyter:
       execute: true
       execute_ignore:
@@ -72,79 +72,73 @@ plugins:
 
 nav:
   - "What is earthaccess?": "index.md"
-  - "Quick start": "quick-start.md"
-  - "Migration Guide: v0.x → v1.0.0": "migration-guide.md"
+  - "Quick start": "user/quick-start.md"
   - "Work with us":
-      - "contributing/index.md" # << Link target of the parent node
-      - "Development Guide": "contributing/development.md"
-      - "Releasing Guide": "contributing/releasing.md"
-      - "Maintainers Guide": "contributing/maintainers-guide.md"
-      - "Triaging Guide": "contributing/triaging.md"
-      - "Code of Conduct": "contributing/code-of-conduct.md"
-      - "Contributing naming convention": "contributing/naming-convention.md"
-      - "Meet-ups": "contributing/our-meet-ups.md"
-      - "Topics":
-          - "Naming conventions": "contributing/naming-convention.md"
-          - "Integration tests": "contributing/integration-tests.md"
+      - "Contributor guide": "contributor/index.md"
+      - "Development Guide": "contributor/howto/development.md"
+      - "Releasing Guide": "contributor/howto/releasing.md"
+      - "Maintainers Guide": "contributor/howto/maintainers-guide.md"
+      - "Triaging Guide": "contributor/howto/triaging.md"
+      - "Pull Request Guide": "contributor/howto/pr-guide.md"
+      - "Code of Conduct": "contributor/code-of-conduct.md"
+      - "Contributing naming convention": "contributor/reference/naming-convention.md"
+      - "Integration tests": "contributor/explanation/integration-tests.md"
       - Implementation Plans:
           - "Icechunk Virtual Cloud Cubes": "implementation-plan-icechunk-vcc.md"
           - "Virtualizing and Combining Granule Trees": "implementation-plan-virtualize-combine-tree.md"
+      - Architecture & Design:
+          - "Migration Guide: v0.x → v1.0.0": "migration-guide.md"
+          - "Refactoring Overview": "refactoring.md"
+          - "STAC Module Architecture": "refactoring/stac-module-architecture.md"
+          - "Implementation Phases (Historical)": "refactoring/stac-implementation-log.md"
+          - "Architecture Comparison": "refactoring/stac-comparison.md"
+          - "Next-Gen Vision": "refactoring/earthaccess-nextgen.md"
   - "Resources": "resources.md"
-  - Architecture & Design:
-      - "Overview": "refactoring.md"
-      - "STAC Module Architecture": "refactoring/stac-module-architecture.md"
-      - "Implementation Phases (Historical)": "refactoring/stac-implementation-log.md"
-      - "Architecture Comparison": "refactoring/stac-comparison.md"
-      - "Next-Gen Vision": "refactoring/earthaccess-nextgen.md"
   - USER GUIDE:
-      - "user_guide/index.md"
-      - "Authentication": "user_guide/authenticate.md"
-      - "Status": "user_guide/status.md"
-      - "Search": "user_guide/search.md"
-      - "Results": "user_guide/results.md"
-      - "Access": "user_guide/access.md"
-      - "Backwards Compatibility": "user_guide/backwards-compatibility.md"
+      - "user/index.md"
+      - "Authentication": "user/explanation/authenticate.md"
+      - "Status": "user/explanation/status.md"
+      - "Search": "user/explanation/search.md"
+      - "Access": "user/explanation/access.md"
+      - "Backwards Compatibility": "user/explanation/backwards-compatibility.md"
   - HOW-TO:
-      - "Authenticate with Earthdata Login": "howto/authenticate.md"
-      - "Search NASA datasets using filters": "howto/search-collections.md"
-      - "Search for data using filters": "howto/search-granules.md"
-      - "Determine if a dataset is available in the cloud": "howto/storage-location.md"
-      - "Access data": "howto/access-data.md"
-      - "Using authenticated sessions to access data": "howto/edl.ipynb"
-      - "Remote access and caching with earthaccess": "user_guide/fsspec.ipynb"
-      - "Download data from on-prem location": "howto/onprem.md"
-      - "Direct S3 access - Open/stream files in the cloud": "howto/cloud.md"
-      - "Search for services": "howto/search-services.md"
+      - "Authenticate with Earthdata Login": "user/howto/authenticate.md"
+      - "Search for data using filters": "user/howto/search-granules.md"
+      - "Access data": "user/howto/access-data.md"
+      - "Direct S3 access - Open/stream files in the cloud": "user/howto/cloud.md"
+      - "Using authenticated sessions to access data": "user/howto/edl.ipynb"
+      - "Remote access and caching with earthaccess": "user/explanation/fsspec.ipynb"
+      - "Search for services": "user/howto/search-services.md"
   - TUTORIALS:
-      - "Accessing remote NASA data with fsspec": "tutorials/file-access.ipynb"
-      - "Search and access of restricted datasets": "tutorials/restricted-datasets.ipynb"
-      # - "Reproducing NASA sea level rise infographic": "tutorials/SSL.ipynb" TODO: make this faster
-      - "Accessing and visualizing EMIT data with a few lines of code": "tutorials/emit-earthaccess.ipynb"
-      - "Cloud optimized access to TEMPO air quality data with earthaccess and virtualizarr": "tutorials/virtual_dataset_tutorial_with_TEMPO_Level3.ipynb"
+      - "Accessing remote NASA data with fsspec": "user/tutorials/file-access.ipynb"
+      - "Search and access of restricted datasets": "user/tutorials/restricted-datasets.ipynb"
+      - "Accessing and visualizing EMIT data with a few lines of code": "user/tutorials/emit-earthaccess.ipynb"
+      - "Cloud optimized access to TEMPO air quality data with earthaccess and virtualizarr": "user/tutorials/virtual_dataset_tutorial_with_TEMPO_Level3.ipynb"
       - Virtual Datasets:
-          - "Virtual data with kerchunk": "tutorials/virtual_data.ipynb"
           - "Virtual data with Icechunk": "tutorials/icechunk_virtual.ipynb"
           - "Combining granules into a tree": "tutorials/virtualize_combine_tree.ipynb"
-  - USER REFERENCE:
-      - API:
-          - "Search and Access": "user-reference/api/api.md"
-      - Modules:
-          - Collections:
-              - "Collection Queries": "user-reference/collections/collections-query.md"
-              - "Collection Results": "user-reference/collections/collections.md"
-              - "Collection Services": "user-reference/collections/collections-services.md"
-          - Granules:
-              - "Granule Queries": "user-reference/granules/granules-query.md"
-              - "Granule Results": "user-reference/granules/granules.md"
-          - Store:
-              - "Store": "user-reference/store/store.md"
-          - Auth:
-              - "Auth": "user-reference/auth/auth.md"
-          - Virtual:
-              - "Virtual Datasets": "api/virtual/virtual.md"
+          - "Opening STAC-cataloged cloud data": "tutorials/odc-stac-cmr.ipynb"
+  - API REFERENCE:
+      - "Search and Access": "api/index.md"
+      - Collections:
+          - "Collection Queries": "api/collections/collections-query.md"
+          - "Collection Results": "api/collections/collections.md"
+          - "Collection Services": "api/collections/collections-services.md"
+      - Granules:
+          - "Granule Queries": "api/granules/granules-query.md"
+          - "Granule Results": "api/granules/granules.md"
+      - STAC:
+          - "Overview": "api/stac/overview.md"
+          - "Conversion Functions": "api/stac/converters.md"
+          - "Query Builders": "api/stac/queries.md"
+          - "Result Methods": "api/stac/methods.md"
+      - Store:
+          - "Store": "api/store/store.md"
+      - Auth:
+          - "Auth": "api/auth/auth.md"
       - Glossary:
-          - "NASA Glossary": "user-reference/glossary/nasa-glossary.md"
-          - "Cloud Computing Terminology": "user-reference/glossary/cloud-glossary.md"
+          - "NASA Glossary": "user/reference/glossary/nasa-glossary.md"
+          - "Cloud Computing Terminology": "user/reference/glossary/cloud-glossary.md"
   - "About Us": "about-us.md"
 
 markdown_extensions:

@@ -705,9 +705,9 @@ Help improve this guide:
 ## Next Steps
 
 1. **Read the release notes:** [releases/1.0.0a.md](releases/1.0.0a.md)
-2. **Review the CHANGELOG:** [CHANGELOG.md](../CHANGELOG.md)
-3. **Check the API docs:** [User Reference](user-reference/api/api.md)
-4. **Try the tutorials:** [Tutorials](tutorials/)
+2. **Review the CHANGELOG:** [CHANGELOG.md](https://github.com/earthaccess-dev/earthaccess/blob/main/CHANGELOG.md)
+3. **Check the API docs:** [API Reference](api/index.md)
+4. **Try the tutorials:** [Tutorials](user/tutorials/)
 
 ---
 
