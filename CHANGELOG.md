@@ -142,7 +142,7 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - Added `total()` and `hits()` methods to `SearchResults` to get total CMR hits.
   The `len()` function now returns the count of loaded/cached results.
   ([@betolink](https://github.com/betolink))
-- Added interactive map visualization with `show_map()` methods using lonboard.
+- Added interactive map visualization with `plot()` methods using lonboard.
   Requires optional `[widgets]` extra: `pip install earthaccess[widgets]`.
   ([@betolink](https://github.com/betolink))
 - Added geometry file support for `GranuleQuery.polygon()` with automatic

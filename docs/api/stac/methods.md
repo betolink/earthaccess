@@ -4,15 +4,21 @@ Convert search results to STAC format using methods on `DataGranule` and `DataCo
 
 ## `DataGranule.to_stac()`
 
-Convert a granule to STAC Item format.
+Convert a granule to a `pystac.Item`.
 
 **Signature**:
 ```python
-def to_stac(self) -> Dict[str, Any]:
-    """Convert granule to STAC Item dictionary."""
+def to_stac(self) -> pystac.Item:
+    """Convert granule to a pystac Item."""
 ```
 
-**Returns**: Dictionary representing a STAC 1.0.0 Item
+**Returns**: A `pystac.Item` (STAC 1.0.0). Use `.to_dict()` for the JSON
+representation, or pystac/pystac-client methods to serialize or work with it.
+
+Data asset `href`s default to public HTTPS URLs (with S3 kept as `alternate`),
+so items work with tools like `stac_load` outside AWS. Pass `access="s3"` to
+prefer direct S3 URLs (in-region), or `access="auto"` to prefer S3 for
+cloud-hosted granules.
 
 **Example**:
 ```python
@@ -29,14 +35,15 @@ granules = earthaccess.search_data(
 if granules:
     granule = granules[0]
     stac_item = granule.to_stac()
-    
-    print(f"ID: {stac_item['id']}")
-    print(f"Geometry: {stac_item['geometry']}")
-    print(f"Properties: {stac_item['properties']}")
-    print(f"Assets: {stac_item['assets']}")
+
+    print(f"ID: {stac_item.id}")
+    print(f"Geometry: {stac_item.geometry}")
+    print(f"Properties: {stac_item.properties}")
+    print(f"Assets: {stac_item.assets}")
+    print(f"JSON: {stac_item.to_dict()}")
 ```
 
-**Output Structure**:
+**Output Structure** (from `stac_item.to_dict()`):
 ```python
 {
     "type": "Feature",
@@ -93,15 +100,16 @@ if granules:
 
 ## `DataCollection.to_stac()`
 
-Convert a collection to STAC Collection format.
+Convert a collection to a `pystac.Collection`.
 
 **Signature**:
 ```python
-def to_stac(self) -> Dict[str, Any]:
-    """Convert collection to STAC Collection dictionary."""
+def to_stac(self) -> pystac.Collection:
+    """Convert collection to a pystac Collection."""
 ```
 
-**Returns**: Dictionary representing a STAC 1.0.0 Collection
+**Returns**: A `pystac.Collection` (STAC 1.0.0). Use `.to_dict()` for the JSON
+representation, or pystac/pystac-client methods to serialize or work with it.
 
 **Example**:
 ```python
@@ -117,15 +125,15 @@ collections = earthaccess.search_datasets(
 if collections:
     collection = collections[0]
     stac_collection = collection.to_stac()
-    
-    print(f"ID: {stac_collection['id']}")
-    print(f"Title: {stac_collection['title']}")
-    print(f"Description: {stac_collection['description']}")
-    print(f"Spatial extent: {stac_collection['extent']['spatial']}")
-    print(f"Temporal extent: {stac_collection['extent']['temporal']}")
+
+    print(f"ID: {stac_collection.id}")
+    print(f"Title: {stac_collection.title}")
+    print(f"Description: {stac_collection.description}")
+    print(f"Spatial extent: {stac_collection.extent.spatial}")
+    print(f"Temporal extent: {stac_collection.extent.temporal}")
 ```
 
-**Output Structure**:
+**Output Structure** (from `stac_collection.to_dict()`):
 ```python
 {
     "type": "Collection",
@@ -208,7 +216,7 @@ stac_items = [g.to_stac() for g in granules]
 # Create FeatureCollection
 feature_collection = {
     "type": "FeatureCollection",
-    "features": stac_items
+    "features": [s.to_dict() for s in stac_items]
 }
 
 # Save to file
@@ -247,13 +255,11 @@ catalog = {
 
 # Create collection
 collection_stac = collections[0].to_stac()
-collection_stac["links"] = [
-    {"rel": "parent", "href": "./catalog.json"}
+collection_stac.links = [
+    pystac.Link("parent", "./catalog.json")
 ] + [
-    {
-        "rel": "item",
-        "href": f"./items/{i:06d}.json"
-    } for i in range(len(granules))
+    pystac.Link("item", f"./items/{i:06d}.json")
+    for i in range(len(granules))
 ]
 
 # Create items
@@ -264,14 +270,14 @@ with open("catalog.json", "w") as f:
     json.dump(catalog, f, indent=2)
 
 with open("collection.json", "w") as f:
-    json.dump(collection_stac, f, indent=2)
+    json.dump(collection_stac.to_dict(), f, indent=2)
 
 # Save individual items
 import os
 os.makedirs("items", exist_ok=True)
 for i, item in enumerate(items):
     with open(f"items/{i:06d}.json", "w") as f:
-        json.dump(item, f, indent=2)
+        json.dump(item.to_dict(), f, indent=2)
 ```
 
 ---
@@ -336,7 +342,7 @@ granules = earthaccess.search_data(
 with open("stac_items.jsonl", "w") as f:
     for granule in granules:
         stac_item = granule.to_stac()
-        f.write(json.dumps(stac_item) + "\n")  # JSONL format
+        f.write(json.dumps(stac_item.to_dict()) + "\n")  # JSONL format
 ```
 
 ---
@@ -353,7 +359,7 @@ with open("stac_items.jsonl", "w") as f:
 
 **Issue**: STAC Item doesn't validate
 - **Cause**: Missing required STAC fields
-- **Solution**: Use PySTAC library to validate: `Item.from_dict(stac_item).validate()`
+- **Solution**: Use PySTAC to validate: `stac_item.validate()`
 
 ---
 

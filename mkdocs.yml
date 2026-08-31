@@ -59,6 +59,7 @@ plugins:
         - "tutorials/virtual_data.ipynb"
         - "tutorials/icechunk_virtual.ipynb"
         - "tutorials/virtualize_combine_tree.ipynb"
+        - "tutorials/odc-stac-cmr.ipynb"
         - "user/howto/edl.ipynb"
         - "user/explanation/fsspec.ipynb"
       ignore:
@@ -109,15 +110,15 @@ nav:
       - "Direct S3 access - Open/stream files in the cloud": "howto/cloud.md"
       - "Search for services": "howto/search-services.md"
   - TUTORIALS:
-       - "Accessing remote NASA data with fsspec": "tutorials/file-access.ipynb"
-       - "Search and access of restricted datasets": "tutorials/restricted-datasets.ipynb"
-       # - "Reproducing NASA sea level rise infographic": "tutorials/SSL.ipynb" TODO: make this faster
-       - "Accessing and visualizing EMIT data with a few lines of code": "tutorials/emit-earthaccess.ipynb"
-       - "Cloud optimized access to TEMPO air quality data with earthaccess and virtualizarr": "tutorials/virtual_dataset_tutorial_with_TEMPO_Level3.ipynb"
-       - Virtual Datasets:
-           - "Virtual data with kerchunk": "tutorials/virtual_data.ipynb"
-           - "Virtual data with Icechunk": "tutorials/icechunk_virtual.ipynb"
-           - "Combining granules into a tree": "tutorials/virtualize_combine_tree.ipynb"
+      - "Accessing remote NASA data with fsspec": "tutorials/file-access.ipynb"
+      - "Search and access of restricted datasets": "tutorials/restricted-datasets.ipynb"
+      # - "Reproducing NASA sea level rise infographic": "tutorials/SSL.ipynb" TODO: make this faster
+      - "Accessing and visualizing EMIT data with a few lines of code": "tutorials/emit-earthaccess.ipynb"
+      - "Cloud optimized access to TEMPO air quality data with earthaccess and virtualizarr": "tutorials/virtual_dataset_tutorial_with_TEMPO_Level3.ipynb"
+      - Virtual Datasets:
+          - "Virtual data with kerchunk": "tutorials/virtual_data.ipynb"
+          - "Virtual data with Icechunk": "tutorials/icechunk_virtual.ipynb"
+          - "Combining granules into a tree": "tutorials/virtualize_combine_tree.ipynb"
   - USER REFERENCE:
       - API:
           - "Search and Access": "user-reference/api/api.md"

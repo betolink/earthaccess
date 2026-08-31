@@ -60,24 +60,24 @@ __all__ = [
     "_repr_granule_html",
     "_repr_search_results_html",
     # Widget functions (from widgets.py) - require [widgets] extra
-    "show_map",
-    "show_granule_map",
-    "show_collection_map",
+    "plot",
+    "plot_granule",
+    "plot_collection",
 ]
 
 
 def __getattr__(name: str):
     """Lazy import for widget functions to avoid import errors when deps missing."""
-    if name in ("show_map", "show_granule_map", "show_collection_map"):
+    if name in ("plot", "plot_granule", "plot_collection"):
         from earthaccess.formatting.widgets import (
-            show_collection_map,
-            show_granule_map,
-            show_map,
+            plot,
+            plot_collection,
+            plot_granule,
         )
 
         return {
-            "show_map": show_map,
-            "show_granule_map": show_granule_map,
-            "show_collection_map": show_collection_map,
+            "plot": plot,
+            "plot_granule": plot_granule,
+            "plot_collection": plot_collection,
         }[name]
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

@@ -224,6 +224,74 @@ class TestSearchResultsExport:
         assert hasattr(results, "limit")
 
 
+class TestSearchResultsToStac:
+    """Test SearchResults.to_stac() returns pystac objects."""
+
+    def test_to_stac_returns_pystac_items(self) -> None:
+        """Test that to_stac() returns pystac Items with HTTPS hrefs by default."""
+        import pystac
+        from earthaccess.search.results import DataGranule
+
+        granule = DataGranule(
+            {
+                "umm": {
+                    "GranuleUR": "HLS.L30.T10SEG.2023001T185019.v2.0",
+                    "CollectionReference": {"ShortName": "HLSL30"},
+                    "TemporalExtent": {"SingleDateTime": "2023-01-01T00:00:00Z"},
+                    "SpatialExtent": {},
+                    "RelatedUrls": [
+                        {
+                            "Type": "GET DATA VIA DIRECT ACCESS",
+                            "URL": "s3://lp-prod/HLS.L30.T10SEG.2023001T185019.v2.0.B02.tif",
+                        },
+                        {
+                            "Type": "GET DATA",
+                            "URL": "https://data.lpdaac.earthdatacloud.nasa.gov/lp-prod/HLS.L30.T10SEG.2023001T185019.v2.0.B02.tif",
+                        },
+                    ],
+                },
+                "meta": {"concept-id": "G123-LP", "provider-id": "LPCLOUD"},
+            },
+            cloud_hosted=True,
+        )
+        mock_query = create_mock_query(hits=1)
+        results = SearchResults(mock_query, prefetch=0)
+        results._cached_results = [granule]
+
+        stac_items = results.to_stac()
+
+        assert len(stac_items) == 1
+        assert isinstance(stac_items[0], pystac.Item)
+        # Default access prefers HTTPS so stac_load works outside AWS
+        assert stac_items[0].assets["B02"].href.startswith("https://")
+
+    def test_to_stac_access_s3(self) -> None:
+        """Test that access="s3" makes S3 the primary asset href."""
+        from earthaccess.search.results import DataGranule
+
+        granule = DataGranule(
+            {
+                "umm": {
+                    "GranuleUR": "g1",
+                    "CollectionReference": {"ShortName": "HLSL30"},
+                    "SpatialExtent": {},
+                    "RelatedUrls": [
+                        {"Type": "GET DATA VIA DIRECT ACCESS", "URL": "s3://b/x.tif"},
+                        {"Type": "GET DATA", "URL": "https://data/x.tif"},
+                    ],
+                },
+                "meta": {"concept-id": "G1-LP", "provider-id": "LPCLOUD"},
+            },
+            cloud_hosted=True,
+        )
+        mock_query = create_mock_query(hits=1)
+        results = SearchResults(mock_query, prefetch=0)
+        results._cached_results = [granule]
+
+        stac_items = results.to_stac(access="s3")
+        assert stac_items[0].assets["x"].href.startswith("s3://")
+
+
 class TestAPIIntegrationWithSearchResults:
     """Test that API functions return SearchResults."""
 

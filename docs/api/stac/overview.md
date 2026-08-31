@@ -31,9 +31,9 @@ granules = earthaccess.search_data(
 
 # Convert granules to STAC Items
 for granule in granules:
-    stac_item = granule.to_stac()
-    print(f"STAC Item ID: {stac_item['id']}")
-    print(f"Assets: {list(stac_item['assets'].keys())}")
+    stac_item = granule.to_stac()  # pystac.Item
+    print(f"STAC Item ID: {stac_item.id}")
+    print(f"Assets: {list(stac_item.assets.keys())}")
 ```
 
 ### Converting Collections to STAC Format
@@ -47,9 +47,9 @@ collections = earthaccess.search_datasets(
 
 # Convert collections to STAC Collections
 for collection in collections:
-    stac_collection = collection.to_stac()
-    print(f"Collection: {stac_collection['id']}")
-    print(f"Description: {stac_collection['description']}")
+    stac_collection = collection.to_stac()  # pystac.Collection
+    print(f"Collection: {stac_collection.id}")
+    print(f"Description: {stac_collection.description}")
 ```
 
 ## Using STAC Queries

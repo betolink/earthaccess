@@ -13,9 +13,15 @@ import logging
 from pathlib import Path
 
 import earthaccess
+import pystac
 import pytest
 import responses
-from earthaccess.search import DataCollection, DataCollections, DataGranule, DataGranules
+from earthaccess.search import (
+    DataCollection,
+    DataCollections,
+    DataGranule,
+    DataGranules,
+)
 from earthaccess.search._utils import get_results
 
 logging.basicConfig()
@@ -401,23 +407,22 @@ def test_collection_to_stac():
     stac = collection.to_stac()
 
     # Check required STAC fields
-    assert stac["type"] == "Collection"
-    assert stac["stac_version"] == "1.0.0"
-    assert "id" in stac
-    assert "description" in stac
-    assert "extent" in stac
-    assert "links" in stac
+    assert isinstance(stac, pystac.Collection)
+    assert stac.STAC_OBJECT_TYPE == pystac.STACObjectType.COLLECTION
+    assert stac.stac_extensions
+    assert stac.id
+    assert stac.description
+    assert stac.extent
+    assert stac.links
 
     # Check extent structure
-    assert "spatial" in stac["extent"]
-    assert "temporal" in stac["extent"]
-    assert stac["extent"]["spatial"]["bbox"] == [[-180.0, -90.0, 180.0, 90.0]]
+    assert stac.extent.spatial.bboxes == [[-180.0, -90.0, 180.0, 90.0]]
 
     # Check DOI extension
-    assert stac["sci:doi"] == "10.5067/TEST"
+    assert stac.extra_fields["sci:doi"] == "10.5067/TEST"
 
     # Check CMR-specific properties
-    assert stac["cmr:concept_id"] == "C123456-TEST"
+    assert stac.extra_fields["cmr:concept_id"] == "C123456-TEST"
 
 
 def test_granule_to_dict():
@@ -518,31 +523,31 @@ def test_granule_to_stac():
     stac = granule.to_stac()
 
     # Check required STAC Item fields
-    assert stac["type"] == "Feature"
-    assert stac["stac_version"] == "1.0.0"
-    assert stac["id"] == "test_granule_001"
-    assert "geometry" in stac
-    assert "bbox" in stac
-    assert "properties" in stac
-    assert "assets" in stac
-    assert "links" in stac
+    assert isinstance(stac, pystac.Item)
+    assert stac.STAC_OBJECT_TYPE == pystac.STACObjectType.ITEM
+    assert stac.id == "test_granule_001"
+    assert stac.geometry
+    assert stac.bbox
+    assert stac.properties
+    assert stac.assets
+    assert stac.links
 
     # Check geometry
-    assert stac["geometry"]["type"] == "Polygon"
-    assert stac["bbox"] == [-10.0, 30.0, 10.0, 50.0]
+    assert stac.geometry["type"] == "Polygon"
+    assert stac.bbox == [-10.0, 30.0, 10.0, 50.0]
 
     # Check collection reference
-    assert stac["collection"] == "TestCollection_v1.0"
+    assert stac.collection_id == "TestCollection_v1.0"
 
     # Check assets
-    assert "data" in stac["assets"]
-    assert stac["assets"]["data"]["href"] == "https://example.com/data.nc"
+    assert "data" in stac.assets
+    assert stac.assets["data"].href == "https://example.com/data.nc"
     # Thumbnail asset uses filename as key (e.g., "browse" from browse.png)
-    assert "browse" in stac["assets"]
-    assert "thumbnail" in stac["assets"]["browse"]["roles"]
+    assert "browse" in stac.assets
+    assert "thumbnail" in stac.assets["browse"].roles
 
     # Check CMR-specific properties
-    assert stac["properties"]["cmr:concept_id"] == "G123456-TEST"
+    assert stac.properties["cmr:concept_id"] == "G123456-TEST"
 
 
 def test_granule_to_stac_with_s3_links():
@@ -571,9 +576,9 @@ def test_granule_to_stac_with_s3_links():
     stac = granule.to_stac()
 
     # Check that S3 asset has cloud-optimized role
-    assert "data" in stac["assets"]
-    assert stac["assets"]["data"]["href"] == "s3://bucket/data.nc"
-    assert "cloud-optimized" in stac["assets"]["data"]["roles"]
+    assert "data" in stac.assets
+    assert stac.assets["data"].href == "s3://bucket/data.nc"
+    assert "cloud-optimized" in stac.assets["data"].roles
 
 
 def test_collection_to_stac_minimal():
@@ -592,11 +597,12 @@ def test_collection_to_stac_minimal():
     stac = collection.to_stac()
 
     # Should still produce valid STAC structure
-    assert stac["type"] == "Collection"
-    assert stac["id"] == "MinimalCollection"
-    assert "extent" in stac
+    assert isinstance(stac, pystac.Collection)
+    assert stac.STAC_OBJECT_TYPE == pystac.STACObjectType.COLLECTION
+    assert stac.id == "MinimalCollection"
+    assert stac.extent
     # Default bbox when no spatial info
-    assert stac["extent"]["spatial"]["bbox"] == [[-180.0, -90.0, 180.0, 90.0]]
+    assert stac.extent.spatial.bboxes == [[-180.0, -90.0, 180.0, 90.0]]
 
 
 # =============================================================================
@@ -638,20 +644,16 @@ def test_extract_asset_key_from_band_filename():
     stac = granule.to_stac()
 
     # Check that asset keys are meaningful band names, not generic "data_0", "data_1"
-    assert "B02" in stac["assets"], (
-        f"Expected 'B02' key, got: {list(stac['assets'].keys())}"
-    )
-    assert "B03" in stac["assets"], (
-        f"Expected 'B03' key, got: {list(stac['assets'].keys())}"
-    )
-    assert "Fmask" in stac["assets"], (
-        f"Expected 'Fmask' key, got: {list(stac['assets'].keys())}"
+    assert "B02" in stac.assets, f"Expected 'B02' key, got: {list(stac.assets.keys())}"
+    assert "B03" in stac.assets, f"Expected 'B03' key, got: {list(stac.assets.keys())}"
+    assert "Fmask" in stac.assets, (
+        f"Expected 'Fmask' key, got: {list(stac.assets.keys())}"
     )
 
     # Check that generic keys are NOT present
-    assert "data" not in stac["assets"]
-    assert "data_1" not in stac["assets"]
-    assert "data_2" not in stac["assets"]
+    assert "data" not in stac.assets
+    assert "data_1" not in stac.assets
+    assert "data_2" not in stac.assets
 
 
 def test_extract_asset_key_s3_and_https_grouping():
@@ -684,15 +686,42 @@ def test_extract_asset_key_s3_and_https_grouping():
     stac = granule.to_stac()
 
     # Should have only one B02 asset, not B02 and B02_https
-    assert "B02" in stac["assets"]
-    assert len([k for k in stac["assets"] if k.startswith("B02")]) == 1
+    assert "B02" in stac.assets
+    assert len([k for k in stac.assets if k.startswith("B02")]) == 1
 
-    # S3 should be primary href (cloud-hosted)
-    assert stac["assets"]["B02"]["href"].startswith("s3://")
+    # HTTPS should be the primary href by default (works outside AWS)
+    assert stac.assets["B02"].href.startswith("https://")
 
-    # HTTPS should be in alternate
-    assert "alternate" in stac["assets"]["B02"]
-    assert stac["assets"]["B02"]["alternate"]["href"].startswith("https://")
+    # S3 should be in alternate
+    assert "alternate" in stac.assets["B02"].extra_fields
+    assert stac.assets["B02"].extra_fields["alternate"]["href"].startswith("s3://")
+
+    # access="s3" flips the primary href to S3
+    stac_s3 = granule.to_stac(access="s3")
+    assert stac_s3.assets["B02"].href.startswith("s3://")
+    assert (
+        stac_s3.assets["B02"].extra_fields["alternate"]["href"].startswith("https://")
+    )
+
+
+def test_to_stac_invalid_access_raises():
+    """Test that an invalid access strategy raises a ValueError."""
+    from earthaccess.search import DataGranule
+
+    granule = DataGranule(
+        {
+            "umm": {
+                "GranuleUR": "test_granule",
+                "CollectionReference": {"ShortName": "TestCollection"},
+                "SpatialExtent": {},
+                "RelatedUrls": [],
+            },
+            "meta": {"concept-id": "G123-TEST", "provider-id": "TEST"},
+        }
+    )
+
+    with pytest.raises(ValueError, match="access"):
+        granule.to_stac(access="bogus")
 
 
 def test_extract_asset_key_thumbnail():
@@ -724,10 +753,10 @@ def test_extract_asset_key_thumbnail():
     stac = granule.to_stac()
 
     # Thumbnails should be named from filename (without extension)
-    assert "browse" in stac["assets"] or "thumbnail" in stac["assets"]
+    assert "browse" in stac.assets or "thumbnail" in stac.assets
     assert (
-        "thumbnail" in stac["assets"]["browse"]["roles"]
-        or "visual" in stac["assets"]["browse"]["roles"]
+        "thumbnail" in stac.assets["browse"].roles
+        or "visual" in stac.assets["browse"].roles
     )
 
 
@@ -757,8 +786,8 @@ def test_extract_asset_key_single_data_file():
 
     # Single data file should use filename (without extension) as key
     # Or just "data" if the filename matches granule ID
-    assert len(stac["assets"]) == 1
-    asset_key = list(stac["assets"].keys())[0]
+    assert len(stac.assets) == 1
+    asset_key = list(stac.assets.keys())[0]
     # Either the key is "data" (when filename == granule_id) or the filename
     assert asset_key in ("data", "ATL08_20190221121851_08410203_005_01")
 
@@ -788,7 +817,7 @@ def test_extract_asset_key_netcdf_with_extension():
     stac = granule.to_stac()
 
     # Key should be the filename without extension, or "data" if it matches granule ID
-    asset_key = list(stac["assets"].keys())[0]
+    asset_key = list(stac.assets.keys())[0]
     assert ".nc" not in asset_key  # Extension should be removed
 
 
@@ -886,7 +915,7 @@ def test_multifile_collection_asset_extraction(
     stac = granule.to_stac()
 
     # Check that all expected asset keys are present
-    asset_keys = list(stac["assets"].keys())
+    asset_keys = list(stac.assets.keys())
     for expected_key in expected_keys:
         assert expected_key in asset_keys, (
             f"Expected asset key '{expected_key}' not found. "
@@ -914,8 +943,8 @@ def test_multifile_collection_asset_extraction(
 def test_s3_and_https_assets_grouped(fixture_file, description):
     """Test that S3 and HTTPS versions of the same file are grouped together.
 
-    For cloud-hosted data, S3 URLs should be the primary href, with HTTPS
-    as an alternate access method in the same asset.
+    With ``access="s3"``, S3 URLs are the primary href and HTTPS is kept as
+    an alternate access method in the same asset.
     """
     from earthaccess.search import DataGranule
 
@@ -925,18 +954,19 @@ def test_s3_and_https_assets_grouped(fixture_file, description):
     # Create DataGranule (cloud_hosted=True for grouping behavior)
     granule = DataGranule(fixture_data, cloud_hosted=True)
 
-    # Convert to STAC
-    stac = granule.to_stac()
-    assets = stac["assets"]
+    # Convert to STAC, preferring S3 hrefs
+    stac = granule.to_stac(access="s3")
+    assets = stac.assets
 
     # Count how many assets have both S3 and HTTPS versions
     assets_with_alternate = 0
     for key, asset in assets.items():
-        href = asset.get("href", "")
+        href = asset.href
         if href.startswith("s3://"):
             # S3 is primary, check for HTTPS alternate
-            if "alternate" in asset:
-                alt_href = asset["alternate"].get("href", "")
+            alt = asset.extra_fields.get("alternate")
+            if alt is not None:
+                alt_href = alt.get("href", "")
                 if alt_href.startswith("https://"):
                     assets_with_alternate += 1
 

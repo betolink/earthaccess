@@ -581,10 +581,10 @@ granules = earthaccess.search_data(
     count=5
 )
 
-# Convert a granule to a STAC Item
+# Convert a granule to a pystac Item
 stac_item = granules[0].to_stac()
-print(stac_item["type"])  # "Feature"
-print(stac_item["stac_version"])  # "1.0.0"
+print(stac_item.STAC_OBJECT_TYPE)  # "Feature"
+print(stac_item.to_dict()["stac_version"])  # "1.0.0"
 
 # Convert to a plain dictionary (useful for serialization)
 granule_dict = granules[0].to_dict()
@@ -598,7 +598,7 @@ datasets = earthaccess.search_datasets(
     count=1
 )
 
-# Convert to STAC Collection format
+# Convert to a pystac Collection
 stac_collection = datasets[0].to_stac()
-print(stac_collection["type"])  # "Collection"
+print(stac_collection.STAC_OBJECT_TYPE)  # "Collection"
 ```

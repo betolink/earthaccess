@@ -511,7 +511,7 @@ def test_has_widget_support_with_missing_deps():
 
 
 # =============================================================================
-# Tests for DataCollection._repr_html_ and show_map
+# Tests for DataCollection._repr_html_ and plot
 # =============================================================================
 
 
@@ -559,12 +559,12 @@ def test_data_granule_repr_html():
 
 
 # =============================================================================
-# Tests for show_map methods (ImportError handling)
+# Tests for plot methods (ImportError handling)
 # =============================================================================
 
 
-def test_search_results_show_map_import_error():
-    """Test that SearchResults.show_map() raises ImportError when deps missing."""
+def test_search_results_plot_import_error():
+    """Test that SearchResults.plot() raises ImportError when deps missing."""
     mock_query = MagicMock()
     results = SearchResults(mock_query)
     results._cached_results = [
@@ -598,11 +598,11 @@ def test_search_results_show_map_import_error():
         side_effect=ImportError("Widget dependencies not installed"),
     ):
         with pytest.raises(ImportError):
-            results.show_map()
+            results.plot()
 
 
-def test_data_granule_show_map_import_error():
-    """Test that DataGranule.show_map() raises ImportError when deps missing."""
+def test_data_granule_plot_import_error():
+    """Test that DataGranule.plot() raises ImportError when deps missing."""
     granule = DataGranule(
         {
             "umm": {
@@ -631,11 +631,11 @@ def test_data_granule_show_map_import_error():
         side_effect=ImportError("Widget dependencies not installed"),
     ):
         with pytest.raises(ImportError):
-            granule.show_map()
+            granule.plot()
 
 
-def test_data_collection_show_map_import_error():
-    """Test that DataCollection.show_map() raises ImportError when deps missing."""
+def test_data_collection_plot_import_error():
+    """Test that DataCollection.plot() raises ImportError when deps missing."""
     collection = DataCollection(
         {
             "umm": {
@@ -664,4 +664,222 @@ def test_data_collection_show_map_import_error():
         side_effect=ImportError("Widget dependencies not installed"),
     ):
         with pytest.raises(ImportError):
-            collection.show_map()
+            collection.plot()
+
+
+def test_is_global_coverage():
+    """Test that global vs regional extents are correctly distinguished."""
+    from earthaccess.formatting.widgets import _is_global_coverage
+
+    # Full-globe MUR SST granule extent
+    assert _is_global_coverage([-180, -90, 180, 90])
+    # Near-global with small polar/land gaps
+    assert _is_global_coverage([-180, -88, 180, 88])
+    # Regional footprints
+    assert not _is_global_coverage([-98, 19, -82, 31])
+    assert not _is_global_coverage([-10, 40, 10, 50])
+
+
+def test_bboxes_to_geodataframe_coverage():
+    """Test that the coverage column tags global and regional granules."""
+    pytest.importorskip("geopandas")
+
+    from earthaccess.formatting.widgets import _bboxes_to_geodataframe
+
+    granule = DataGranule(
+        {
+            "umm": {
+                "GranuleUR": "global-granule",
+                "SpatialExtent": {
+                    "HorizontalSpatialDomain": {
+                        "Geometry": {
+                            "BoundingRectangles": [
+                                {
+                                    "WestBoundingCoordinate": -180,
+                                    "SouthBoundingCoordinate": -90,
+                                    "EastBoundingCoordinate": 180,
+                                    "NorthBoundingCoordinate": 90,
+                                }
+                            ]
+                        }
+                    }
+                },
+            },
+            "meta": {"concept-id": "G-GLOBAL"},
+        }
+    )
+
+    gdf = _bboxes_to_geodataframe([granule])
+    assert len(gdf) == 1
+    assert gdf["coverage"].tolist() == ["global"]
+
+    regional = DataGranule(
+        {
+            "umm": {
+                "GranuleUR": "regional-granule",
+                "SpatialExtent": {
+                    "HorizontalSpatialDomain": {
+                        "Geometry": {
+                            "BoundingRectangles": [
+                                {
+                                    "WestBoundingCoordinate": -98,
+                                    "SouthBoundingCoordinate": 19,
+                                    "EastBoundingCoordinate": -82,
+                                    "NorthBoundingCoordinate": 31,
+                                }
+                            ]
+                        }
+                    }
+                },
+            },
+            "meta": {"concept-id": "G-REGIONAL"},
+        }
+    )
+
+    gdf2 = _bboxes_to_geodataframe([regional])
+    assert gdf2["coverage"].tolist() == ["regional"]
+
+
+def test_bboxes_to_geodataframe_metadata():
+    """Test that granules/collections carry CMR links plus temporal and spatial."""
+    pytest.importorskip("geopandas")
+
+    from earthaccess.formatting.widgets import _bboxes_to_geodataframe
+
+    granule = DataGranule(
+        {
+            "meta": {"concept-id": "G3357328910-LPCLOUD"},
+            "umm": {
+                "GranuleUR": "HLS.L30.T55MGQ.2025001T001252.v2.0",
+                "SpatialExtent": {
+                    "HorizontalSpatialDomain": {
+                        "Geometry": {
+                            "BoundingRectangles": [
+                                {
+                                    "WestBoundingCoordinate": 65.25,
+                                    "SouthBoundingCoordinate": 25.5,
+                                    "EastBoundingCoordinate": 71.25,
+                                    "NorthBoundingCoordinate": 30.5,
+                                }
+                            ]
+                        }
+                    }
+                },
+                "TemporalExtent": {
+                    "RangeDateTime": {
+                        "BeginningDateTime": "2025-01-01T00:12:52Z",
+                        "EndingDateTime": "2025-01-01T00:17:52Z",
+                    }
+                },
+            },
+        },
+        cloud_hosted=True,
+    )
+
+    gdf = _bboxes_to_geodataframe([granule])
+    row = gdf.iloc[0]
+    assert (
+        row["id"]
+        == "https://cmr.earthdata.nasa.gov/search/concepts/G3357328910-LPCLOUD"
+    )
+    assert row["temporal"] == "2025-01-01 to 2025-01-01"
+    assert row["spatial"] == "W 65.25, S 25.50, E 71.25, N 30.50"
+
+    collection = DataCollection(
+        {
+            "meta": {"concept-id": "C1996881146-POCLOUD"},
+            "umm": {
+                "ShortName": "MUR-JPL-L4-GLOB-v4.1",
+                "Version": "4.1",
+                "SpatialExtent": {
+                    "HorizontalSpatialDomain": {
+                        "Geometry": {
+                            "BoundingRectangles": [
+                                {
+                                    "WestBoundingCoordinate": -180,
+                                    "SouthBoundingCoordinate": -90,
+                                    "EastBoundingCoordinate": 180,
+                                    "NorthBoundingCoordinate": 90,
+                                }
+                            ]
+                        }
+                    }
+                },
+                "TemporalExtents": [
+                    {
+                        "RangeDateTimes": [
+                            {
+                                "BeginningDateTime": "2002-06-01T00:00:00Z",
+                                "EndingDateTime": "2026-08-01T00:00:00Z",
+                            }
+                        ]
+                    }
+                ],
+            },
+        }
+    )
+
+    gdf2 = _bboxes_to_geodataframe([collection])
+    row2 = gdf2.iloc[0]
+    assert (
+        row2["id"]
+        == "https://cmr.earthdata.nasa.gov/search/concepts/C1996881146-POCLOUD"
+    )
+    assert row2["temporal"] == "2002-06-01 to 2026-08-01"
+    assert row2["spatial"] == "W -180.00, S -90.00, E 180.00, N 90.00"
+
+
+def test_plot_splits_global_coverage():
+    """Test that global-coverage granules are rendered without a fill."""
+    pytest.importorskip("lonboard")
+
+    from earthaccess.formatting.widgets import plot
+
+    def make_granule(west, south, east, north, name):
+        return DataGranule(
+            {
+                "umm": {
+                    "GranuleUR": name,
+                    "SpatialExtent": {
+                        "HorizontalSpatialDomain": {
+                            "Geometry": {
+                                "BoundingRectangles": [
+                                    {
+                                        "WestBoundingCoordinate": west,
+                                        "SouthBoundingCoordinate": south,
+                                        "EastBoundingCoordinate": east,
+                                        "NorthBoundingCoordinate": north,
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                },
+                "meta": {"concept-id": name},
+            }
+        )
+
+    class FakeResults:
+        def __init__(self, granules):
+            self._cached_results = granules
+
+    # Only global-coverage granules -> single outline-only layer, no fill.
+    global_results = FakeResults(
+        [make_granule(-180, -90, 180, 90, "g-global") for _ in range(3)]
+    )
+    m = plot(global_results)
+    assert len(m.layers) == 1
+    assert m.layers[0].get_fill_color == [0, 100, 200, 0]
+
+    # Mixed global + regional -> one outline-only layer and one filled layer.
+    mixed_results = FakeResults(
+        [
+            make_granule(-180, -90, 180, 90, "g-global"),
+            make_granule(-98, 19, -82, 31, "g-regional"),
+        ]
+    )
+    m2 = plot(mixed_results)
+    assert len(m2.layers) == 2
+    fills = {tuple(layer.get_fill_color) for layer in m2.layers}
+    assert (0, 100, 200, 0) in fills  # global layer has no fill
+    assert (0, 100, 200, 80) in fills  # regional layer keeps default fill

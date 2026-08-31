@@ -11,6 +11,7 @@ from datetime import datetime
 from functools import cache, cached_property
 from typing import Any, Callable, Dict, Iterator, List, Optional, Union
 
+import pystac
 import requests
 import s3fs
 
@@ -294,14 +295,15 @@ class DataCollection(CustomDict):
         """
         return dict(self)
 
-    def to_stac(self) -> Dict[str, Any]:
+    def to_stac(self) -> pystac.Collection:
         """Convert the CMR UMM collection to a STAC Collection.
 
-        Returns a dictionary representation of a STAC Collection following
-        the STAC spec. This can be used with pystac or pystac-client.
+        Returns a pystac Collection following the STAC spec. Use
+        ``pystac_client`` or pystac's serialization methods to work with it
+        further.
 
         Returns:
-            A dictionary representing a STAC Collection.
+            A pystac Collection.
         """
         # Extract basic metadata
         concept_id = self.concept_id()
@@ -349,7 +351,7 @@ class DataCollection(CustomDict):
         stac_collection["cmr:concept_id"] = concept_id
         stac_collection["cmr:provider_id"] = self["meta"].get("provider-id", "")
 
-        return stac_collection
+        return pystac.Collection.from_dict(stac_collection)
 
     def _extract_temporal_extent(self, temporal_extents: Any) -> List[Optional[str]]:
         """Extract temporal extent from UMM TemporalExtents."""
@@ -459,16 +461,16 @@ class DataCollection(CustomDict):
         """
         return _repr_collection_html(self)
 
-    def show_map(self, **kwargs):
+    def plot(self, **kwargs):
         """Display an interactive map with the spatial extent of this collection.
 
         Requires the [widgets] extra: pip install earthaccess[widgets]
 
         Parameters:
-            **kwargs: Additional arguments passed to loneboard (fill_color, line_color)
+            **kwargs: Additional arguments passed to lonboard (fill_color, line_color)
 
         Returns:
-            A loneboard Map widget for display in Jupyter
+            A lonboard Map widget for display in Jupyter
 
         Raises:
             ImportError: If widget dependencies are not installed
@@ -476,11 +478,11 @@ class DataCollection(CustomDict):
 
         Examples:
             >>> collection = earthaccess.search_datasets(short_name="ATL06")[0]
-            >>> collection.show_map()  # Display interactive map
+            >>> collection.plot()  # Display interactive map
         """
-        from earthaccess.formatting.widgets import show_collection_map
+        from earthaccess.formatting.widgets import plot_collection
 
-        return show_collection_map(self, **kwargs)
+        return plot_collection(self, **kwargs)
 
 
 @dataclass(frozen=True)
@@ -629,16 +631,16 @@ class DataGranule(CustomDict):
         granule_html_repr = _repr_granule_html(self)
         return granule_html_repr
 
-    def show_map(self, **kwargs):
+    def plot(self, **kwargs):
         """Display an interactive map with the bounding box for this granule.
 
         Requires the [widgets] extra: pip install earthaccess[widgets]
 
         Parameters:
-            **kwargs: Additional arguments passed to loneboard (fill_color, line_color)
+            **kwargs: Additional arguments passed to lonboard (fill_color, line_color)
 
         Returns:
-            A loneboard Map widget for display in Jupyter
+            A lonboard Map widget for display in Jupyter
 
         Raises:
             ImportError: If widget dependencies are not installed
@@ -646,11 +648,11 @@ class DataGranule(CustomDict):
 
         Examples:
             >>> granule = results[0]
-            >>> granule.show_map()  # Display interactive map
+            >>> granule.plot()  # Display interactive map
         """
-        from earthaccess.formatting.widgets import show_granule_map
+        from earthaccess.formatting.widgets import plot_granule
 
-        return show_granule_map(self, **kwargs)
+        return plot_granule(self, **kwargs)
 
     def __hash__(self) -> int:  # type: ignore[override]
         return hash(self["meta"]["concept-id"])
@@ -774,15 +776,29 @@ class DataGranule(CustomDict):
         """
         return dict(self)
 
-    def to_stac(self) -> Dict[str, Any]:
+    def to_stac(self, access: str = "https") -> pystac.Item:
         """Convert the CMR UMM granule to a STAC Item.
 
-        Returns a dictionary representation of a STAC Item following
-        the STAC spec. This can be used with pystac or pystac-client.
+        Returns a pystac Item following the STAC spec. Use ``pystac_client``
+        or pystac's serialization methods to work with it further.
+
+        Parameters:
+            access: Which URL scheme to use for the data asset ``href``:
+                - ``"https"`` (default): prefer public HTTPS URLs, so items
+                  work outside AWS (e.g. with ``stac_load``); S3 is kept as
+                  the asset ``alternate``.
+                - ``"s3"``: prefer direct S3 URLs for in-region access.
+                - ``"auto"``: prefer S3 for cloud-hosted granules, HTTPS
+                  otherwise.
 
         Returns:
-            A dictionary representing a STAC Item.
+            A pystac Item.
         """
+        if access not in ("auto", "https", "s3"):
+            raise ValueError(
+                f"Invalid access {access!r}; expected 'auto', 'https', or 's3'."
+            )
+
         # Extract basic metadata
         concept_id = self["meta"]["concept-id"]
         granule_ur = self["umm"].get("GranuleUR", concept_id)
@@ -818,7 +834,10 @@ class DataGranule(CustomDict):
             properties["start_datetime"] = start_datetime
             properties["end_datetime"] = end_datetime
         else:
+            # pystac requires start/end to be present when datetime is null
             properties["datetime"] = None
+            properties["start_datetime"] = None
+            properties["end_datetime"] = None
 
         # Add size if available
         if self.size() > 0:
@@ -836,7 +855,7 @@ class DataGranule(CustomDict):
             "bbox": bbox,
             "properties": properties,
             "links": self._build_item_links(collection_id),
-            "assets": self._build_item_assets(),
+            "assets": self._build_item_assets(access=access),
             "collection": collection_id,
         }
 
@@ -844,7 +863,7 @@ class DataGranule(CustomDict):
         stac_item["properties"]["cmr:concept_id"] = concept_id
         stac_item["properties"]["cmr:provider_id"] = self["meta"].get("provider-id", "")
 
-        return stac_item
+        return pystac.Item.from_dict(stac_item)
 
     def _extract_item_datetime(self, temporal_extent: Dict[str, Any]) -> Optional[str]:
         """Extract a single datetime from temporal extent."""
@@ -1059,13 +1078,19 @@ class DataGranule(CustomDict):
             return "image/jpeg"
         return None
 
-    def _build_item_assets(self) -> Dict[str, Dict[str, Any]]:
+    def _build_item_assets(self, access: str = "auto") -> Dict[str, Dict[str, Any]]:
         """Build STAC assets from granule data links.
 
         This method creates STAC-compatible asset dictionaries with meaningful
         keys derived from filenames (e.g., "B02", "Fmask" for HLS data).
         S3 and HTTPS versions of the same file are grouped together, with
         the preferred access method as primary href and the other as alternate.
+
+        Args:
+            access: Which URL scheme to prefer as the primary asset href:
+                - ``"auto"``: prefer S3 for cloud-hosted granules, HTTPS otherwise
+                - ``"https"``: prefer public HTTPS URLs (good for out-of-region access)
+                - ``"s3"``: prefer direct S3 URLs (good for in-region AWS access)
         """
         assets: Dict[str, Dict[str, Any]] = {}
 
@@ -1098,13 +1123,23 @@ class DataGranule(CustomDict):
 
         # Build assets from groups
         for asset_key, urls in asset_groups.items():
-            # Prefer S3 for cloud-hosted data, HTTPS otherwise
-            if self.cloud_hosted and "s3" in urls:
-                primary_url = urls["s3"]
-                alternate_url = urls.get("https")
-            else:
+            has_s3 = "s3" in urls
+            has_https = "https" in urls
+
+            # Select primary/alternate based on the requested access strategy
+            if access == "https":
                 primary_url = urls.get("https") or urls.get("s3", "")
-                alternate_url = urls.get("s3") if "https" in urls else None
+                alternate_url = urls.get("s3") if has_s3 and has_https else None
+            elif access == "s3":
+                primary_url = urls.get("s3") or urls.get("https", "")
+                alternate_url = urls.get("https") if has_s3 and has_https else None
+            else:  # "auto": prefer S3 for cloud-hosted data, HTTPS otherwise
+                if self.cloud_hosted and has_s3:
+                    primary_url = urls["s3"]
+                    alternate_url = urls.get("https")
+                else:
+                    primary_url = urls.get("https") or urls.get("s3", "")
+                    alternate_url = urls.get("s3") if has_https else None
 
             asset: Dict[str, Any] = {
                 "href": primary_url,
@@ -1750,42 +1785,56 @@ class SearchResults:
 
         return result
 
-    def to_stac(self) -> List[Dict[str, Any]]:
-        """Convert all cached results to STAC format.
+    def to_stac(
+        self, access: str = "https"
+    ) -> List[Union[pystac.Item, pystac.Collection]]:
+        """Convert all cached results to STAC objects.
 
         Converts each cached search result to its STAC representation.
-        For granules, returns STAC Items. For collections, returns STAC Collections.
+        For granules, returns pystac Items. For collections, returns
+        pystac Collections.
 
         Note: This only converts currently cached results. To convert all matching
         results, iterate over the SearchResults first to cache them.
 
+        Parameters:
+            access: Which URL scheme to use for granule data asset hrefs
+                (``"https"`` by default, ``"s3"``, or ``"auto"``). Ignored for
+                collections.
+
         Returns:
-            List of STAC-compatible dictionaries (Items or Collections)
+            List of pystac Item or Collection objects
 
         Examples:
             >>> results = earthaccess.search_data(short_name="ATL06", count=10)
             >>> stac_items = results.to_stac()
-            >>> print(len(stac_items))  # 10 STAC Items
-            >>> print(stac_items[0]["type"])  # "Feature"
+            >>> print(len(stac_items))  # 10 pystac Items
+            >>> print(stac_items[0].id)  # granule ID
 
             >>> collections = earthaccess.search_datasets(keyword="temperature")
             >>> stac_collections = collections.to_stac()
-            >>> print(stac_collections[0]["type"])  # "Collection"
+            >>> print(stac_collections[0].id)  # collection ID
         """
-        return [item.to_stac() for item in self._cached_results]
+        stac_items: List[Union[pystac.Item, pystac.Collection]] = []
+        for item in self._cached_results:
+            if isinstance(item, DataGranule):
+                stac_items.append(item.to_stac(access=access))
+            else:
+                stac_items.append(item.to_stac())
+        return stac_items
 
-    def show_map(self, max_items: int = 10000, **kwargs):
+    def plot(self, max_items: int = 10000, **kwargs):
         """Display an interactive map with bounding boxes for cached results.
 
-        This method creates a loneboard map visualization showing the spatial
+        This method creates a lonboard map visualization showing the spatial
         extent of cached search results. Requires the [widgets] extra.
 
         Parameters:
             max_items: Maximum number of bounding boxes to display (default 10000)
-            **kwargs: Additional arguments passed to loneboard (fill_color, line_color)
+            **kwargs: Additional arguments passed to lonboard (fill_color, line_color)
 
         Returns:
-            A loneboard Map widget for display in Jupyter
+            A lonboard Map widget for display in Jupyter
 
         Raises:
             ImportError: If widget dependencies are not installed
@@ -1794,11 +1843,11 @@ class SearchResults:
         Examples:
             >>> results = earthaccess.search_data(short_name="ATL06", count=100)
             >>> list(results)  # Fetch results first
-            >>> results.show_map()  # Display interactive map
+            >>> results.plot()  # Display interactive map
         """
-        from earthaccess.formatting.widgets import show_map
+        from earthaccess.formatting.widgets import plot
 
-        return show_map(self, max_items=max_items, **kwargs)
+        return plot(self, max_items=max_items, **kwargs)
 
 
 class GranuleResults(SearchResults):

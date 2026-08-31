@@ -14,7 +14,7 @@ Usage:
         fixture = load_granule_fixture("HLSL30_umm")
         granule = DataGranule(fixture, cloud_hosted=True)
         stac = granule.to_stac()
-        assert "B02" in stac["assets"]
+        assert "B02" in stac.assets
 """
 
 import json

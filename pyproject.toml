@@ -44,6 +44,7 @@ dependencies = [
   "multimethod >=1.8",
   "importlib-resources >=6.3.2",
   "typing_extensions >=4.10.0",
+  "pystac >=1.8",
 ]
 
 [project.urls]
@@ -81,7 +82,7 @@ kerchunk = [
 ]
 widgets = [
   "anywidget >=0.9; python_version < '3.14' and platform_python_implementation != 'PyPy'",
-  "lonboard >=0.9; python_version < '3.14' and platform_python_implementation != 'PyPy'",
+  "lonboard >=0.13; python_version < '3.14' and platform_python_implementation != 'PyPy'",
   "geopandas >=0.14; python_version < '3.14' and platform_python_implementation != 'PyPy'",
   "shapely >=2.0; python_version < '3.14' and platform_python_implementation != 'PyPy'",
 ]

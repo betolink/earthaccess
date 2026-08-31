@@ -8,6 +8,11 @@ Requires the [widgets] extra: pip install earthaccess[widgets]
 
 from typing import TYPE_CHECKING, Any, List, Optional
 
+from earthaccess.formatting.html import (
+    _format_collection_temporal,
+    _format_temporal_extent,
+)
+
 if TYPE_CHECKING:
     from earthaccess.search.results import DataCollection, DataGranule, SearchResults
 
@@ -109,6 +114,49 @@ def _extract_collection_bbox(collection: "DataCollection") -> Optional[List[floa
     return None
 
 
+def _is_global_coverage(bbox: List[float]) -> bool:
+    """Return True if a bounding box covers essentially the entire globe.
+
+    Global gridded products (e.g. MUR SST) have granules whose spatial extent
+    spans the whole planet. When visualized as filled polygons these all
+    collapse into one giant rectangle that hides the basemap and hides any
+    individual footprint boundaries.
+
+    Args:
+        bbox: [west, south, east, north] in degrees.
+
+    Returns:
+        True if the box covers the full (or near-full) globe.
+    """
+    west, south, east, north = bbox
+
+    lon_span = east - west
+    if lon_span <= 0:
+        lon_span += 360  # antimeridian-crossing box
+
+    lat_span = north - south
+    return lon_span >= 350.0 and lat_span >= 170.0
+
+
+def _cmr_record_link(concept_id: Optional[str]) -> str:
+    """Build a CMR record URL for a granule or collection concept id.
+
+    Args:
+        concept_id: CMR concept id (e.g. "G3357328910-LPCLOUD").
+
+    Returns:
+        The URL of the record on the CMR API, or an empty string if no id.
+    """
+    if not concept_id:
+        return ""
+    return f"https://cmr.earthdata.nasa.gov/search/concepts/{concept_id}"
+
+
+def _format_bbox(west: float, south: float, east: float, north: float) -> str:
+    """Format a bounding box as a readable spatial-coverage string."""
+    return f"W {west:.2f}, S {south:.2f}, E {east:.2f}, N {north:.2f}"
+
+
 def _bboxes_to_geodataframe(
     items: List[Any], max_items: int = 10000
 ) -> "Any":  # Returns GeoDataFrame
@@ -129,6 +177,9 @@ def _bboxes_to_geodataframe(
     names = []
     sizes = []
     cloud_hosted = []
+    coverage = []
+    temporals = []
+    spatials = []
 
     for i, item in enumerate(items[:max_items]):
         # Determine if granule or collection
@@ -138,10 +189,16 @@ def _bboxes_to_geodataframe(
             bbox = _extract_granule_bbox(item)
             name = item.get("umm", {}).get("GranuleUR", "Unknown")[:50]
             size = item.size() if hasattr(item, "size") else 0
+            temporal = _format_temporal_extent(
+                item.get("umm", {}).get("TemporalExtent", {})
+            )
         else:
             bbox = _extract_collection_bbox(item)
             name = item.get("umm", {}).get("ShortName", "Unknown")
             size = 0
+            temporal = _format_collection_temporal(
+                item.get("umm", {}).get("TemporalExtents")
+            )
 
         if bbox is None:
             continue
@@ -155,17 +212,32 @@ def _bboxes_to_geodataframe(
             west, east = -180, 180
 
         geometries.append(box(west, south, east, north))
-        ids.append(item.get("meta", {}).get("concept-id", f"item_{i}"))
+        ids.append(
+            _cmr_record_link(item.get("meta", {}).get("concept-id", f"item_{i}"))
+        )
         names.append(name)
         sizes.append(size)
         cloud_hosted.append(getattr(item, "cloud_hosted", False))
+        coverage.append("global" if _is_global_coverage(bbox) else "regional")
+        temporals.append(temporal)
+        spatials.append(_format_bbox(west, south, east, north))
 
     if not geometries:
         # Return empty GeoDataFrame
-        return gpd.GeoDataFrame(
-            {"id": [], "name": [], "size_mb": [], "cloud": [], "geometry": []},
+        gdf = gpd.GeoDataFrame(
+            {
+                "id": [],
+                "name": [],
+                "size_mb": [],
+                "cloud": [],
+                "coverage": [],
+                "temporal": [],
+                "spatial": [],
+            },
+            geometry=[],
             crs="EPSG:4326",
         )
+        return gdf
 
     return gpd.GeoDataFrame(
         {
@@ -173,13 +245,16 @@ def _bboxes_to_geodataframe(
             "name": names,
             "size_mb": sizes,
             "cloud": cloud_hosted,
+            "coverage": coverage,
+            "temporal": temporals,
+            "spatial": spatials,
         },
         geometry=geometries,
         crs="EPSG:4326",
     )
 
 
-def show_map(
+def plot(
     results: "SearchResults",
     max_items: int = 10000,
     fill_color: Optional[List[int]] = None,
@@ -190,6 +265,9 @@ def show_map(
     This function creates a lonboard map visualization showing the spatial
     extent of cached search results. Only the first `max_items` results are
     displayed to maintain performance.
+
+    Granules with global coverage (e.g. MUR SST) are drawn as outline-only
+    boxes so they do not fill the whole map and hide the basemap.
 
     Parameters:
         results: A SearchResults instance with cached results
@@ -206,8 +284,8 @@ def show_map(
     Examples:
         >>> results = earthaccess.search_data(short_name="ATL06", count=100)
         >>> list(results)  # Fetch results first
-        >>> from earthaccess.formatting.widgets import show_map
-        >>> show_map(results)  # Display interactive map
+        >>> from earthaccess.formatting.widgets import plot
+        >>> plot(results)  # Display interactive map
     """
     _check_widget_dependencies()
 
@@ -233,13 +311,32 @@ def show_map(
     if len(gdf) == 0:
         raise ValueError("No valid bounding boxes found in results.")
 
-    # Create polygon layer
-    layer = PolygonLayer.from_geopandas(
-        gdf,
-        get_fill_color=fill_color,
-        get_line_color=line_color,
-        line_width_min_pixels=1,
-    )
+    # Global-coverage granules (e.g. MUR SST) all share the full-globe extent,
+    # so a filled polygon hides the basemap and any individual boundaries.
+    # Render them as thin outline-only boxes instead so base layers stay
+    # visible and global coverage is visually distinct from regional granules.
+    regional_gdf = gdf[gdf["coverage"] == "regional"]
+    global_gdf = gdf[gdf["coverage"] == "global"]
+
+    layers = []
+    if len(regional_gdf) > 0:
+        layers.append(
+            PolygonLayer.from_geopandas(
+                regional_gdf,
+                get_fill_color=fill_color,
+                get_line_color=line_color,
+                line_width_min_pixels=1,
+            )
+        )
+    if len(global_gdf) > 0:
+        layers.append(
+            PolygonLayer.from_geopandas(
+                global_gdf,
+                get_fill_color=[*fill_color[:3], 0],
+                get_line_color=line_color,
+                line_width_min_pixels=1,
+            )
+        )
 
     # Create map centered on data
     bounds = gdf.total_bounds  # [minx, miny, maxx, maxy]
@@ -247,8 +344,8 @@ def show_map(
     center_lat = (bounds[1] + bounds[3]) / 2
 
     m = Map(
-        layers=[layer],
-        _initial_view_state={
+        layers=layers,
+        view_state={
             "longitude": center_lon,
             "latitude": center_lat,
             "zoom": 2,
@@ -258,7 +355,7 @@ def show_map(
     return m
 
 
-def show_granule_map(
+def plot_granule(
     granule: "DataGranule",
     fill_color: Optional[List[int]] = None,
     line_color: Optional[List[int]] = None,
@@ -299,11 +396,22 @@ def show_granule_map(
     if west > east:
         west, east = -180, 180
 
+    # Global-coverage granules span the whole globe; fill the interior would
+    # hide the basemap, so draw them as outline-only boxes.
+    if _is_global_coverage([west, south, east, north]):
+        fill_color = [*fill_color[:3], 0]
+
     geometry = box(west, south, east, north)
     gdf = gpd.GeoDataFrame(
         {
-            "id": [granule.get("meta", {}).get("concept-id", "granule")],
+            "id": [_cmr_record_link(granule.get("meta", {}).get("concept-id"))],
             "name": [granule.get("umm", {}).get("GranuleUR", "Unknown")[:50]],
+            "temporal": [
+                _format_temporal_extent(
+                    granule.get("umm", {}).get("TemporalExtent", {})
+                )
+            ],
+            "spatial": [_format_bbox(west, south, east, north)],
         },
         geometry=[geometry],
         crs="EPSG:4326",
@@ -339,7 +447,7 @@ def show_granule_map(
 
     m = Map(
         layers=[layer],
-        _initial_view_state={
+        view_state={
             "longitude": center_lon,
             "latitude": center_lat,
             "zoom": zoom,
@@ -349,7 +457,7 @@ def show_granule_map(
     return m
 
 
-def show_collection_map(
+def plot_collection(
     collection: "DataCollection",
     fill_color: Optional[List[int]] = None,
     line_color: Optional[List[int]] = None,
@@ -390,14 +498,25 @@ def show_collection_map(
     if west > east:
         west, east = -180, 180
 
+    # Global-coverage collections span the whole globe; fill the interior
+    # would hide the basemap, so draw them as outline-only boxes.
+    if _is_global_coverage([west, south, east, north]):
+        fill_color = [*fill_color[:3], 0]
+
     geometry = box(west, south, east, north)
     short_name = collection.get("umm", {}).get("ShortName", "Unknown")
     version = collection.get("umm", {}).get("Version", "")
 
     gdf = gpd.GeoDataFrame(
         {
-            "id": [collection.get("meta", {}).get("concept-id", "collection")],
+            "id": [_cmr_record_link(collection.get("meta", {}).get("concept-id"))],
             "name": [f"{short_name} v{version}" if version else short_name],
+            "temporal": [
+                _format_collection_temporal(
+                    collection.get("umm", {}).get("TemporalExtents")
+                )
+            ],
+            "spatial": [_format_bbox(west, south, east, north)],
         },
         geometry=[geometry],
         crs="EPSG:4326",
@@ -415,7 +534,7 @@ def show_collection_map(
 
     m = Map(
         layers=[layer],
-        _initial_view_state={
+        view_state={
             "longitude": center_lon,
             "latitude": center_lat,
             "zoom": 1,
@@ -426,7 +545,7 @@ def show_collection_map(
 
 
 __all__ = [
-    "show_map",
-    "show_granule_map",
-    "show_collection_map",
+    "plot",
+    "plot_granule",
+    "plot_collection",
 ]
