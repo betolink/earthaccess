@@ -725,9 +725,10 @@ def test_repr_search_results_granule_collapsible_assets():
     assert ">data</span>" in html
     assert ">thumb</span>" in html
 
-    # S3 (direct-access) assets use a cloud icon, HTTPS assets use a file icon
+    # S3 (direct-access) and HTTPS access both shown as icons on the same line
     assert "☁️" in html
     assert "📄" in html
+    assert '☁️</a><a href="https://' in html  # cloud (S3) then file (HTTPS) links
 
 
 def test_repr_search_results_granule_main_row_link():

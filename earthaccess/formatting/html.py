@@ -658,17 +658,28 @@ def _granule_row_with_index(granule: "DataGranule", idx: int, widget_id: str) ->
             role_badge = '<span style="background: #28a745; color: white; padding: 1px 5px; border-radius: 8px; font-size: 0.7em;">data</span>'
         elif asset.is_thumbnail():
             role_badge = '<span style="background: #ffc107; color: #333; padding: 1px 5px; border-radius: 8px; font-size: 0.7em;">thumb</span>'
-        # S3 links (direct in-region access) get a cloud icon, HTTPS gets a file icon
-        file_icon = "☁️" if asset.href.startswith("s3://") else "📄"
         size_str = f"{asset.size / (1024 * 1024):.2f} MB" if asset.size else "—"
+
+        # One link per access scheme: S3 gets a cloud icon, HTTPS gets a file icon.
+        # When a file is reachable through both schemes, both links are shown.
+        access_links: List[str] = [asset.href]
+        if asset.alternate and asset.alternate != asset.href:
+            access_links.append(asset.alternate)
+        link_icons = []
+        for url in access_links:
+            icon = "☁️" if url.startswith("s3://") else "📄"
+            link_icons.append(
+                f'<a href="{url}" target="_blank" title="{url}" style="flex: 0 0 auto;">{icon}</a>'
+            )
+        access_html = "".join(link_icons)
+
         asset_rows.append(
             f"""
             <div style="display: flex; align-items: center; gap: 8px; padding: 3px 0; border-bottom: 1px solid #eee;">
-              <span style="flex: 0 0 18px;">{file_icon}</span>
-              <span style="flex: 0 0 auto;">{role_badge}</span>
+              <span style="flex: 0 0 18px; color: #888;">{role_badge}</span>
               <code style="flex: 1; font-size: 0.8em; word-break: break-all;">{label}</code>
               <span style="flex: 0 0 auto; color: #888; font-size: 0.75em;">{size_str}</span>
-              <a href="{asset.href}" target="_blank" title="{asset.href}" style="flex: 0 0 auto;">📥</a>
+              {access_html}
             </div>
             """
         )

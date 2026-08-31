@@ -30,6 +30,8 @@ class Asset:
         type: Media type (e.g., "image/tiff", "application/x-netcdf")
         roles: List of semantic roles (e.g., ["data"], ["thumbnail"], ["cloud-optimized"])
         size: File size in bytes (optional)
+        alternate: Optional URL to the same asset via a different access
+            scheme (e.g., the HTTPS URL when ``href`` is S3, or vice versa)
     """
 
     __module__ = "earthaccess.store"
@@ -40,6 +42,7 @@ class Asset:
     type: Optional[str] = None
     roles: List[str] = field(default_factory=list, hash=False)
     size: Optional[int] = None
+    alternate: Optional[str] = None
 
     def is_data(self) -> bool:
         """Check if this asset has the 'data' role.

@@ -1470,6 +1470,11 @@ class DataGranule(CustomDict):
                 type=asset.get("type"),
                 roles=asset.get("roles", []),
                 size=asset.get("size"),
+                alternate=(
+                    asset.get("alternate", {}).get("href")
+                    if isinstance(asset.get("alternate"), dict)
+                    else None
+                ),
             )
             for asset in assets_dict.values()
         ]

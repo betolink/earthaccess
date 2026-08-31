@@ -981,6 +981,48 @@ def test_s3_and_https_assets_grouped(fixture_file, description):
         )
 
 
+def test_asset_objects_carry_alternate_access_url():
+    """Asset objects expose both the primary href and the alternate scheme."""
+    from earthaccess.search import DataGranule
+
+    granule = DataGranule(
+        {
+            "umm": {
+                "GranuleUR": "HLS.L30.T10SEG.2023001T185019.v2.0",
+                "CollectionReference": {"ShortName": "HLSL30"},
+                "TemporalExtent": {"SingleDateTime": "2023-01-01T00:00:00Z"},
+                "SpatialExtent": {},
+                "RelatedUrls": [
+                    {
+                        "Type": "GET DATA VIA DIRECT ACCESS",
+                        "URL": "s3://lp-prod/HLS.L30.T10SEG.2023001T185019.v2.0.B02.tif",
+                    },
+                    {
+                        "Type": "GET DATA",
+                        "URL": "https://data.lpdaac.earthdatacloud.nasa.gov/lp-prod/HLS.L30.T10SEG.2023001T185019.v2.0.B02.tif",
+                    },
+                ],
+            },
+            "meta": {"concept-id": "G123-LP", "provider-id": "LPCLOUD"},
+        },
+        cloud_hosted=True,
+    )
+
+    assets = granule.assets()
+    b02 = next(a for a in assets if a.title or "B02" in a.href)
+
+    # Cloud-hosted: S3 is the primary href, HTTPS is the alternate
+    assert b02.href.startswith("s3://")
+    assert b02.alternate is not None
+    assert b02.alternate.startswith("https://")
+
+    # The alternate scheme is exposed for the formatter to render both icons
+    assert set([b02.href, b02.alternate]) == {
+        "s3://lp-prod/HLS.L30.T10SEG.2023001T185019.v2.0.B02.tif",
+        "https://data.lpdaac.earthdatacloud.nasa.gov/lp-prod/HLS.L30.T10SEG.2023001T185019.v2.0.B02.tif",
+    }
+
+
 def test_collection_s3_credentials_is_cached():
     """DataCollection.s3_credentials fetches the endpoint once and caches it."""
     from unittest.mock import patch
