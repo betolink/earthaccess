@@ -118,6 +118,60 @@ class QueryBase(ABC):
         """
         pass
 
+    def to_kwargs(self) -> Dict[str, Any]:
+        """Return a clean, replayable dict of keyword arguments.
+
+        Unlike :meth:`to_cmr`, which flattens spatial/temporal values into CMR
+        strings, this reconstructs the kwargs that were (or could be) passed to
+        the builder — e.g. ``bounding_box`` as ``(west, south, east, north)``,
+        ``temporal`` as ``(start, end)``, ``cloud_cover`` as ``(min, max)``.
+
+        Returns:
+            A JSON-serializable dict suitable for replaying the search via
+            ``earthaccess.search_data(**kwargs)`` / ``search_datasets(**kwargs)``.
+        """
+        from earthaccess.search.query.types import BoundingBox, Point, Polygon
+
+        kwargs: Dict[str, Any] = dict(self._params)
+
+        # Temporal ranges -> (start, end) tuples
+        if self._temporal_ranges:
+            ranges = [
+                (rng.start, rng.end, rng.exclude_boundary)
+                for rng in self._temporal_ranges
+            ]
+            kwargs["temporal"] = (
+                [(r[0], r[1]) for r in ranges]
+                if len(ranges) > 1
+                else (ranges[0][0], ranges[0][1])
+            )
+
+        # Spatial filters -> clean tuples / coordinate lists
+        if isinstance(self._spatial, BoundingBox):
+            kwargs["bounding_box"] = (
+                self._spatial.west,
+                self._spatial.south,
+                self._spatial.east,
+                self._spatial.north,
+            )
+        elif isinstance(self._spatial, Point):
+            kwargs["point"] = (self._spatial.lon, self._spatial.lat)
+        elif isinstance(self._spatial, Polygon):
+            kwargs["polygon"] = self._spatial.coordinates
+
+        # Line coordinates (stored as a plain param)
+        line = kwargs.pop("line", None)
+        if line:
+            kwargs["line"] = line
+
+        # cloud_cover / orbit_number may be tuples already; normalize
+        if "cloud_cover" in kwargs and isinstance(kwargs["cloud_cover"], tuple):
+            kwargs["cloud_cover"] = kwargs["cloud_cover"]
+        if "orbit_number" in kwargs and isinstance(kwargs["orbit_number"], tuple):
+            kwargs["orbit_number"] = kwargs["orbit_number"]
+
+        return kwargs
+
     @abstractmethod
     def to_stac(self) -> Dict[str, Any]:
         """Convert the query to STAC API format.

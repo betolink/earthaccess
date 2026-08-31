@@ -195,6 +195,7 @@ def search_datasets(
 
     """
     # Handle query object vs kwargs
+    replay_kwargs: Optional[Dict[str, Any]] = None
     if query is not None:
         if kwargs:
             raise ValueError(
@@ -206,7 +207,9 @@ def search_datasets(
         if not validation.is_valid:
             errors = "; ".join(f"{e.field}: {e.message}" for e in validation.errors)
             raise ValueError(f"Invalid query: {errors}")
-        # Convert query to CMR parameters
+        # Capture clean, replayable kwargs from the query builder, then convert
+        # to the flattened CMR parameters used to build the query object.
+        replay_kwargs = query.to_kwargs()
         kwargs = query.to_cmr()
 
     if not kwargs:
@@ -221,7 +224,9 @@ def search_datasets(
         cmr_query = DataCollections().parameters(**kwargs)
     datasets_found = cmr_query.hits()
     logger.info(f"Datasets found: {datasets_found}")
-    return CollectionResults(cmr_query, limit=count if count > 0 else None)
+    return CollectionResults(
+        cmr_query, limit=count if count > 0 else None, query_kwargs=replay_kwargs
+    )
 
 
 def search_data(
@@ -322,6 +327,7 @@ def search_data(
         ```
     """
     # Handle query object vs kwargs
+    replay_kwargs: Optional[Dict[str, Any]] = None
     if query is not None:
         if kwargs:
             raise ValueError(
@@ -333,7 +339,9 @@ def search_data(
         if not validation.is_valid:
             errors = "; ".join(f"{e.field}: {e.message}" for e in validation.errors)
             raise ValueError(f"Invalid query: {errors}")
-        # Convert query to CMR parameters
+        # Capture clean, replayable kwargs from the query builder, then convert
+        # to the flattened CMR parameters used to build the query object.
+        replay_kwargs = query.to_kwargs()
         kwargs = query.to_cmr()
 
     # max_items takes precedence over count for pystac-client compatibility
@@ -347,7 +355,9 @@ def search_data(
         cmr_query = DataGranules().parameters(**kwargs)
     granules_found = cmr_query.hits()
     logger.info(f"Granules found: {granules_found}")
-    return GranuleResults(cmr_query, limit=count if count > 0 else None)
+    return GranuleResults(
+        cmr_query, limit=count if count > 0 else None, query_kwargs=replay_kwargs
+    )
 
 
 def search_services(count: int = -1, **kwargs: Any) -> List[Any]:

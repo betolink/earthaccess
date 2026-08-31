@@ -1521,6 +1521,29 @@ class DataGranule(CustomDict):
 # =============================================================================
 
 
+def _rebuild_query_params(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Normalize JSON-loaded params back to the tuple form query builders expect.
+
+    After a save/load round-trip, multi-value params (``temporal``,
+    ``bounding_box``, ``point``, ``cloud_cover``, ``orbit_number``) arrive as
+    JSON lists. The query builders expect tuples (or a 2-element list for
+    ``temporal``). This restores the tuple/list form so the params can be fed
+    back to ``GranuleQuery().parameters(**params)``.
+    """
+    params = dict(params)
+
+    temporal = params.get("temporal")
+    if isinstance(temporal, list) and len(temporal) == 2:
+        params["temporal"] = (temporal[0], temporal[1])
+
+    for key in ("bounding_box", "point", "cloud_cover", "orbit_number"):
+        val = params.get(key)
+        if isinstance(val, list) and val:
+            params[key] = tuple(val)
+
+    return params
+
+
 class SearchResults:
     """Base class for CMR search results with lazy pagination.
 
@@ -1564,7 +1587,11 @@ class SearchResults:
     __module__ = "earthaccess.search"
 
     def __init__(
-        self, query: Any, limit: Optional[int] = None, prefetch: int = 20
+        self,
+        query: Any,
+        limit: Optional[int] = None,
+        prefetch: int = 20,
+        query_kwargs: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Initialize SearchResults.
 
@@ -1573,9 +1600,13 @@ class SearchResults:
             limit: Maximum number of results to fetch, None for unlimited
             prefetch: Number of results to fetch immediately (default: 20).
                 Set to 0 to disable prefetching.
+            query_kwargs: The original, replayable kwargs used to run the
+                search (e.g. those passed to ``search_data()``). Persisted by
+                :meth:`save` so the query can be re-run later.
         """
         self.query = query
         self.limit = limit
+        self._query_kwargs: Optional[Dict[str, Any]] = query_kwargs
         self._cached_results: List[Union[DataGranule, DataCollection]] = []
         self._total_hits: Optional[int] = None
         self._exhausted = False
@@ -2201,6 +2232,47 @@ class SearchResults:
         from earthaccess.search.persistence import load
 
         return load(path, verify=verify)
+
+    @property
+    def query_params(self) -> Optional[Dict[str, Any]]:
+        """The replayable kwargs this search was (or can be) run with.
+
+        Set when the search is created from ``search_data()``/``search_datasets()``
+        or restored from a saved payload. Pass them back to those functions to
+        re-run the exact same query:
+
+        .. code-block:: python
+
+            fresh = earthaccess.search_data(**results.query_params)
+        """
+        return self._query_kwargs
+
+    def rebuild_query(self) -> Any:
+        """Rebuild a fresh query object for this search.
+
+        Returns a new ``GranuleQuery``/``CollectionQuery`` instance configured
+        with the same parameters, so the search can be re-run or inspected:
+
+        .. code-block:: python
+
+            query = loaded.rebuild_query()
+            fresh = earthaccess.search_data(query=query)
+
+        Returns:
+            A query object matching this search's parameters.
+        """
+        from earthaccess.search.query import CollectionQuery, GranuleQuery
+
+        params = _rebuild_query_params(self.query_params or {})
+        if self._is_collections():
+            return CollectionQuery().parameters(**params)
+        return GranuleQuery().parameters(**params)
+
+    def _is_collections(self) -> bool:
+        """Return True if this container holds collections rather than granules."""
+        if self._cached_results:
+            return "GranuleUR" not in self._cached_results[0].get("umm", {})
+        return isinstance(self, CollectionResults)
 
 
 class GranuleResults(SearchResults):

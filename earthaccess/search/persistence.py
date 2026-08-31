@@ -57,11 +57,12 @@ def compute_fingerprint(results: "SearchResults") -> str:
 def _serialize_query_params(results: "SearchResults") -> Dict[str, Any]:
     """Extract replayable query parameters from a SearchResults query object.
 
-    The query object (``DataGranules``/``DataCollections``) stores formatted
-    params; ``temporal`` is held as a list of pre-joined strings that cannot be
-    replayed through ``parameters()`` as-is. We normalize it back to a list of
-    ``(start, end)`` tuples so the saved params can be passed straight to
-    ``search_data()``/``search_datasets()``.
+    Prefers the original ``query_kwargs`` captured at search time (clean, e.g.
+    ``bounding_box`` as ``(w, s, e, n)`` and ``temporal`` as ``(start, end)``).
+    Falls back to the legacy ``query.params`` dict, normalizing flattened
+    multi-value params (temporal, bounding_box, point, polygon, line,
+    cloud_cover, orbit_number) back to the tuple form that ``search_data()`` /
+    ``search_datasets()`` accept.
 
     Parameters:
         results: A SearchResults instance.
@@ -69,21 +70,126 @@ def _serialize_query_params(results: "SearchResults") -> Dict[str, Any]:
     Returns:
         A JSON-serializable dict of kwargs suitable for replaying the search.
     """
+    if results._query_kwargs:
+        return _json_safe(results._query_kwargs)
+
     params = dict(getattr(results.query, "params", {}))
-    temporal = params.pop("temporal", None)
+    params = _normalize_flattened_params(params)
+    return _json_safe(params)
+
+
+def _json_safe(value: Any) -> Any:
+    """Convert datetimes/tuples in a params dict to JSON-safe values."""
+    from datetime import date, datetime
+
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    if isinstance(value, tuple):
+        return [_json_safe(v) for v in value]
+    if isinstance(value, list):
+        return [_json_safe(v) for v in value]
+    if isinstance(value, dict):
+        return {k: _json_safe(v) for k, v in value.items()}
+    return value
+
+
+def _restore_query_params(params: Any) -> Optional[Dict[str, Any]]:
+    """Restore tuple/list-form params after a JSON round-trip.
+
+    Multi-value params are stored as JSON lists. Convert them back to tuples so
+    they can be passed to ``search_data(**params)`` / ``search_datasets(**params)``
+    (the legacy query builders expand tuples, not lists).
+    """
+    if not isinstance(params, dict):
+        return params
+
+    params = dict(params)
+
+    temporal = params.get("temporal")
+    if isinstance(temporal, list) and len(temporal) == 2:
+        params["temporal"] = (temporal[0], temporal[1])
+    elif isinstance(temporal, list) and len(temporal) > 2:
+        params["temporal"] = [
+            (pair[0], pair[1]) if isinstance(pair, list) else pair for pair in temporal
+        ]
+
+    for key in ("bounding_box", "point", "cloud_cover", "orbit_number"):
+        val = params.get(key)
+        if isinstance(val, list):
+            params[key] = tuple(val)
+
+    return params
+
+
+def _normalize_flattened_params(params: Dict[str, Any]) -> Dict[str, Any]:
+    """Reverse the CMR flattening of multi-value params for replay.
+
+    ``DataGranules``/``DataCollections`` store e.g. ``bounding_box`` as the
+    string ``"-46.5,61.0,-42.5,63.0"``, which cannot be passed back to
+    ``search_data(bounding_box=...)``. Convert them back to the tuple/list form
+    the API accepts.
+    """
+    params = dict(params)
+
+    def _to_float_pair(s: str):
+        parts = s.split(",")
+        return (float(parts[0]), float(parts[1]))
+
+    temporal = params.get("temporal")
     if temporal:
-        # temporal may be a list of "start,end" strings or a single string
         if isinstance(temporal, str):
             temporal = [temporal]
         ranges = []
         for item in temporal:
-            if isinstance(item, (list, tuple)) and len(item) == 2:
-                ranges.append((item[0], item[1]))
-            elif isinstance(item, str) and "," in item:
+            if isinstance(item, str) and "," in item:
                 start, _, end = item.partition(",")
                 ranges.append((start, end))
+            elif isinstance(item, (list, tuple)) and len(item) == 2:
+                ranges.append((item[0], item[1]))
         if ranges:
-            params["temporal"] = ranges if len(ranges) > 1 else ranges[0]
+            params["temporal"] = (
+                ranges if len(ranges) > 1 else (ranges[0][0], ranges[0][1])
+            )
+
+    bounding_box = params.get("bounding_box")
+    if isinstance(bounding_box, str):
+        parts = bounding_box.split(",")
+        if len(parts) == 4:
+            params["bounding_box"] = tuple(float(p) for p in parts)
+
+    point = params.get("point")
+    if isinstance(point, list) and len(point) == 1 and "," in str(point[0]):
+        params["point"] = _to_float_pair(str(point[0]))
+
+    for key in ("cloud_cover", "orbit_number"):
+        val = params.get(key)
+        if isinstance(val, str) and ("," in val or "%2C" in val):
+            try:
+                low, _, high = val.replace("%2C", ",").partition(",")
+                params[key] = (float(low), float(high))
+            except ValueError:
+                pass
+
+    polygon = params.get("polygon")
+    if isinstance(polygon, str):
+        coords = polygon.split(",")
+        pairs = [
+            (float(coords[i]), float(coords[i + 1]))
+            for i in range(0, len(coords) - 1, 2)
+        ]
+        params["polygon"] = pairs
+
+    line = params.get("line")
+    if isinstance(line, str):
+        coords = line.split(",")
+        pairs = [
+            (float(coords[i]), float(coords[i + 1]))
+            for i in range(0, len(coords) - 1, 2)
+        ]
+        params["line"] = pairs
+
     return params
 
 
@@ -205,7 +311,13 @@ def _rebuild_from_payload(
         items = [DataGranule(item) for item in payload["results"]]
 
     results = cls.__new__(cls)  # type: ignore[call-arg]
-    SearchResults.__init__(results, query=None, limit=limit, prefetch=0)
+    SearchResults.__init__(
+        results,
+        query=None,
+        limit=limit,
+        prefetch=0,
+        query_kwargs=_restore_query_params(payload.get("query_params")),
+    )
     results._cached_results = items  # type: ignore[assignment]
     results._exhausted = True
     results._total_hits = payload.get("cmr_hits")
@@ -227,7 +339,7 @@ def _verify(payload: Dict[str, Any], kind: str, limit: Optional[int]) -> Dict[st
         - ``added``: concept-IDs present now but not at save time
         - ``removed``: concept-IDs saved but no longer present
     """
-    query_params = payload.get("query_params", {})
+    query_params = _restore_query_params(payload.get("query_params", {})) or {}
     saved_fingerprint = payload.get("fingerprint")
     saved_cmr_hits = payload.get("cmr_hits")
     saved_ids = {r.get("meta", {}).get("concept-id") for r in payload["results"]}

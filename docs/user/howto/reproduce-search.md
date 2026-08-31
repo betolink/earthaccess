@@ -47,6 +47,30 @@ This also works for collections returned by `earthaccess.search_datasets()`.
 loaded = earthaccess.load_search("atl06_2024_search.json.gz")
 ```
 
+## Re-run the saved query
+
+The loaded object keeps the original query parameters, so you can inspect them
+or re-run a fresh query with the same filters:
+
+```python
+# Inspect the parameters that produced the saved results
+loaded.query_params
+# {'short_name': 'ATL06', 'temporal': ('2024-01-01T00:00:00', ...),
+#  'bounding_box': (-46.5, 61.0, -42.5, 63.0)}
+
+# Re-run a brand new query with the exact same parameters
+fresh = earthaccess.search_data(**loaded.query_params, count=100)
+
+# Or rebuild a query object and hand it to search_data
+query = loaded.rebuild_query()
+fresh = earthaccess.search_data(query=query)
+```
+
+`query_params` are stored in a clean, replayable form — spatial filters stay as
+`(west, south, east, north)` tuples and temporal ranges as `(start, end)`
+pairs, so they can be passed straight back to `search_data()` /
+`search_datasets()`.
+
 or, equivalently:
 
 ```python

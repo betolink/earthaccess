@@ -80,7 +80,7 @@ def test_fingerprint_changes_when_results_change():
 
 
 def test_serialize_query_params_handles_temporal():
-    """Temporal ranges are serialized as (start, end) tuples for replay."""
+    """Temporal ranges are serialized for replay as start/end pairs."""
     results = make_results(
         ["G1"],
         query=make_query(short_name="ATL06", temporal=("2024-01-01", "2024-12-31")),
@@ -88,7 +88,7 @@ def test_serialize_query_params_handles_temporal():
     params = _serialize_query_params(results)
 
     assert params["short_name"] == "ATL06"
-    assert params["temporal"] == (
+    assert tuple(params["temporal"]) == (
         "2024-01-01T00:00:00Z",
         "2024-12-31T23:59:59Z",
     )
@@ -100,6 +100,107 @@ def test_serialize_query_params_no_temporal():
     params = _serialize_query_params(results)
 
     assert params == {"short_name": "ATL06"}
+
+
+def test_query_builder_to_kwargs_keeps_spatial_clean():
+    """to_kwargs() returns replayable tuples, not flattened CMR strings."""
+    from earthaccess.search.query import GranuleQuery
+
+    q = (
+        GranuleQuery()
+        .short_name("ATL06")
+        .bounding_box(-46.5, 61.0, -42.5, 63.0)
+        .temporal("2024-01-01", "2024-12-31")
+        .cloud_cover(0, 20)
+    )
+    kwargs = q.to_kwargs()
+
+    assert kwargs["bounding_box"] == (-46.5, 61.0, -42.5, 63.0)
+    assert kwargs["temporal"][0].year == 2024
+    assert kwargs["cloud_cover"] == (0.0, 20.0)
+    # to_cmr flattens, to_kwargs does not
+    assert isinstance(q.to_cmr()["bounding_box"], str)
+
+
+def test_search_data_captures_query_kwargs():
+    """search_data() stores replayable kwargs on the returned results."""
+    from earthaccess.search.query import GranuleQuery
+
+    q = GranuleQuery().short_name("ATL06").bounding_box(-46.5, 61.0, -42.5, 63.0)
+    expected = q.to_kwargs()
+
+    # simulate what search_data does: capture to_kwargs, then build the query
+    results = make_results(["G1"], query=make_query(short_name="ATL06"))
+    results._query_kwargs = expected
+
+    assert results.query_params is not None
+    assert results.query_params["bounding_box"] == (-46.5, 61.0, -42.5, 63.0)
+
+
+def test_legacy_flattened_spatial_params_normalized():
+    """Flattened legacy params (bbox/polygon/cloud_cover) are restored."""
+    from earthaccess.search.persistence import _normalize_flattened_params
+
+    flat = {
+        "short_name": "ATL06",
+        "bounding_box": "-46.5,61.0,-42.5,63.0",
+        "polygon": "-10.0,40.0,-8.0,40.0,-8.0,42.0,-10.0,42.0,-10.0,40.0",
+        "cloud_cover": "0,20",
+        "point": ["42.5,10.75"],
+        "orbit_number": "1000%2C2000",
+    }
+    norm = _normalize_flattened_params(flat)
+
+    assert norm["bounding_box"] == (-46.5, 61.0, -42.5, 63.0)
+    assert norm["cloud_cover"] == (0.0, 20.0)
+    assert norm["point"] == (42.5, 10.75)
+    assert norm["orbit_number"] == (1000.0, 2000.0)
+    assert len(norm["polygon"]) == 5
+
+
+def test_loaded_query_params_are_replayable(tmp_path):
+    """After load, query_params restore tuples so search_data(**params) works."""
+    from earthaccess.search.query import GranuleQuery
+
+    q = (
+        GranuleQuery()
+        .short_name("ATL06")
+        .bounding_box(-46.5, 61.0, -42.5, 63.0)
+        .temporal("2024-01-01", "2024-12-31")
+    )
+    results = make_results(["G1"], query=make_query(short_name="ATL06"))
+    results._query_kwargs = q.to_kwargs()
+    path = results.save(tmp_path / "spatial.gz")
+
+    loaded = SearchResults.load(path, verify=False)
+    params = loaded.query_params
+    assert params is not None
+
+    assert params["bounding_box"] == (-46.5, 61.0, -42.5, 63.0)
+    assert isinstance(params["temporal"], tuple)
+    # the rebuilt query object accepts these and matches the original
+    rebuilt = loaded.rebuild_query()
+    assert rebuilt.to_cmr()["bounding_box"] == "-46.5,61.0,-42.5,63.0"
+
+
+def test_rebuild_query_matches_original(tmp_path):
+    """rebuild_query() produces a query with identical CMR output."""
+    from earthaccess.search.query import GranuleQuery
+
+    q = (
+        GranuleQuery()
+        .short_name("ATL06")
+        .bounding_box(-46.5, 61.0, -42.5, 63.0)
+        .temporal("2024-01-01", "2024-12-31")
+    )
+    results = make_results(["G1"], query=make_query(short_name="ATL06"))
+    results._query_kwargs = q.to_kwargs()
+    path = results.save(tmp_path / "rebuild.gz")
+
+    loaded = SearchResults.load(path, verify=False)
+    rebuilt = loaded.rebuild_query()
+
+    assert rebuilt.to_cmr() == q.to_cmr()
 
 
 # =============================================================================
