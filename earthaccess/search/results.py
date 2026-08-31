@@ -63,6 +63,16 @@ def _extension_from_url(url: str) -> str:
     return os.path.splitext(url.split("?")[0].split("#")[0])[1].lower()
 
 
+def _type_for_extension(ext: str) -> str:
+    """Map a file extension to a readable type, falling back to the extension.
+
+    Returns the human-readable type from :data:`EXTENSION_TO_TYPE` when a
+    match exists (e.g. ``".tif"`` -> ``"COG"``), otherwise the extension
+    itself (e.g. ``".jgr"``) so unknown formats are still listed.
+    """
+    return EXTENSION_TO_TYPE.get(ext, ext)
+
+
 class CustomDict(dict):
     _basic_umm_fields_: List = []
     _basic_meta_fields_: List = []
@@ -995,21 +1005,22 @@ class DataGranule(CustomDict):
         ``GET DATA`` links, e.g. ``"COG"`` for HLS or ``"NetCDF"`` for EMIT.
         Browse/thumbnail images (``GET RELATED VISUALIZATION``) are appended
         with a ``(thumbs)`` suffix so multi-file granules read like
-        ``"COG, JPEG(thumbs)"``. Falls back to ``"Unknown"`` when no link
-        extension is recognized.
+        ``"COG, JPEG(thumbs)"``. When an extension has no known type, the
+        extension itself is listed (e.g. ``".jgr"``). Falls back to
+        ``"Unknown"`` when no link has a recognizable extension.
 
         Returns:
             A comma-separated list of distinct file types for this granule.
         """
         types: List[str] = []
         for link in self.data_links():
-            ftype = EXTENSION_TO_TYPE.get(_extension_from_url(link))
+            ftype = _type_for_extension(_extension_from_url(link))
             if ftype and ftype not in types:
                 types.append(ftype)
 
         thumb_types: List[str] = []
         for link in self.dataviz_links():
-            ftype = EXTENSION_TO_TYPE.get(_extension_from_url(link))
+            ftype = _type_for_extension(_extension_from_url(link))
             if ftype and ftype not in thumb_types:
                 thumb_types.append(ftype)
         if thumb_types:

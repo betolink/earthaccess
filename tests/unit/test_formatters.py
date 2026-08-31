@@ -617,6 +617,48 @@ def test_granule_data_type_unknown_without_links():
     assert granule.data_type() == "Unknown"
 
 
+def test_granule_data_type_lists_unmapped_extension():
+    """Unmapped extensions are listed as the extension itself (e.g. .jgr)."""
+    granule = DataGranule(
+        {
+            "umm": {
+                "GranuleUR": "exotic-granule",
+                "RelatedUrls": [
+                    {
+                        "URL": "https://data.example.gov/granule.jgr",
+                        "Type": "GET DATA",
+                    }
+                ],
+            },
+            "meta": {"concept-id": "G3-TEST"},
+        }
+    )
+    assert granule.data_type() == ".jgr"
+
+
+def test_granule_data_type_mixed_known_and_unknown():
+    """Known types and raw extensions are listed together."""
+    granule = DataGranule(
+        {
+            "umm": {
+                "GranuleUR": "mixed-granule",
+                "RelatedUrls": [
+                    {
+                        "URL": "https://data.example.gov/granule.tif",
+                        "Type": "GET DATA",
+                    },
+                    {
+                        "URL": "https://data.example.gov/granule.jgr",
+                        "Type": "GET DATA",
+                    },
+                ],
+            },
+            "meta": {"concept-id": "G4-TEST"},
+        }
+    )
+    assert granule.data_type() == "COG, .jgr"
+
+
 def test_granule_data_type_hybrid_get_data():
     """A GET DATA link list with mixed extensions lists all distinct types."""
     granule = DataGranule(
