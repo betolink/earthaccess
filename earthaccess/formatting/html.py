@@ -658,11 +658,13 @@ def _granule_row_with_index(granule: "DataGranule", idx: int, widget_id: str) ->
             role_badge = '<span style="background: #28a745; color: white; padding: 1px 5px; border-radius: 8px; font-size: 0.7em;">data</span>'
         elif asset.is_thumbnail():
             role_badge = '<span style="background: #ffc107; color: #333; padding: 1px 5px; border-radius: 8px; font-size: 0.7em;">thumb</span>'
+        # S3 links (direct in-region access) get a cloud icon, HTTPS gets a file icon
+        file_icon = "☁️" if asset.href.startswith("s3://") else "📄"
         size_str = f"{asset.size / (1024 * 1024):.2f} MB" if asset.size else "—"
         asset_rows.append(
             f"""
             <div style="display: flex; align-items: center; gap: 8px; padding: 3px 0; border-bottom: 1px solid #eee;">
-              <span style="flex: 0 0 18px;">📄</span>
+              <span style="flex: 0 0 18px;">{file_icon}</span>
               <span style="flex: 0 0 auto;">{role_badge}</span>
               <code style="flex: 1; font-size: 0.8em; word-break: break-all;">{label}</code>
               <span style="flex: 0 0 auto; color: #888; font-size: 0.75em;">{size_str}</span>

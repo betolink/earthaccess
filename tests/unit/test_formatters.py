@@ -725,6 +725,10 @@ def test_repr_search_results_granule_collapsible_assets():
     assert ">data</span>" in html
     assert ">thumb</span>" in html
 
+    # S3 (direct-access) assets use a cloud icon, HTTPS assets use a file icon
+    assert "☁️" in html
+    assert "📄" in html
+
 
 def test_repr_search_results_granule_main_row_link():
     """Multi-file granules expand via the main-row link; single-file link directly."""
