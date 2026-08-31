@@ -726,6 +726,31 @@ def test_repr_search_results_granule_collapsible_assets():
     assert ">thumb</span>" in html
 
 
+def test_repr_search_results_granule_main_row_link():
+    """Multi-file granules expand via the main-row link; single-file link directly."""
+    mock_query = MagicMock()
+
+    # Multi-file granule: main row shows an expand trigger, not a direct download
+    multi = _make_granule("HLSS30_umm")
+    results = SearchResults(mock_query)
+    results._total_hits = 1
+    results._cached_results = [multi]
+    html = _repr_search_results_html(results)
+    main_row = html.split("detail-")[0]
+    assert "📁" in main_row
+    assert "event.stopPropagation(); toggleDetail_" in main_row
+    assert "data.lpdaac" not in main_row  # no direct download in the main row
+
+    # Single-file granule: main row keeps a direct download link
+    single = _make_granule("GEDI_L4A_umm")
+    results = SearchResults(mock_query)
+    results._total_hits = 1
+    results._cached_results = [single]
+    html = _repr_search_results_html(results)
+    main_row = html.split("detail-")[0]
+    assert "📥" in main_row
+
+
 def test_collection_data_type_from_archive_info():
     """Collection data_type() reads Format from FileDistributionInformation."""
     collection = DataCollection(

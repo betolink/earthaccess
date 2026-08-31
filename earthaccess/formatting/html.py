@@ -681,14 +681,21 @@ def _granule_row_with_index(granule: "DataGranule", idx: int, widget_id: str) ->
     if assets:
         file_badge = f'<span style="background: #6c757d; color: white; padding: 2px 6px; border-radius: 10px; font-size: 0.75em; margin-left: 4px;">{len(assets)}</span>'
 
-    # First data link for the main row
-    data_links = granule.data_links()
+    # Link column: for multi-file granules this expands the asset list; for
+    # single-file granules it links directly to the (only) data file.
     link_html = ""
-    if data_links:
-        first_link = data_links[0]
+    if len(assets) > 1:
         link_html = (
-            f'<a href="{first_link}" target="_blank" title="{first_link}">📥</a>'
+            f'<a href="javascript:void(0);" onclick="event.stopPropagation(); toggleDetail_{widget_id}({idx})" '
+            f'title="Show {len(assets)} files" style="cursor: pointer;">📁</a>'
         )
+    else:
+        data_links = granule.data_links()
+        if data_links:
+            first_link = data_links[0]
+            link_html = (
+                f'<a href="{first_link}" target="_blank" title="{first_link}">📥</a>'
+            )
 
     # Main row with toggle button
     main_row = f"""
