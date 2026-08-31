@@ -420,7 +420,7 @@ def _repr_search_results_html(
     all_rows = []
     for idx, item in enumerate(results._cached_results):
         if _is_granule(item):
-            row = _granule_row_with_index(item, idx)
+            row = _granule_row_with_index(item, idx, widget_id)
         else:
             row = _collection_row_with_index(item, idx, widget_id)
         all_rows.append(row)
@@ -446,11 +446,11 @@ def _repr_search_results_html(
     else:
         table_header = """
                 <tr>
-                  <th style="width: 5%;">#</th>
-                  <th style="width: 40%;">Name</th>
-                  <th style="width: 20%;">Date</th>
-                  <th style="width: 15%;">Size</th>
-                  <th style="width: 10%;">File Type</th>
+                  <th style="width: 3%;"></th>
+                  <th style="width: 37%;">Name</th>
+                  <th style="width: 18%;">Date</th>
+                  <th style="width: 12%;">Size</th>
+                  <th style="width: 15%;">File Type</th>
                   <th style="width: 10%;">Link</th>
                 </tr>
         """
@@ -625,8 +625,12 @@ def _repr_search_results_html(
     """
 
 
-def _granule_row_with_index(granule: "DataGranule", idx: int) -> str:
-    """Generate a table row for a granule with index for pagination."""
+def _granule_row_with_index(granule: "DataGranule", idx: int, widget_id: str) -> str:
+    """Generate a collapsible table row for a granule with index for pagination.
+
+    Creates a main row with summary info and a hidden detail row that expands
+    to show the granule's individual asset files.
+    """
     granule_ur = granule.get("umm", {}).get("GranuleUR", "Unknown")
     # Truncate name
     name_display = granule_ur[:40] + "..." if len(granule_ur) > 40 else granule_ur
@@ -641,7 +645,43 @@ def _granule_row_with_index(granule: "DataGranule", idx: int) -> str:
     # File type
     file_type = granule.data_type()
 
-    # First data link
+    # Concept ID
+    concept_id = granule.get("meta", {}).get("concept-id", "")
+
+    # Asset file list for the detail row
+    assets = granule.assets()
+    asset_rows = []
+    for asset in assets:
+        label = asset.title or asset.href.split("/")[-1]
+        role_badge = ""
+        if asset.is_data():
+            role_badge = '<span style="background: #28a745; color: white; padding: 1px 5px; border-radius: 8px; font-size: 0.7em;">data</span>'
+        elif asset.is_thumbnail():
+            role_badge = '<span style="background: #ffc107; color: #333; padding: 1px 5px; border-radius: 8px; font-size: 0.7em;">thumb</span>'
+        size_str = f"{asset.size / (1024 * 1024):.2f} MB" if asset.size else "—"
+        asset_rows.append(
+            f"""
+            <div style="display: flex; align-items: center; gap: 8px; padding: 3px 0; border-bottom: 1px solid #eee;">
+              <span style="flex: 0 0 18px;">📄</span>
+              <span style="flex: 0 0 auto;">{role_badge}</span>
+              <code style="flex: 1; font-size: 0.8em; word-break: break-all;">{label}</code>
+              <span style="flex: 0 0 auto; color: #888; font-size: 0.75em;">{size_str}</span>
+              <a href="{asset.href}" target="_blank" title="{asset.href}" style="flex: 0 0 auto;">📥</a>
+            </div>
+            """
+        )
+    assets_html = (
+        "".join(asset_rows)
+        if asset_rows
+        else "<p style='color: #999;'>No assets found.</p>"
+    )
+
+    # File count badge in the main row
+    file_badge = ""
+    if assets:
+        file_badge = f'<span style="background: #6c757d; color: white; padding: 2px 6px; border-radius: 10px; font-size: 0.75em; margin-left: 4px;">{len(assets)}</span>'
+
+    # First data link for the main row
     data_links = granule.data_links()
     link_html = ""
     if data_links:
@@ -650,16 +690,41 @@ def _granule_row_with_index(granule: "DataGranule", idx: int) -> str:
             f'<a href="{first_link}" target="_blank" title="{first_link}">📥</a>'
         )
 
-    return f"""
-    <tr data-idx="{idx}">
-      <td style="color: #888;">{idx + 1}</td>
-      <td title="{granule_ur}"><code style="font-size: 0.8em;">{name_display}</code></td>
+    # Main row with toggle button
+    main_row = f"""
+    <tr data-idx="{idx}" style="cursor: pointer;" onclick="toggleDetail_{widget_id}({idx})">
+      <td style="color: #888; text-align: center;">
+        <span id="toggle-{widget_id}-{idx}" style="font-size: 0.8em; color: #666;">▶</span>
+      </td>
+      <td title="{granule_ur}"><code style="font-size: 0.8em;">{name_display}</code>{file_badge}</td>
       <td>{date_str}</td>
       <td>{size} MB</td>
       <td>{file_type}</td>
       <td>{link_html}</td>
     </tr>
     """
+
+    # Detail row (hidden by default)
+    detail_row = f"""
+    <tr id="detail-{widget_id}-{idx}" style="display: none; background: var(--ea-bg-tertiary, #f9f9f9);">
+      <td colspan="6" style="padding: 10px 15px;">
+        <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 10px;">
+          <div>
+            <p style="margin: 4px 0;"><b>Concept ID:</b> <code style="font-size: 0.85em;">{concept_id}</code></p>
+            <p style="margin: 4px 0;"><b>File Type:</b> {file_type}</p>
+            <p style="margin: 4px 0;"><b>Size:</b> {size} MB</p>
+            <p style="margin: 4px 0;"><b>Temporal:</b> {date_str}</p>
+          </div>
+          <div>
+            <p style="margin: 4px 0 8px 0;"><b>Files ({len(assets)}):</b></p>
+            <div>{assets_html}</div>
+          </div>
+        </div>
+      </td>
+    </tr>
+    """
+
+    return main_row + detail_row
 
 
 def _collection_row_with_index(

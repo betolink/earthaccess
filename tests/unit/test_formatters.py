@@ -701,6 +701,31 @@ def test_repr_search_results_uses_file_type_column():
     assert '<th style="width: 10%;">Cloud</th>' not in html
 
 
+def test_repr_search_results_granule_collapsible_assets():
+    """Granule rows expand to a detail row listing individual asset files."""
+    mock_query = MagicMock()
+    granule = _make_granule("HLSS30_umm")
+    results = SearchResults(mock_query)
+    results._total_hits = 1
+    results._cached_results = [granule]
+
+    html = _repr_search_results_html(results)
+
+    # Main row toggles a hidden detail row
+    assert "toggleDetail_" in html
+    assert "detail-" in html
+    assert "display: none" in html
+
+    # Detail row lists the granule's asset files (multi-file HLS granule)
+    assert "Files (" in html
+    for asset_key in ["B01", "B02", "Fmask", "VZA"]:
+        assert asset_key in html
+
+    # Roles are labeled (data vs thumbnail)
+    assert ">data</span>" in html
+    assert ">thumb</span>" in html
+
+
 def test_collection_data_type_from_archive_info():
     """Collection data_type() reads Format from FileDistributionInformation."""
     collection = DataCollection(
