@@ -359,6 +359,7 @@ This document is the high-level overview. The sibling documents under
 | [Architecture Comparison](./refactoring/stac-comparison.md) | GLM vs Opus branch approaches and their design tradeoffs |
 | [STAC Implementation Log](./refactoring/stac-implementation-log.md) | Historical record of the phased STAC implementation |
 | [Implementation Roadmap](./refactoring/nextgen-implementation.md) | The phased implementation plan tracked in `IMPLEMENTATION_TODO.md` |
+| [Icechunk Virtual Chunk Containers](./refactoring/icechunk-vcc.md) | VCC authorization, `write_virtual()`, and credential selection rules |
 | [Virtual DMRPP Groups](./refactoring/vz_dmrpp_groups.md) | DMR++ group virtualization details |
 
 For users, the [User Guide](user/index.md) and [Search & Access API](api/index.md)

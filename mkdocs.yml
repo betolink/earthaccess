@@ -84,11 +84,11 @@ nav:
       - "Contributing naming convention": "contributor/reference/naming-convention.md"
       - "Integration tests": "contributor/explanation/integration-tests.md"
       - Implementation Plans:
-          - "Icechunk Virtual Cloud Cubes": "implementation-plan-icechunk-vcc.md"
           - "Virtualizing and Combining Granule Trees": "implementation-plan-virtualize-combine-tree.md"
       - Architecture & Design:
           - "Migration Guide: v0.x → v1.0.0": "migration-guide.md"
           - "Refactoring Overview": "refactoring.md"
+          - "Icechunk Virtual Chunk Containers": "refactoring/icechunk-vcc.md"
           - "STAC Module Architecture": "refactoring/stac-module-architecture.md"
           - "Implementation Phases (Historical)": "refactoring/stac-implementation-log.md"
           - "Architecture Comparison": "refactoring/stac-comparison.md"
