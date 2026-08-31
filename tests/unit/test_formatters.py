@@ -1167,3 +1167,41 @@ def test_plot_splits_global_coverage():
     fills = {tuple(layer.get_fill_color) for layer in m2.layers}
     assert (0, 100, 200, 0) in fills  # global layer has no fill
     assert (0, 100, 200, 80) in fills  # regional layer keeps default fill
+
+
+def test_query_bounding_box_legacy_params():
+    """The search ROI is read from the legacy query param dict."""
+    from types import SimpleNamespace
+
+    from earthaccess.formatting.widgets import _query_bounding_box
+    from earthaccess.search import DataGranules
+
+    q = DataGranules().parameters(
+        short_name="ATL06", bounding_box=(40.19, 6.24, 42.18, 7.24)
+    )
+    assert _query_bounding_box(SimpleNamespace(query=q)) == [40.19, 6.24, 42.18, 7.24]
+
+
+def test_query_bounding_box_new_builder():
+    """The search ROI is read from the new GranuleQuery/CollectionQuery builder."""
+    from types import SimpleNamespace
+
+    from earthaccess.formatting.widgets import _query_bounding_box
+    from earthaccess.search.query import GranuleQuery
+
+    gq = GranuleQuery().short_name("ATL06").bounding_box(-46.5, 61.0, -42.5, 63.0)
+    assert _query_bounding_box(SimpleNamespace(query=gq)) == [-46.5, 61.0, -42.5, 63.0]
+
+
+def test_query_bounding_box_returns_none_without_bbox():
+    """No ROI is returned for queries without a bounding box."""
+    from types import SimpleNamespace
+
+    from earthaccess.formatting.widgets import _query_bounding_box
+    from earthaccess.search import DataGranules
+
+    assert _query_bounding_box(SimpleNamespace(query=None)) is None
+    q_no_bbox = DataGranules().parameters(short_name="ATL06")
+    assert _query_bounding_box(SimpleNamespace(query=q_no_bbox)) is None
+    q_point = DataGranules().parameters(short_name="ATL06", point=(40.0, 7.0))
+    assert _query_bounding_box(SimpleNamespace(query=q_point)) is None

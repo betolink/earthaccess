@@ -157,6 +157,49 @@ def _format_bbox(west: float, south: float, east: float, north: float) -> str:
     return f"W {west:.2f}, S {south:.2f}, E {east:.2f}, N {north:.2f}"
 
 
+def _query_bounding_box(results: "SearchResults") -> Optional[List[float]]:
+    """Return the bounding box used in the search query, if any.
+
+    Reads the ``bounding_box`` parameter off the query object so the ROI can
+    be drawn alongside the results for contrast. Supports both the legacy
+    ``DataGranules``/``DataCollections`` param dicts (``"west,south,east,north"``)
+    and the new ``GranuleQuery``/``CollectionQuery`` builders (``_spatial``).
+
+    Args:
+        results: A SearchResults instance with a query object.
+
+    Returns:
+        A ``[west, south, east, north]`` list, or ``None`` if the query has no
+        bounding box (e.g. point/polygon/line or no spatial filter).
+    """
+    query = getattr(results, "query", None)
+    if query is None:
+        return None
+
+    # New query builders store spatial filters as BoundingBox objects.
+    spatial = getattr(query, "_spatial", None)
+    if spatial is not None and hasattr(spatial, "to_stac"):
+        from earthaccess.search.query.types import BoundingBox
+
+        if isinstance(spatial, BoundingBox):
+            return spatial.to_stac()
+
+    # Legacy param dicts store it as "west,south,east,north".
+    params = getattr(query, "params", {})
+    bbox = params.get("bounding_box")
+    if isinstance(bbox, str):
+        parts = bbox.split(",")
+        if len(parts) == 4:
+            try:
+                return [float(p) for p in parts]
+            except ValueError:
+                return None
+    elif isinstance(bbox, (list, tuple)) and len(bbox) == 4:
+        return [float(p) for p in bbox]
+
+    return None
+
+
 def _bboxes_to_geodataframe(
     items: List[Any], max_items: int = 10000
 ) -> "Any":  # Returns GeoDataFrame
@@ -335,6 +378,27 @@ def plot(
                 get_fill_color=[*fill_color[:3], 0],
                 get_line_color=line_color,
                 line_width_min_pixels=1,
+            )
+        )
+
+    # Draw the search ROI (bounding box) as a thin outline for contrast
+    roi_bbox = _query_bounding_box(results)
+    if roi_bbox is not None:
+        import geopandas as gpd
+        from shapely.geometry import box
+
+        west, south, east, north = roi_bbox
+        roi_gdf = gpd.GeoDataFrame(
+            {"coverage": ["roi"]},
+            geometry=[box(west, south, east, north)],
+            crs="EPSG:4326",
+        )
+        layers.append(
+            PolygonLayer.from_geopandas(
+                roi_gdf,
+                get_fill_color=[255, 0, 0, 0],
+                get_line_color=[255, 0, 0, 255],
+                line_width_min_pixels=2,
             )
         )
 

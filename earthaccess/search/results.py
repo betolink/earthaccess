@@ -2116,6 +2116,9 @@ class SearchResults:
         This method creates a lonboard map visualization showing the spatial
         extent of cached search results. Requires the [widgets] extra.
 
+        If the search was limited by a bounding box, that ROI is drawn as a
+        thin red outline so you can contrast it with the granule geometries.
+
         Parameters:
             max_items: Maximum number of bounding boxes to display (default 10000)
             **kwargs: Additional arguments passed to lonboard (fill_color, line_color)
@@ -2150,10 +2153,33 @@ class GranuleResults(SearchResults):
     """Search results containing DataGranule objects.
 
     This subclass is returned by `earthaccess.search_data()` and provides
-    granule-specific functionality.
+    granule-specific functionality. Results are fetched lazily from CMR in
+    pages, so nothing is downloaded until you ask for it.
+
+    Top-level things you can do with a `GranuleResults` object:
+
+    - **Iterate** directly — ``for granule in results:`` yields granules,
+      fetching more pages from CMR as needed.
+    - **Materialize everything** — ``list(results)`` or ``results.all()``
+      fetches all matching granules into memory (up to the search ``count``,
+      if one was set).
+    - **Paginate through results** — ``results.pages()`` yields pages of
+      granules, and ``results.items()`` yields them one at a time.
+    - **See what is loaded** — ``len(results)`` is how many are cached so far;
+      ``results.total()`` is the total number of matches CMR reports.
+    - **Filter** — ``results.filter(...)`` keeps granules matching size,
+      cloud hosting, or a custom predicate.
+    - **Explore the map** — ``results.explore()`` shows an interactive map of
+      the loaded granules' spatial extents (requires the ``[widgets]`` extra;
+      materialize first with ``list(results)`` to map more than the prefetched
+      page).
 
     Examples:
         >>> results = earthaccess.search_data(short_name="ATL06", count=10)
+        >>> list(results)  # materialize all 10 granules
+        >>> len(results)
+        10
+        >>> results.explore()  # interactive map of their spatial extents
         >>> for granule in results:
         ...     print(granule.data_links())
     """
