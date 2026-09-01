@@ -58,7 +58,7 @@ class TestSearchDataWithGranuleQuery:
                 assert results.total() == 100
 
     def test_search_data_query_with_bounding_box(self):
-        """search_data() should pass spatial parameters from query object."""
+        """search_data() should pass clean bounding_box tuple from query object."""
         query = GranuleQuery().short_name("ATL03").bounding_box(-180, -90, 180, 90)
 
         with patch("earthaccess.api.DataGranules") as mock_dg:
@@ -72,8 +72,33 @@ class TestSearchDataWithGranuleQuery:
 
             call_kwargs = mock_query.parameters.call_args[1]
             assert "bounding_box" in call_kwargs
-            # CMR format is "west,south,east,north"
-            assert call_kwargs["bounding_box"] == "-180.0,-90.0,180.0,90.0"
+            assert call_kwargs["bounding_box"] == (-180.0, -90.0, 180.0, 90.0)
+
+    def test_search_data_query_with_polygon(self):
+        """search_data() passes polygon as a list (regression for #polygon-query)."""
+        query = (
+            GranuleQuery()
+            .short_name("ATL03")
+            .polygon([(-10, 40), (-8, 40), (-8, 42), (-10, 42), (-10, 40)])
+        )
+
+        with patch("earthaccess.api.DataGranules") as mock_dg:
+            mock_query = MagicMock()
+            mock_query.hits.return_value = 0
+            mock_query.get_all.return_value = []
+            mock_query.parameters.return_value = mock_query
+            mock_dg.return_value = mock_query
+
+            earthaccess.search_data(query=query)
+
+            call_kwargs = mock_query.parameters.call_args[1]
+            assert call_kwargs["polygon"] == [
+                (-10.0, 40.0),
+                (-8.0, 40.0),
+                (-8.0, 42.0),
+                (-10.0, 42.0),
+                (-10.0, 40.0),
+            ]
 
     def test_search_data_query_with_temporal(self):
         """search_data() should pass temporal parameters from query object."""

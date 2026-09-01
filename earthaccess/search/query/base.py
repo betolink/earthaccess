@@ -157,7 +157,10 @@ class QueryBase(ABC):
         elif isinstance(self._spatial, Point):
             kwargs["point"] = (self._spatial.lon, self._spatial.lat)
         elif isinstance(self._spatial, Polygon):
-            kwargs["polygon"] = self._spatial.coordinates
+            # List of (lon, lat) pairs — matches what search_data(polygon=[...])
+            # and the legacy query layer accept. A tuple-of-tuples would be
+            # unpacked as separate positional args by parameters().
+            kwargs["polygon"] = [tuple(pair) for pair in self._spatial.coordinates]
 
         # Line coordinates (stored as a plain param)
         line = kwargs.pop("line", None)

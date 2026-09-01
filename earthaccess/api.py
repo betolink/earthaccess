@@ -207,10 +207,10 @@ def search_datasets(
         if not validation.is_valid:
             errors = "; ".join(f"{e.field}: {e.message}" for e in validation.errors)
             raise ValueError(f"Invalid query: {errors}")
-        # Capture clean, replayable kwargs from the query builder, then convert
-        # to the flattened CMR parameters used to build the query object.
-        replay_kwargs = query.to_kwargs()
-        kwargs = query.to_cmr()
+        # Use clean, replayable kwargs from the query builder; the legacy
+        # query layer (DataCollections.parameters) accepts these directly.
+        kwargs = query.to_kwargs()
+        replay_kwargs = kwargs
 
     if not kwargs:
         logger.warning(
@@ -339,10 +339,10 @@ def search_data(
         if not validation.is_valid:
             errors = "; ".join(f"{e.field}: {e.message}" for e in validation.errors)
             raise ValueError(f"Invalid query: {errors}")
-        # Capture clean, replayable kwargs from the query builder, then convert
-        # to the flattened CMR parameters used to build the query object.
-        replay_kwargs = query.to_kwargs()
-        kwargs = query.to_cmr()
+        # Use clean, replayable kwargs from the query builder; the legacy
+        # query layer (DataGranules.parameters) accepts these directly.
+        kwargs = query.to_kwargs()
+        replay_kwargs = kwargs
 
     # max_items takes precedence over count for pystac-client compatibility
     if max_items is not None:

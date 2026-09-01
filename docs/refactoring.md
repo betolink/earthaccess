@@ -344,16 +344,14 @@ known third-party limitation.
    so the conventions survive review pressure.
 5. **Keep the truncated-cassette rule documented** (§2.4): the last page of any
    pagination cassette must omit `CMR-Search-After` so playback terminates.
-6. **Fix spatial filters through `search_data(query=...)`.** A query object
-   built with a `polygon` filter cannot currently be passed to
-   `earthaccess.search_data(query=...)` / `search_datasets(query=...)`: the
-   builder flattens coordinates into a CMR string that the legacy query layer
-   (`DataGranules`/`DataCollections.parameters()`) cannot consume (see
-   [the how-to](user/howto/reproduce-search.md#known-limitations)). The keyword
-   form, `loaded.rebuild_query()`, and `loaded.query_params` all work around
-   it today; the long-term fix is to make the query-object path feed clean
-   kwargs (`to_kwargs()`) into the query layer instead of flattened
-   `to_cmr()` values.
+
+> **Fixed:** spatial filters through `search_data(query=...)`. A query object
+> built with a `polygon` (or any spatial) filter can now be passed to
+> `search_data(query=...)` / `search_datasets(query=...)`: the query-object path
+> feeds clean `to_kwargs()` values (spatial as tuples/lists, not flattened CMR
+> strings) into the legacy query layer, which accepts them directly. CMR-only
+> options (e.g. `options[readable_granule_name][pattern]`) are still applied by
+> the legacy layer, so no request semantics are lost.
 
 ---
 
