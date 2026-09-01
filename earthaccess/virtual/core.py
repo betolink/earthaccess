@@ -6,6 +6,7 @@ xarray Datasets from NASA Earthdata granules.
 
 from __future__ import annotations
 
+import json
 import logging
 import tempfile
 import warnings
@@ -918,7 +919,7 @@ def _derive_vccs_from_vds(vds: xr.Dataset) -> dict[str, Any]:
         data = var.data
         if not isinstance(data, ManifestArray):
             continue
-        for path in data.manifest:
+        for path in data.manifest.iter_nonempty_paths():
             parsed = urlparse(path)
             if parsed.scheme in ("s3", "https", "http"):
                 prefixes[f"{parsed.scheme}://{parsed.netloc}/"] = parsed.scheme
@@ -994,6 +995,7 @@ def write_virtual(
     vds: xr.Dataset,
     store: str | Path,
     *,
+    format: str = "icechunk",
     append_dim: str | None = None,
     commit: bool = True,
     storage_options: dict[str, Any] | None = None,
@@ -1012,6 +1014,7 @@ def write_virtual(
         store: Target Icechunk store location — a local path, or an
             ``s3://bucket/prefix`` URI (write credentials from
             ``storage_options`` or the environment).
+        format: Store format. Only ``"icechunk"`` is currently supported.
         append_dim: When set, append the dataset along this dimension instead
             of writing to a new group.
         commit: When ``True`` (default), commit the write to the store's
@@ -1023,9 +1026,17 @@ def write_virtual(
         The input ``vds`` unchanged.
 
     Raises:
-        ValueError: If ``vds`` contains no virtual chunk references.
+        ValueError: If ``vds`` contains no virtual chunk references, or if
+            ``format`` is not ``"icechunk"``.
         ImportError: If ``earthaccess[virtualizarr]`` is not installed.
     """
+    if format != "icechunk":
+        msg = (
+            f"Unsupported format {format!r}: write_virtual() currently only "
+            "supports 'icechunk'."
+        )
+        raise ValueError(msg)
+
     import importlib.util
 
     if importlib.util.find_spec("icechunk") is None:

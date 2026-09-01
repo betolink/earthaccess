@@ -13,11 +13,26 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
+class FakeManifest:
+    """Stand-in for virtualizarr's ChunkManifest (numpy-backed, not iterable)."""
+
+    def __init__(self, paths):
+        self._paths = list(paths)
+
+    def iter_nonempty_paths(self):
+        yield from self._paths
+
+    def __iter__(self):
+        raise NotImplementedError(
+            "ChunkManifest is not iterable; use iter_nonempty_paths()"
+        )
+
+
 class FakeManifestArray:
     """Stand-in for virtualizarr's ManifestArray used by _derive_vccs_from_vds."""
 
     def __init__(self, paths):
-        self.manifest = {p: [] for p in paths}
+        self.manifest = FakeManifest(paths)
 
 
 def _vds_with_refs(*paths):
@@ -72,9 +87,101 @@ def test_derive_vccs_from_vds_raises_without_manifest_arrays():
         _derive_vccs_from_vds(vds)
 
 
+def test_derive_vccs_from_vds_with_real_manifest_array():
+    """Regression: virtualizarr ChunkManifest is not iterable; the code must
+    use iter_nonempty_paths(). Builds a genuine virtualizarr ManifestArray.
+    """
+    pytest.importorskip("virtualizarr")
+    np = pytest.importorskip("numpy")
+    xr = pytest.importorskip("xarray")
+
+    from virtualizarr.manifests import ChunkManifest, ManifestArray
+    from zarr.codecs import BytesCodec
+    from zarr.core.metadata.v3 import ArrayV3Metadata
+    from zarr.dtype import parse_dtype
+
+    metadata = ArrayV3Metadata(
+        shape=(4,),
+        data_type=parse_dtype("float32", zarr_format=3),
+        chunk_grid={"name": "regular", "configuration": {"chunk_shape": (4,)}},
+        chunk_key_encoding={"name": "default", "configuration": {"separator": "/"}},
+        fill_value=np.float32("nan"),
+        codecs=[BytesCodec()],
+        attributes={},
+        dimension_names=("x",),
+    )
+    manifest = ChunkManifest(
+        entries={
+            "0": {
+                "path": "https://example.com/data/file.nc",
+                "offset": 0,
+                "length": 16,
+            }
+        }
+    )
+    marr = ManifestArray(metadata=metadata, chunkmanifest=manifest)
+
+    # Guard: the direct iteration that used to break still raises
+    with pytest.raises(NotImplementedError):
+        iter(marr.manifest)
+
+    vds = xr.Dataset({"sst": xr.DataArray(marr, dims=["x"])})
+
+    from earthaccess.virtual.core import _derive_vccs_from_vds
+
+    vccs = _derive_vccs_from_vds(vds)
+    assert set(vccs) == {"https://example.com/"}
+
+
 # ---------------------------------------------------------------------------
 # write_virtual
 # ---------------------------------------------------------------------------
+
+
+def test_write_virtual_rejects_unknown_format():
+    """Only format='icechunk' is supported."""
+    from earthaccess.virtual.core import write_virtual
+
+    vds = _vds_with_refs("https://archive.podaac.earthdata.nasa.gov/data/x.nc")
+    with (
+        patch("icechunk.local_filesystem_storage", return_value="LOCAL"),
+        patch("icechunk.Repository.exists", return_value=False),
+        patch("icechunk.Repository.create") as mock_create,
+        pytest.raises(ValueError, match="Unsupported format"),
+    ):
+        write_virtual(vds, "store.zarr", format="zarr")
+    mock_create.assert_not_called()
+
+
+def test_write_virtual_accepts_explicit_icechunk_format():
+    """format='icechunk' is the explicit (and default) format."""
+    from earthaccess.virtual.core import write_virtual
+
+    vds = _vds_with_refs("https://archive.podaac.earthdata.nasa.gov/data/x.nc")
+    session = MagicMock()
+    session.store = MagicMock()
+    repo_obj = MagicMock()
+    repo_obj.writable_session.return_value = session
+    repo_create = MagicMock(return_value=repo_obj)
+
+    with (
+        patch(
+            "earthaccess.virtual.core._derive_vccs_from_vds",
+            return_value={"https://archive.podaac.earthdata.nasa.gov/": "STORE"},
+        ),
+        patch("icechunk.local_filesystem_storage", return_value="LOCAL"),
+        patch("icechunk.Repository.exists", return_value=False),
+        patch("icechunk.Repository.create", repo_create),
+        patch("icechunk.RepositoryConfig.default"),
+        patch("icechunk.VirtualChunkContainer") as mock_vc,
+    ):
+        write_virtual(vds, "store.icechunk", format="icechunk")
+
+    repo_create.assert_called_once()
+    mock_vc.assert_called_once_with(
+        "https://archive.podaac.earthdata.nasa.gov/",
+        "STORE",
+    )
 
 
 def test_write_virtual_creates_local_store_with_containers():
