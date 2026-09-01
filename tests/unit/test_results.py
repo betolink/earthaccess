@@ -280,7 +280,7 @@ def test_granule_repr_is_concise_pystac_style():
     assert "granule_ur=HLS.S30.T55JGM.2015332T001732.v2.0" in r
     assert "temporal=2015-11-28" in r
     assert "size=" in r
-    assert "cloud_hosted=True" in r
+    assert "cloud_hosted" not in r
     # No raw dict dumps or full link lists
     assert "{" not in r
     assert "s3://" not in r
@@ -318,7 +318,7 @@ def test_collection_repr_is_concise_pystac_style():
     assert "short_name=HLSS30" in r
     assert "version=2.0" in r
     assert "concept_id=C2021957295-LPCLOUD" in r
-    assert "cloud_hosted=True" in r
+    assert "cloud_hosted" not in r
     # No raw JSON dump
     assert "{" not in r
 
@@ -331,7 +331,7 @@ def test_collection_repr_omits_version_when_missing():
     r = repr(collection)
 
     assert "version=" not in r
-    assert "cloud_hosted=False" in r
+    assert "cloud_hosted" not in r
 
 
 def test_get_doi_returns_empty_string_when_doi_missing():

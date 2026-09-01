@@ -539,23 +539,21 @@ class DataCollection(CustomDict):
     def __repr__(self) -> str:
         """Return a concise, pystac-style representation of this collection.
 
-        Shows the class, the collection's short name and version, its concept
-        ID, and its cloud-hosting status.
+        Shows the class, the collection's short name and version, and its
+        concept ID.
 
         Returns:
             A single-line representation, e.g.
-            ``<DataCollection short_name=HLSS30 version=2.0 concept_id=C2021957295-LPCLOUD cloud_hosted=True>``
+            ``<DataCollection short_name=HLSS30 version=2.0 concept_id=C2021957295-LPCLOUD>``
         """
         short_name = self.get("umm", {}).get("ShortName", "unknown")
         version = self.get("umm", {}).get("Version", "")
         concept_id = self.get("meta", {}).get("concept-id", "unknown")
-        is_cloud = bool(self.get("umm", {}).get("DirectDistributionInformation"))
 
         version_str = f" version={version}" if version else ""
         return (
             f"<{self.__class__.__name__} short_name={short_name}"
-            f"{version_str} concept_id={concept_id} "
-            f"cloud_hosted={is_cloud}>"
+            f"{version_str} concept_id={concept_id}>"
         )
 
     def _repr_html_(self) -> str:
@@ -870,11 +868,11 @@ class DataGranule(CustomDict):
         """Return a concise, pystac-style representation of this granule.
 
         Shows the class, the granule's primary identifier, its temporal
-        coverage, size, access type, and the number of data files.
+        coverage, size, and the number of data files.
 
         Returns:
             A single-line representation, e.g.
-            ``<DataGranule granule_ur=HLS.S30...v2.0 temporal=2015-11-28 size=1.66 MB cloud_hosted=True files=18>``
+            ``<DataGranule granule_ur=HLS.S30...v2.0 temporal=2015-11-28 size=1.66 MB files=18>``
         """
         granule_ur = self.get("umm", {}).get(
             "GranuleUR", self["meta"].get("concept-id", "unknown")
@@ -892,8 +890,7 @@ class DataGranule(CustomDict):
 
         return (
             f"<{self.__class__.__name__} granule_ur={granule_ur} "
-            f"temporal={date_str} size={size_str} "
-            f"cloud_hosted={self.cloud_hosted} files={n_files}>"
+            f"temporal={date_str} size={size_str} files={n_files}>"
         )
 
     def _repr_html_(self) -> str:
