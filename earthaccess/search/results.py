@@ -4,7 +4,6 @@ This module provides the DataCollection, DataGranule, and SearchResults classes
 for representing and working with NASA CMR search results.
 """
 
-import json
 import os
 import uuid
 from dataclasses import dataclass, field
@@ -538,8 +537,25 @@ class DataCollection(CustomDict):
         return providers
 
     def __repr__(self) -> str:
-        return json.dumps(
-            self.render_dict, sort_keys=False, indent=2, separators=(",", ": ")
+        """Return a concise, pystac-style representation of this collection.
+
+        Shows the class, the collection's short name and version, its concept
+        ID, and its cloud-hosting status.
+
+        Returns:
+            A single-line representation, e.g.
+            ``<DataCollection short_name=HLSS30 version=2.0 concept_id=C2021957295-LPCLOUD cloud_hosted=True>``
+        """
+        short_name = self.get("umm", {}).get("ShortName", "unknown")
+        version = self.get("umm", {}).get("Version", "")
+        concept_id = self.get("meta", {}).get("concept-id", "unknown")
+        is_cloud = bool(self.get("umm", {}).get("DirectDistributionInformation"))
+
+        version_str = f" version={version}" if version else ""
+        return (
+            f"<{self.__class__.__name__} short_name={short_name}"
+            f"{version_str} concept_id={concept_id} "
+            f"cloud_hosted={is_cloud}>"
         )
 
     def _repr_html_(self) -> str:
@@ -851,20 +867,34 @@ class DataGranule(CustomDict):
             self.render_dict = self._filter_fields_(fields)
 
     def __repr__(self) -> str:
-        """Placeholder.
+        """Return a concise, pystac-style representation of this granule.
+
+        Shows the class, the granule's primary identifier, its temporal
+        coverage, size, access type, and the number of data files.
 
         Returns:
-            A basic representation of a data granule.
+            A single-line representation, e.g.
+            ``<DataGranule granule_ur=HLS.S30...v2.0 temporal=2015-11-28 size=1.66 MB cloud_hosted=True files=18>``
         """
-        data_links = [link for link in self.data_links()]
-        rep_str = f"""
-        Collection: {self["umm"]["CollectionReference"]}
-        Spatial coverage: {self["umm"]["SpatialExtent"]}
-        Temporal coverage: {self["umm"]["TemporalExtent"]}
-        Size(MB): {self.size()}
-        Data: {data_links}\n\n
-        """.strip().replace("  ", "")
-        return rep_str
+        granule_ur = self.get("umm", {}).get(
+            "GranuleUR", self["meta"].get("concept-id", "unknown")
+        )
+        temporal = self.get("umm", {}).get("TemporalExtent", {})
+        begin = (
+            temporal.get("RangeDateTime", {}).get("BeginningDateTime")
+            or temporal.get("SingleDateTime")
+            or ""
+        )
+        date_str = begin[:10] if begin else "n/a"
+        size = self.size()
+        size_str = f"{size:.2f} MB" if size else "n/a"
+        n_files = len(self.data_links())
+
+        return (
+            f"<{self.__class__.__name__} granule_ur={granule_ur} "
+            f"temporal={date_str} size={size_str} "
+            f"cloud_hosted={self.cloud_hosted} files={n_files}>"
+        )
 
     def _repr_html_(self) -> str:
         """Placeholder.

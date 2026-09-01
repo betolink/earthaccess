@@ -266,6 +266,74 @@ def test_get_doi_returns_doi_when_present():
     assert collection.doi() == "doi:10.16904/envidat.lwf.34"
 
 
+def test_granule_repr_is_concise_pystac_style():
+    """print(granule) shows a short, pystac-style summary, not raw dicts."""
+    from tests.unit.fixtures import load_granule_fixture
+
+    data = load_granule_fixture("HLSS30_umm")
+    granule = DataGranule(data, cloud_hosted=True)
+
+    r = repr(granule)
+
+    assert r.startswith("<DataGranule ")
+    assert r.endswith(">")
+    assert "granule_ur=HLS.S30.T55JGM.2015332T001732.v2.0" in r
+    assert "temporal=2015-11-28" in r
+    assert "size=" in r
+    assert "cloud_hosted=True" in r
+    # No raw dict dumps or full link lists
+    assert "{" not in r
+    assert "s3://" not in r
+
+
+def test_granule_repr_handles_minimal_data():
+    """A bare granule still renders without raising."""
+    granule = DataGranule(
+        {"umm": {"GranuleUR": "test-granule"}, "meta": {"concept-id": "G1-TEST"}}
+    )
+    r = repr(granule)
+
+    assert "<DataGranule granule_ur=test-granule" in r
+    assert "temporal=n/a" in r
+    assert "size=n/a" in r
+
+
+def test_collection_repr_is_concise_pystac_style():
+    """print(collection) shows a short, pystac-style summary, not raw JSON."""
+    collection = DataCollection(
+        {
+            "umm": {
+                "ShortName": "HLSS30",
+                "Version": "2.0",
+                "DirectDistributionInformation": {"Region": "us-west-2"},
+            },
+            "meta": {"concept-id": "C2021957295-LPCLOUD"},
+        }
+    )
+
+    r = repr(collection)
+
+    assert r.startswith("<DataCollection ")
+    assert r.endswith(">")
+    assert "short_name=HLSS30" in r
+    assert "version=2.0" in r
+    assert "concept_id=C2021957295-LPCLOUD" in r
+    assert "cloud_hosted=True" in r
+    # No raw JSON dump
+    assert "{" not in r
+
+
+def test_collection_repr_omits_version_when_missing():
+    """Collections without a version omit the version field."""
+    collection = DataCollection(
+        {"umm": {"ShortName": "MOD02QKM"}, "meta": {"concept-id": "C1-LAADS"}}
+    )
+    r = repr(collection)
+
+    assert "version=" not in r
+    assert "cloud_hosted=False" in r
+
+
 def test_get_doi_returns_empty_string_when_doi_missing():
     collection = DataCollection({"umm": {"DOI": {}}, "meta": {}})
 
