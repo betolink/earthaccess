@@ -18,7 +18,7 @@ resolved in that text, for example "resolves #1".
 
 #### AI usage disclosure
 
-Using AI tools is welcome. Per our [AI Policy](https://earthaccess.readthedocs.io/en/latest/ai_policy/),
+Using AI tools is welcome. Per our [AI Policy](https://earthaccess.readthedocs.io/en/latest/contributor/ai-policy/),
 we just ask that you disclose any use of generative AI tools in this contribution.
 
 - [ ] I have disclosed AI tool usage below, or confirmed that no AI tools were used

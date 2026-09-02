@@ -54,7 +54,7 @@ nav:
   - Contributor guide:
       - "contributor/index.md" # << Link target of the parent node
       - "Code of conduct": "contributor/code-of-conduct.md"
-      - "AI policy": "ai_policy.md"
+      - "AI policy": "contributor/ai-policy.md"
       - How-to:
           - "Setup dev environment": "contributor/howto/development.md"
           - "Create a Pull Request (PR)": "contributor/howto/pr-guide.md"
