@@ -118,9 +118,9 @@ def search_datasets(
     [https://cmr.earthdata.nasa.gov/search/site/docs/search/api.html](https://cmr.earthdata.nasa.gov/search/site/docs/search/api.html)
 
     Parameters:
-        query: A CollectionQuery object from earthaccess.query. When provided,
-            the query parameters are extracted from this object. Cannot be used
-            together with keyword arguments.
+        query: A CollectionQuery object (e.g. ``earthaccess.CollectionQuery``).
+            When provided, the query parameters are extracted from this object.
+            Cannot be used together with keyword arguments.
         count: Number of records to get, -1 = all
         kwargs (Dict):
             arguments to CMR:
@@ -187,7 +187,7 @@ def search_datasets(
 
         Using a query object:
         ```python
-        from earthaccess.query import CollectionQuery
+        from earthaccess import CollectionQuery
 
         query = CollectionQuery().keyword("sea surface anomaly").cloud_hosted(True)
         datasets = earthaccess.search_datasets(query=query)
@@ -242,9 +242,9 @@ def search_data(
     The CMR does not permit queries across all granules in all collections in order to provide fast search responses. Granule queries must target a subset of the collections in the CMR using a condition like provider, provider_id, concept_id, collection_concept_id, short_name, version or entry_title.
 
     Parameters:
-        query: A GranuleQuery object from earthaccess.query. When provided,
-            the query parameters are extracted from this object. Cannot be used
-            together with keyword arguments.
+        query: A GranuleQuery object (e.g. ``earthaccess.GranuleQuery``).
+            When provided, the query parameters are extracted from this object.
+            Cannot be used together with keyword arguments.
         count: Number of records to get, -1 = all
         max_items: Alias for count (pystac-client compatible). If both are provided,
             max_items takes precedence.
@@ -320,7 +320,7 @@ def search_data(
 
         Using a query object:
         ```python
-        from earthaccess.query import GranuleQuery
+        from earthaccess import GranuleQuery
 
         query = GranuleQuery().short_name("ATL06").bounding_box(-46.5, 61.0, -42.5, 63.0)
         granules = earthaccess.search_data(query=query)

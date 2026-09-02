@@ -194,9 +194,8 @@ def make_instance(
         earthaccess.login()
 
     # When sending EarthAccessFiles between processes, it's possible that
-    # we will need to switch between s3 <--> https protocols.
-    # TODO: Re-evaluate this logic with the new S3 probe mechanism.
-    # For now, we'll just return the object as is.
+    # we will need to switch between s3 <--> https protocols. For now, we
+    # return the object as is; revisit once the S3 probe mechanism is final.
     return EarthAccessFile(loads(data), granule)
 
 

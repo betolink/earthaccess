@@ -446,7 +446,7 @@ def _load_via_kerchunk(  # noqa: PLR0913
     """Materialise a virtual dataset coordinates for "fancy" slicing via a kerchunk round-trip.
 
     Needed until https://github.com/zarr-developers/VirtualiZarr/issues/360
-    is resolved. TODO: make sure this holds, I think this may have been resolved already.
+    is resolved.
     """
     import xarray as xr  # noqa: PLC0415
 

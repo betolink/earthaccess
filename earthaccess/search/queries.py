@@ -1044,19 +1044,20 @@ class DataGranules(CmrGranuleQuery):
         Raises:
             RuntimeError: The CMR query to get the collection for the DOI fails.
         """
-        # TODO consider deferring this query until the search is executed
         collection = DataCollections().doi(doi).get()
 
-        # TODO consider raising an exception when there are multiple collections, since
-        # we can't know which one the user wants, and choosing one is arbitrary.
-        if len(collection) > 0:
-            concept_id = collection[0].concept_id()
-            self.params["concept_id"] = concept_id
-        else:
-            # TODO consider removing this print statement since we don't print such
-            # a message in other cases where no results are found.  Seems arbitrary.
-            logger.info(
+        if not collection:
+            logger.warning(
                 f"earthaccess couldn't find any associated collections with the DOI: {doi}"
             )
+            return self
+
+        concept_id = collection[0].concept_id()
+        if len(collection) > 1:
+            logger.warning(
+                f"DOI {doi} maps to {len(collection)} collections; "
+                f"using the first one ({concept_id})."
+            )
+        self.params["concept_id"] = concept_id
 
         return self

@@ -6,7 +6,6 @@ import fsspec
 import fsspec.utils
 import s3fs
 
-# import ipdb
 import earthaccess
 
 
@@ -19,12 +18,10 @@ def _get_chunk_metadata(
     if not isinstance(granule, earthaccess.DataGranule) and isinstance(granule, dict):
         # WHY: dask serialization is doing something weird, it serializes the granule as a simple dict
         # we need to add cast it back to a datagranule to get the nice methods for parsing the data links
-        # TODO: ask James what is going on
         granule = earthaccess.DataGranule(granule)
 
     metadata = []
     access = "direct" if isinstance(fs, s3fs.S3FileSystem) else "indirect"
-    # ipdb.set_trace()
 
     for url in granule.data_links(access=access):
         with fs.open(url) as inf:

@@ -1,5 +1,6 @@
 # package imports
 import datetime as dt
+from unittest import mock
 
 import pytest
 from earthaccess.search import DataGranules
@@ -57,3 +58,33 @@ def test_query_can_handle_invalid_dates(start, end, expected):  # noqa: ARG001
 def test_query_handles_bbox(bbox, expected):
     granules = DataGranules().short_name("MODIS").bounding_box(*bbox)
     assert ("bounding_box" in granules.params) == expected
+
+
+def _collection(concept_id: str):
+    return mock.Mock(concept_id=lambda: concept_id)
+
+
+def test_doi_single_collection_sets_concept_id():
+    with mock.patch("earthaccess.search.queries.DataCollections") as dc:
+        dc.return_value.doi.return_value.get.return_value = [_collection("C1-FOO")]
+        granules = DataGranules().doi("10.5067/AQR50-3Q7CS")
+    assert granules.params["concept_id"] == "C1-FOO"
+
+
+def test_doi_no_collection_warns_and_sets_nothing(caplog):
+    with mock.patch("earthaccess.search.queries.DataCollections") as dc:
+        dc.return_value.doi.return_value.get.return_value = []
+        granules = DataGranules().doi("10.5067/NOPE")
+    assert "concept_id" not in granules.params
+    assert "couldn't find any associated collections" in caplog.text
+
+
+def test_doi_multiple_collections_warns_and_picks_first(caplog):
+    with mock.patch("earthaccess.search.queries.DataCollections") as dc:
+        dc.return_value.doi.return_value.get.return_value = [
+            _collection("C1-FOO"),
+            _collection("C2-BAR"),
+        ]
+        granules = DataGranules().doi("10.5067/MULTI")
+    assert granules.params["concept_id"] == "C1-FOO"
+    assert "maps to 2 collections" in caplog.text
