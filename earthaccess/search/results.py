@@ -1619,6 +1619,7 @@ class SearchResults:
         query: Any,
         limit: Optional[int] = None,
         prefetch: int = 20,
+        page_size: int = 2000,
         query_kwargs: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Initialize SearchResults.
@@ -1628,10 +1629,15 @@ class SearchResults:
             limit: Maximum number of results to fetch, None for unlimited
             prefetch: Number of results to fetch immediately (default: 20).
                 Set to 0 to disable prefetching.
+            page_size: Results per CMR page when streaming/iterating
+                (default: 2000, CMR's maximum). Must be between 1 and 2000.
             query_kwargs: The original, replayable kwargs used to run the
                 search (e.g. those passed to ``search_data()``). Persisted by
                 :meth:`save` so the query can be re-run later.
         """
+        if page_size < 1 or page_size > 2000:
+            raise ValueError("page_size must be between 1 and 2000")
+
         self.query = query
         self.limit = limit
         self._query_kwargs: Optional[Dict[str, Any]] = query_kwargs
@@ -1639,7 +1645,7 @@ class SearchResults:
         self._total_hits: Optional[int] = None
         self._exhausted = False
         self._materialized = False
-        self._window: int = 2000
+        self._window: int = page_size
         self._last_search_after: Optional[str] = None
         self._initial_search_after: Optional[str] = None
         self.verification: Optional[Dict[str, Any]] = None

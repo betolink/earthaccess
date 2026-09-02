@@ -111,6 +111,8 @@ def _normalize_location(location: Optional[str]) -> Optional[str]:
 def search_datasets(
     query: Optional[NewCollectionQuery] = None,
     count: int = -1,
+    prefetch: int = 20,
+    page_size: int = 2000,
     **kwargs: Any,
 ) -> CollectionResults:
     """Search datasets (collections) using NASA's CMR.
@@ -122,6 +124,11 @@ def search_datasets(
             When provided, the query parameters are extracted from this object.
             Cannot be used together with keyword arguments.
         count: Number of records to get, -1 = all
+        prefetch: How many results to fetch immediately when the search object
+            is created (default: 20). Set to 0 to defer all fetching until you
+            iterate/index.
+        page_size: Results per CMR page when streaming/iterating (default:
+            2000, CMR's maximum; must be between 1 and 2000).
         kwargs (Dict):
             arguments to CMR:
 
@@ -225,7 +232,11 @@ def search_datasets(
     datasets_found = cmr_query.hits()
     logger.info(f"Datasets found: {datasets_found}")
     return CollectionResults(
-        cmr_query, limit=count if count > 0 else None, query_kwargs=replay_kwargs
+        cmr_query,
+        limit=count if count > 0 else None,
+        prefetch=prefetch,
+        page_size=page_size,
+        query_kwargs=replay_kwargs,
     )
 
 
@@ -233,6 +244,8 @@ def search_data(
     query: Optional[NewGranuleQuery] = None,
     count: int = -1,
     max_items: Optional[int] = None,
+    prefetch: int = 20,
+    page_size: int = 2000,
     **kwargs: Any,
 ) -> GranuleResults:
     """Search for dataset files (granules) using NASA's CMR.
@@ -248,6 +261,11 @@ def search_data(
         count: Number of records to get, -1 = all
         max_items: Alias for count (pystac-client compatible). If both are provided,
             max_items takes precedence.
+        prefetch: How many results to fetch immediately when the search object
+            is created (default: 20). Set to 0 to defer all fetching until you
+            iterate/index.
+        page_size: Results per CMR page when streaming/iterating (default:
+            2000, CMR's maximum; must be between 1 and 2000).
         kwargs (Dict):
             arguments to CMR:
 
@@ -356,7 +374,11 @@ def search_data(
     granules_found = cmr_query.hits()
     logger.info(f"Granules found: {granules_found}")
     return GranuleResults(
-        cmr_query, limit=count if count > 0 else None, query_kwargs=replay_kwargs
+        cmr_query,
+        limit=count if count > 0 else None,
+        prefetch=prefetch,
+        page_size=page_size,
+        query_kwargs=replay_kwargs,
     )
 
 

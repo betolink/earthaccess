@@ -6,6 +6,7 @@ iteration through large CMR result sets.
 
 from unittest.mock import Mock, patch
 
+import pytest
 from earthaccess.search import DataGranule, SearchResults
 
 
@@ -132,6 +133,28 @@ class TestSearchResultsCreation:
             # Should have prefetched the available results
             assert len(results._cached_results) == 5
             mock_fetch.assert_called_once()
+
+    def test_default_prefetch_is_20(self) -> None:
+        """The default prefetch is 20 and the default page size is 2000."""
+        mock_query = create_mock_query()
+        with patch.object(SearchResults, "_fetch_page", return_value=[]):
+            results = SearchResults(mock_query, prefetch=20, page_size=2000)
+
+        assert results._window == 2000
+
+    def test_page_size_is_configurable(self) -> None:
+        """page_size controls the streaming window."""
+        mock_query = create_mock_query()
+        results = SearchResults(mock_query, prefetch=0, page_size=500)
+        assert results._window == 500
+
+    def test_page_size_rejects_out_of_range(self) -> None:
+        """page_size must be between 1 and 2000."""
+        mock_query = create_mock_query()
+        with pytest.raises(ValueError, match="page_size must be between 1 and 2000"):
+            SearchResults(mock_query, prefetch=0, page_size=0)
+        with pytest.raises(ValueError, match="page_size must be between 1 and 2000"):
+            SearchResults(mock_query, prefetch=0, page_size=2001)
 
 
 class TestSearchResultsLen:
