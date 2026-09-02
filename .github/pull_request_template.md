@@ -25,8 +25,7 @@ we just ask that you disclose any use of generative AI tools in this contributio
 
 <!--
 If you used AI tools, note which tool(s) and version(s) were used, how they were used, and which
-parts of this contribution are AI-generated. If you did not use AI tools, write
-"No AI tools were used."
+parts of this contribution are AI-generated.
 -->
 
 #### "Ready for review" checklist
