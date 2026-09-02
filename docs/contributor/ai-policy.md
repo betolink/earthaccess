@@ -64,5 +64,6 @@ open source community to thrive.
 
 ## Acknowledgements
 
-We thank the SciPy developers for their [AI policy](https://scipy.github.io/devdocs/dev/conduct/ai_policy.html), upon which this document is
-largely based, and the SymPy developers for their [AI policy](https://docs.sympy.org/dev/contributing/ai-generated-code-policy.html), upon whose policy SciPy's is in turn based.
+This policy is adapted from the SciPy developers' [AI policy](https://scipy.github.io/devdocs/dev/conduct/ai_policy.html),
+which is based on the SymPy developers' [AI policy](https://docs.sympy.org/dev/contributing/ai-generated-code-policy.html).
+Thanks to both teams.
