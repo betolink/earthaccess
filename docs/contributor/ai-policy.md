@@ -1,5 +1,10 @@
 # AI Policy
 
+We have this policy so that AI tools make earthaccess more enjoyable to work on,
+not harder. Reviewer attention and contributor understanding are our scarcest resources.
+In short: disclose your AI use, understand and be able to explain anything you submit,
+and don't let an AI agent open a pull request on its own.
+
 "AI" herein refers to generative AI tools like large language models (LLMs)
 that can generate, edit, and review software code, create and manipulate
 images, or generate human-like communication.
