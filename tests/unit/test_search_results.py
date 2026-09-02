@@ -27,6 +27,69 @@ def create_mock_query(
     return mock_query
 
 
+class PagedQuery:
+    """A stateless query serving CMR-style pages keyed by ``search_after``.
+
+    ``search_after`` is the last index already served (or ``None`` to start at
+    the first result), matching how real CMR paginates.
+    """
+
+    def __init__(self, total_items: int, page_size: int = 2000):
+        self.total_items = total_items
+        self.page_size = page_size
+        self.headers = {}
+        self.calls: list[int] = []
+
+    def hits(self) -> int:
+        return self.total_items
+
+    def page(self, page_size: int, search_after: str | None = None) -> list:
+        """Return the page of DataGranule mocks after ``search_after``."""
+        self.calls.append(page_size)
+        start = 0 if search_after is None else int(search_after) + 1
+        end = min(start + page_size, self.total_items)
+        if start >= end:
+            return []
+        return [Mock(spec=DataGranule) for _ in range(start, end)]
+
+
+def paged_search_results(pager: PagedQuery, limit=None, prefetch: int = 0):
+    """Build a SearchResults whose _fetch_page pulls from a PagedQuery.
+
+    Returns ``(results, fetch_mock)`` where ``fetch_mock`` simulates the CMR
+    pagination protocol (sets ``_last_search_after`` to the last index served).
+    """
+    from earthaccess.search import SearchResults
+
+    query = pager
+    # Construct without network; prefetch will be driven through _fetch_page.
+    results = SearchResults.__new__(SearchResults)
+    SearchResults.__init__(results, query=query, limit=limit, prefetch=0)
+    results._cached_results = []
+    results._exhausted = False
+    results._materialized = False
+    results._total_hits = pager.total_items
+
+    def _fetch(page_size: int, search_after: str | None = None) -> list:
+        page = pager.page(page_size, search_after)
+        if page:
+            last_index = int(search_after or -1) + len(page)
+            results._last_search_after = str(last_index)
+        return page
+
+    if prefetch > 0:
+        count = prefetch if limit is None else min(prefetch, limit)
+        with patch.object(SearchResults, "_fetch_page", side_effect=_fetch):
+            initial = _fetch(count)
+            results._cached_results.extend(initial)
+            results._initial_search_after = results._last_search_after
+            if len(initial) < count:
+                results._exhausted = True
+                results._materialized = True
+
+    return results, _fetch
+
+
 class TestSearchResultsCreation:
     """Test SearchResults instantiation."""
 
@@ -127,6 +190,7 @@ class TestSearchResultsIteration:
         mock_query = create_mock_query()
         results = SearchResults(mock_query, prefetch=0)
         results._exhausted = True
+        results._materialized = True
         results._cached_results = []
 
         items = list(results)
@@ -137,6 +201,7 @@ class TestSearchResultsIteration:
         mock_query = create_mock_query()
         results = SearchResults(mock_query, prefetch=0)
         results._exhausted = True
+        results._materialized = True
 
         # Pre-populate cache
         mock_granule1 = Mock(spec=DataGranule)
@@ -154,6 +219,7 @@ class TestSearchResultsIteration:
         mock_query = create_mock_query()
         results = SearchResults(mock_query, limit=3, prefetch=0)
         results._exhausted = True
+        results._materialized = True
 
         # Pre-populate cache with more than limit
         results._cached_results = [Mock(spec=DataGranule) for _ in range(5)]
@@ -353,6 +419,7 @@ class TestSearchResultsCaching:
         mock_query = create_mock_query()
         results = SearchResults(mock_query, prefetch=0)
         results._exhausted = True
+        results._materialized = True
 
         mock_items = [Mock(spec=DataGranule) for _ in range(3)]
         results._cached_results = mock_items
@@ -387,6 +454,7 @@ class TestSearchResultsUsagePatterns:
         mock_query = create_mock_query()
         results = SearchResults(mock_query, prefetch=0)
         results._exhausted = True
+        results._materialized = True
         results._cached_results = [Mock(spec=DataGranule) for _ in range(3)]
 
         # Typical usage pattern
@@ -401,6 +469,7 @@ class TestSearchResultsUsagePatterns:
         mock_query = create_mock_query()
         results = SearchResults(mock_query, prefetch=0)
         results._exhausted = True
+        results._materialized = True
         results._cached_results = [Mock(spec=DataGranule) for _ in range(3)]
 
         # Convert to list
@@ -430,6 +499,7 @@ class TestSearchResultsEdgeCases:
         mock_query = create_mock_query(hits=0)
         results = SearchResults(mock_query, prefetch=0)
         results._exhausted = True
+        results._materialized = True
         results._cached_results = []
 
         assert len(results) == 0
@@ -448,6 +518,7 @@ class TestSearchResultsEdgeCases:
         mock_query = create_mock_query(hits=10)
         results = SearchResults(mock_query, limit=100, prefetch=0)
         results._exhausted = True
+        results._materialized = True
         results._cached_results = [Mock(spec=DataGranule) for _ in range(10)]
 
         items = list(results)
@@ -460,6 +531,7 @@ class TestSearchResultsEdgeCases:
         mock_query = create_mock_query()
         results = SearchResults(mock_query, prefetch=0)
         results._exhausted = True
+        results._materialized = True
         results._cached_results = [Mock(spec=DataGranule) for _ in range(3)]
 
         # First iteration
@@ -472,3 +544,87 @@ class TestSearchResultsEdgeCases:
         third = list(results)
 
         assert first == second == third
+
+
+class TestStreamingIteration:
+    """Iteration streams; the internal cache stays bounded to a window.
+
+    Regression tests for: iterating a very large result set must not retain
+    every item in memory (bounded cache window), while explicit
+    materialization (list()/all()) still returns everything, and reset() /
+    a fresh search return to the initial prefetch.
+    """
+
+    def test_iteration_keeps_bounded_window(self):
+        """After streaming N items, the cache holds only the last page."""
+        pager = PagedQuery(total_items=6_000, page_size=2000)
+        results, fetch = paged_search_results(pager)
+
+        with patch.object(SearchResults, "_fetch_page", side_effect=fetch):
+            count = 0
+            for _granule in results:
+                count += 1
+
+        assert count == 6_000  # yielded everything
+        # Cache is bounded to one page, not the whole set
+        assert len(results._cached_results) <= 2000
+        assert len(results) <= 2000
+        assert results._materialized is False
+
+    def test_list_still_returns_everything(self):
+        """list(results) returns all items even though the cache is bounded."""
+        pager = PagedQuery(total_items=10_000, page_size=2000)
+        results, fetch = paged_search_results(pager)
+
+        with patch.object(SearchResults, "_fetch_page", side_effect=fetch):
+            items = list(results)
+
+        assert len(items) == 10_000
+        assert len(results._cached_results) <= 2000
+
+    def test_all_materializes_fully(self):
+        """all() returns and caches the complete result set."""
+        pager = PagedQuery(total_items=10_000, page_size=2000)
+        results, fetch = paged_search_results(pager)
+
+        with patch.object(SearchResults, "_fetch_page", side_effect=fetch):
+            items = results.all()
+
+        assert len(items) == 10_000
+        assert len(results._cached_results) == 10_000
+        assert results._materialized is True
+
+    def test_reset_returns_to_prefetch(self):
+        """reset() clears materialized results back to the initial prefetch."""
+        pager = PagedQuery(total_items=100_000, page_size=2000)
+        results, fetch = paged_search_results(pager, prefetch=20)
+
+        with patch.object(SearchResults, "_fetch_page", side_effect=fetch):
+            # Prefetch happened at construction (20), then stream everything
+            results.reset()  # back to 20 prefetched
+            assert len(results._cached_results) == 20
+
+            results.reset(prefetch=0)
+            assert len(results._cached_results) == 0
+
+    def test_iteration_is_repeatable(self):
+        """A second streaming pass re-yields the full result set."""
+        pager = PagedQuery(total_items=5_000, page_size=2000)
+        results, fetch = paged_search_results(pager, prefetch=20)
+
+        with patch.object(SearchResults, "_fetch_page", side_effect=fetch):
+            first = sum(1 for _ in results)
+            second = sum(1 for _ in results)
+
+        assert first == 5_000
+        assert second == 5_000  # stale window must not truncate a re-scan
+
+    def test_fresh_search_starts_at_prefetch(self):
+        """A freshly constructed SearchResults holds the prefetch window."""
+        pager = PagedQuery(total_items=100_000, page_size=2000)
+        results, fetch = paged_search_results(pager, prefetch=20)
+
+        with patch.object(SearchResults, "_fetch_page", side_effect=fetch):
+            assert len(results._cached_results) == 20
+            assert results._exhausted is False
+            assert results._materialized is False

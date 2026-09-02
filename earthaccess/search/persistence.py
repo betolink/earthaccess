@@ -38,8 +38,8 @@ def compute_fingerprint(results: "SearchResults") -> str:
     """Compute a stable, order-insensitive fingerprint for search results.
 
     The fingerprint is a SHA-256 of the sorted concept-IDs of the *currently
-    loaded* results. Sorting makes it independent of CMR's result ordering, so
-    the same result set always hashes to the same value.
+    materialized* results. Sorting makes it independent of CMR's result
+    ordering, so the same result set always hashes to the same value.
 
     Parameters:
         results: A SearchResults instance (granules or collections).
@@ -47,9 +47,20 @@ def compute_fingerprint(results: "SearchResults") -> str:
     Returns:
         A hex SHA-256 digest prefixed with ``sha256:``.
     """
-    concept_ids = sorted(
-        item.get("meta", {}).get("concept-id", "") for item in results._cached_results
-    )
+    return compute_fingerprint_items(results._cached_results)
+
+
+def compute_fingerprint_items(items: List[Any]) -> str:
+    """Compute a stable, order-insensitive fingerprint over result objects.
+
+    Parameters:
+        items: DataGranule/DataCollection objects (or dicts with a ``meta``
+            ``concept-id``).
+
+    Returns:
+        A hex SHA-256 digest prefixed with ``sha256:``.
+    """
+    concept_ids = sorted(item.get("meta", {}).get("concept-id", "") for item in items)
     digest = hashlib.sha256("\n".join(concept_ids).encode("utf-8")).hexdigest()
     return f"sha256:{digest}"
 
@@ -198,32 +209,67 @@ def _serialize_results(results: "SearchResults") -> List[Dict[str, Any]]:
     return [item.to_dict() for item in results._cached_results]
 
 
-def save(results: "SearchResults", path: Union[str, Path]) -> Path:
+def _collect_for_save(results: "SearchResults", count: int) -> List[Union[Any, Any]]:
+    """Collect the results to persist for a given ``count``.
+
+    ``count < 0`` means "save everything the search matches": the full result
+    set is materialized. A non-negative ``count`` resets the pagination and
+    returns the first ``count`` results (fetching fresh, independent of any
+    prior streaming/iteration state on ``results``).
+
+    Returns:
+        The list of result objects to persist.
+    """
+    if count < 0:
+        # Save every match: materialize the whole (respecting the search limit).
+        return list(results.all())
+
+    # Save a specific prefix: reset and fetch up to `count` fresh.
+    saved_limit = results.limit
+    results.reset(prefetch=0)
+    items: List[Any] = []
+    for result in results:
+        items.append(result)
+        if len(items) >= count:
+            break
+    # Restore the object to a clean prefetch state.
+    results.reset()
+    # Preserve the original search limit semantics.
+    results.limit = saved_limit
+    return items[:count]
+
+
+def save(results: "SearchResults", path: Union[str, Path], count: int = -1) -> Path:
     """Save a SearchResults object to a compressed JSON payload.
 
     The payload records the replayable query parameters, how many results were
-    loaded, the CMR hit count at save time, a content fingerprint over the
-    sorted concept-IDs, and the loaded results themselves.
+    saved, the CMR hit count at save time, a content fingerprint over the
+    sorted concept-IDs, and the results themselves.
 
     Parameters:
         results: A SearchResults instance (granules or collections).
         path: Where to write the payload (``.gz`` recommended).
+        count: How many results to save. ``-1`` (default) saves every result
+            the search matches. A non-negative value resets the pagination and
+            saves the first ``count`` results, e.g. ``save(count=1000)`` saves
+            the first 1000.
 
     Returns:
         The path the payload was written to.
 
     Raises:
-        ValueError: If no results are loaded (nothing to persist).
+        ValueError: If the search returns no results to persist.
     """
-    if not results._cached_results:
-        raise ValueError(
-            "No results are loaded. Materialize the results first with "
-            "list(results) or results.all() before saving."
-        )
+    if count == 0:
+        raise ValueError("count must be -1 (save all) or a positive integer.")
+
+    items = _collect_for_save(results, count)
+    if not items:
+        raise ValueError("The search returned no results to save.")
 
     kind = (
         "granules"
-        if any("GranuleUR" in item.get("umm", {}) for item in results._cached_results)
+        if any("GranuleUR" in item.get("umm", {}) for item in items)
         else "collections"
     )
 
@@ -232,10 +278,10 @@ def save(results: "SearchResults", path: Union[str, Path]) -> Path:
         "saved_at": datetime.now(timezone.utc).isoformat(),
         "kind": kind,
         "query_params": _serialize_query_params(results),
-        "limit": results.limit,
+        "limit": count if count >= 0 else results.limit,
         "cmr_hits": results.total(),
-        "fingerprint": compute_fingerprint(results),
-        "results": _serialize_results(results),
+        "fingerprint": compute_fingerprint_items(items),
+        "results": [item.to_dict() for item in items],
     }
 
     path = Path(path)
@@ -320,6 +366,7 @@ def _rebuild_from_payload(
     )
     results._cached_results = items  # type: ignore[assignment]
     results._exhausted = True
+    results._materialized = True
     results._total_hits = payload.get("cmr_hits")
     results._stored_fingerprint = payload.get("fingerprint")
     results._saved_at = payload.get("saved_at")
@@ -348,7 +395,7 @@ def _verify(payload: Dict[str, Any], kind: str, limit: Optional[int]) -> Dict[st
         fresh = earthaccess.search_datasets(**query_params, count=limit or -1)
     else:
         fresh = earthaccess.search_data(**query_params, count=limit or -1)
-    list(fresh)  # materialize for a like-for-like comparison
+    fresh.all()  # materialize fully for a like-for-like comparison
     current_ids = {
         item.get("meta", {}).get("concept-id") for item in fresh._cached_results
     }
@@ -372,20 +419,24 @@ def _verify(payload: Dict[str, Any], kind: str, limit: Optional[int]) -> Dict[st
     }
 
 
-def save_search(results: "SearchResults", path: Union[str, Path]) -> Path:
+def save_search(
+    results: "SearchResults", path: Union[str, Path], count: int = -1
+) -> Path:
     """Save a SearchResults object to a compressed JSON payload.
 
     Convenience wrapper around :func:`save`, mirroring the
-    ``results.save(path)`` method.
+    ``results.save(path, count=...)`` method.
 
     Parameters:
         results: A SearchResults instance (granules or collections).
         path: Where to write the payload (``.gz`` recommended).
+        count: How many results to save. ``-1`` (default) saves every result
+            the search matches; a non-negative value saves the first ``count``.
 
     Returns:
         The path the payload was written to.
     """
-    return save(results, path)
+    return save(results, path, count=count)
 
 
 def load_search(path: Union[str, Path], verify: bool = True) -> "SearchResults":

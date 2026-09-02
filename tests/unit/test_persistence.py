@@ -41,6 +41,7 @@ def make_results(concept_ids, query=None, limit=10, hits=12070):
     SearchResults.__init__(results, query=query, limit=limit, prefetch=0)
     results._cached_results = [make_granule(concept_id=cid) for cid in concept_ids]
     results._exhausted = True
+    results._materialized = True
     results._total_hits = hits
     return results
 
@@ -227,9 +228,9 @@ def test_save_and_load_roundtrip(tmp_path):
 
 
 def test_save_raises_without_loaded_results(tmp_path):
-    """Saving requires at least one loaded result."""
+    """Saving a search with no results raises ValueError."""
     results = make_results([], query=make_query(short_name="HLSS30"))
-    with pytest.raises(ValueError, match="No results are loaded"):
+    with pytest.raises(ValueError, match="returned no results to save"):
         results.save(tmp_path / "empty.gz")
 
 
@@ -269,6 +270,124 @@ def test_module_level_functions_roundtrip(tmp_path):
 
     assert len(loaded) == 1
     assert loaded._stored_fingerprint == compute_fingerprint(results)
+
+
+def test_save_with_count_persists_prefix(tmp_path):
+    """save(count=1000) resets pagination and saves the first 1000."""
+    from unittest.mock import patch
+
+    from earthaccess.search import DataGranule, GranuleResults, SearchResults
+    from earthaccess.search.persistence import load
+
+    # Build a fake CMR query returning 10k granules in 2000-per-page slices.
+    class Paged:
+        def __init__(self, total):
+            self.total = total
+            self.cursor = 0
+            self.headers = {}
+
+        def hits(self):
+            return self.total
+
+        def page(self, n):
+            start = self.cursor
+            self.cursor = min(start + n, self.total)
+            return [
+                DataGranule(
+                    {
+                        "umm": {
+                            "GranuleUR": f"g{i}",
+                            "DataGranule": {
+                                "ArchiveAndDistributionInformation": [{"Size": 1.0}]
+                            },
+                        },
+                        "meta": {"concept-id": f"G{i}-PAGED"},
+                    }
+                )
+                for i in range(start, self.cursor)
+            ]
+
+    pager = Paged(10_000)
+
+    results = GranuleResults.__new__(GranuleResults)
+    SearchResults.__init__(
+        results,
+        query=make_query(short_name="HLSS30"),
+        limit=None,
+        prefetch=0,
+        query_kwargs={"short_name": "HLSS30"},
+    )
+
+    def fake_fetch(self, page_size, search_after=None):
+        if search_after is not None and int(search_after) >= 9_999:
+            return []
+        page = pager.page(page_size)
+        if page:
+            results._last_search_after = str(int(search_after or -1) + len(page))
+        return page
+
+    with patch.object(SearchResults, "_fetch_page", fake_fetch):
+        path = results.save(tmp_path / "prefix.gz", count=1000)
+
+    loaded = load(path, verify=False)
+    assert len(loaded) == 1000
+    assert loaded._cached_results[0]["meta"]["concept-id"] == "G0-PAGED"
+    assert loaded._cached_results[-1]["meta"]["concept-id"] == "G999-PAGED"
+
+
+def test_save_default_count_saves_all(tmp_path):
+    """save() without count persists every matching result (count=-1)."""
+    from unittest.mock import patch
+
+    from earthaccess.search import DataGranule, GranuleResults, SearchResults
+    from earthaccess.search.persistence import load
+
+    class Paged:
+        def __init__(self, total):
+            self.total = total
+            self.cursor = 0
+            self.headers = {}
+
+        def hits(self):
+            return self.total
+
+        def page(self, n):
+            start = self.cursor
+            self.cursor = min(start + n, self.total)
+            return [
+                DataGranule(
+                    {
+                        "umm": {"GranuleUR": f"g{i}"},
+                        "meta": {"concept-id": f"G{i}-ALL"},
+                    }
+                )
+                for i in range(start, self.cursor)
+            ]
+
+    pager = Paged(5_000)
+    results = GranuleResults.__new__(GranuleResults)
+    SearchResults.__init__(
+        results,
+        query=make_query(short_name="HLSS30"),
+        limit=None,
+        prefetch=0,
+        query_kwargs={"short_name": "HLSS30"},
+    )
+
+    def fake_fetch(self, page_size, search_after=None):
+        if search_after is not None and int(search_after) >= 4_999:
+            return []
+        page = pager.page(page_size)
+        if page:
+            results._last_search_after = str(int(search_after or -1) + len(page))
+        return page
+
+    with patch.object(SearchResults, "_fetch_page", fake_fetch):
+        path = results.save(tmp_path / "all.gz")
+
+    loaded = load(path, verify=False)
+    assert len(loaded) == 5_000
+    assert loaded._cached_results[-1]["meta"]["concept-id"] == "G4999-ALL"
 
 
 # =============================================================================
@@ -409,6 +528,7 @@ def test_load_verify_collections(tmp_path):
     )
     results._cached_results = [collection]
     results._exhausted = True
+    results._materialized = True
     results._total_hits = 5
 
     path = results.save(tmp_path / "collections.gz")
@@ -419,6 +539,7 @@ def test_load_verify_collections(tmp_path):
     )
     fresh._cached_results = [collection]
     fresh._exhausted = True
+    fresh._materialized = True
     fresh._total_hits = 5
 
     with patch.object(earthaccess, "search_datasets", return_value=fresh):

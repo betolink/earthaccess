@@ -1587,17 +1587,18 @@ class SearchResults:
         limit: Maximum number of results to fetch (None for unlimited)
 
     Examples:
-        Iterate through results:
+        Iterate through results (streams; the object only retains a bounded
+        window, not the whole set):
 
         >>> results = earthaccess.search_data(short_name="ATL06", count=100)
         >>> for granule in results:  # doctest: +SKIP
         ...     print(granule["meta"]["concept-id"])
 
-        Check how many results are currently loaded:
+        Materialize every result explicitly with ``all()`` or ``list()``:
 
-        >>> print(f"Loaded {len(results)} granules")  # doctest: +SKIP
+        >>> all_granules = results.all()  # doctest: +SKIP
 
-        Get total matching results in CMR:
+        Get total matching results in CMR (does not download them):
 
         >>> print(f"Total available: {results.total()}")  # doctest: +SKIP
 
@@ -1606,9 +1607,9 @@ class SearchResults:
         >>> first = results[0]  # doctest: +SKIP
         >>> fifth = results[4]  # doctest: +SKIP
 
-        Convert to list (fetches all results up to limit):
+        Reset back to the initial prefetch after a long iteration:
 
-        >>> granule_list = list(results)  # doctest: +SKIP
+        >>> results.reset()  # doctest: +SKIP
     """
 
     __module__ = "earthaccess.search"
@@ -1637,7 +1638,10 @@ class SearchResults:
         self._cached_results: List[Union[DataGranule, DataCollection]] = []
         self._total_hits: Optional[int] = None
         self._exhausted = False
+        self._materialized = False
+        self._window: int = 2000
         self._last_search_after: Optional[str] = None
+        self._initial_search_after: Optional[str] = None
         self.verification: Optional[Dict[str, Any]] = None
         self._stored_fingerprint: Optional[str] = None
         self._saved_at: Optional[str] = None
@@ -1648,12 +1652,17 @@ class SearchResults:
             if fetch_count > 0:
                 initial_page = self._fetch_page(fetch_count)
                 self._cached_results.extend(initial_page)
+                # Remember the cursor after the prefetched window so a later
+                # materialization/iteration can resume right after it.
+                self._initial_search_after = self._last_search_after
                 # Mark exhausted if we got fewer results than requested,
                 # or if we've reached the limit
                 if len(initial_page) < fetch_count or (
                     limit is not None and len(self._cached_results) >= limit
                 ):
                     self._exhausted = True
+                    # The whole requested set is present.
+                    self._materialized = True
 
     def total(self) -> int:
         """Return the total number of results matching the query in CMR.
@@ -1697,68 +1706,111 @@ class SearchResults:
     def __iter__(self):
         """Iterate through all results, fetching pages as needed.
 
-        This enables direct iteration:
-            for granule in search_results:
-                print(granule)
+        Iteration is a **stream**: it yields every matching result but keeps
+        the internal cache bounded to the most recent page (see ``window``), so
+        scanning a very large result set does not retain all of it in memory.
+
+        The first iteration resumes right after the prefetched window; later
+        iterations restart from the beginning of the result set (a fresh scan).
+        Fully materialized results (after :meth:`all`) are replayed from cache.
 
         Yields:
             DataGranule or DataCollection instances
         """
-        # If we've already cached all results, use the cache
-        if self._exhausted:
+        # If the whole result set is already materialized, replay it.
+        if self._materialized:
             yield from self._cached_results
             return
 
-        # Otherwise, fetch pages as needed
-        page_size = 2000
-        search_after = self._last_search_after
-
-        # First yield already cached results
-        for result in self._cached_results:
+        # Yield the prefetch/prefix cache first, then continue fetching pages
+        # from the cursor right after it. Iteration never grows the cache, so
+        # scanning a very large result set does not retain it in memory (the
+        # cache stays a small prefix, and len()/indexing stay correct).
+        self._exhausted = False
+        cached = list(self._cached_results)
+        for result in cached:
             yield result
+        results_yielded = len(cached)
 
-        results_yielded = len(self._cached_results)
+        page_size = self._window
+        search_after = self._initial_search_after
 
-        while not self._exhausted:
-            # Check if we've hit the limit
-            if self.limit and results_yielded >= self.limit:
-                self._exhausted = True
+        while True:
+            if self.limit is not None and results_yielded >= self.limit:
                 break
 
-            # Fetch next page
             page = self._fetch_page(page_size, search_after)
-
             if not page:
                 self._exhausted = True
                 break
 
-            # Check if this is a partial page (CMR returns fewer results than requested)
-            # We'll mark as exhausted AFTER processing this page
-            is_last_page = len(page) < page_size
-
             for result in page:
-                # Check limit
-                if self.limit and results_yielded >= self.limit:
+                results_yielded += 1
+                if self.limit is not None and results_yielded >= self.limit:
                     self._exhausted = True
                     break
-
-                self._cached_results.append(result)
-                results_yielded += 1
                 yield result
+                if self._exhausted:
+                    break
 
-            # Mark exhausted after processing the last page
-            if is_last_page:
+            if self._exhausted:
+                break
+
+            # Last page when CMR returns fewer results than requested.
+            if len(page) < page_size:
                 self._exhausted = True
                 break
 
-            # Get search_after header for next page
             search_after = self._last_search_after
+
+    def _materialize(self) -> List[Union["DataGranule", "DataCollection"]]:
+        """Fetch and cache the complete result set (up to ``limit``).
+
+        Used by methods that need the full loaded set (``all()``, ``save()``,
+        verification) rather than the bounded streaming window. Idempotent:
+        once materialized, later calls return the cached list.
+
+        Returns:
+            The fully materialized list of results.
+        """
+        if self._materialized:
+            return self._cached_results
+
+        # Fresh full scan from the beginning of the result set.
+        page_size = self._window
+        search_after: Optional[str] = None
+        collected: List[Union["DataGranule", "DataCollection"]] = []
+        results_fetched = 0
+
+        while True:
+            if self.limit is not None and results_fetched >= self.limit:
+                break
+            want = page_size
+            if self.limit is not None:
+                want = min(page_size, self.limit - results_fetched)
+            if want <= 0:
+                break
+
+            page = self._fetch_page(want, search_after)
+            if not page:
+                break
+            for result in page:
+                results_fetched += 1
+                collected.append(result)
+            if len(page) < want:
+                break
+            search_after = self._last_search_after
+
+        self._cached_results = collected
+        self._exhausted = True
+        self._materialized = True
+        return self._cached_results
 
     def all(self) -> List[Union["DataGranule", "DataCollection"]]:
         """Fetch and return all results as a list.
 
         This method fetches all remaining results from CMR and returns them
-        as a list. Results are cached, so subsequent calls return the cached list.
+        as a list, caching them for subsequent use.
 
         Example:
             >>> results = earthaccess.search_data(short_name="ATL06", count=100)
@@ -1769,10 +1821,11 @@ class SearchResults:
             List of DataGranule or DataCollection objects
 
         Note:
-            Equivalent to `list(results)`. For large result sets, consider
-            using `items()` or `pages()` to process results incrementally.
+            For very large result sets this loads everything into memory. Use
+            ``items()`` or ``pages()`` to process results incrementally without
+            materializing the whole set.
         """
-        return list(self)
+        return self._materialize()
 
     def filter(
         self,
@@ -2029,17 +2082,37 @@ class SearchResults:
         if len(self._cached_results) >= count:
             return
 
-        if self._exhausted:
+        if self._materialized:
             return
 
         # Apply limit constraint
         if self.limit:
             count = min(count, self.limit)
 
-        # Fetch results until we have enough
-        for _ in self:
-            if len(self._cached_results) >= count or self._exhausted:
+        # If the current cache is a stale bounded window, restart the cursor so
+        # we fetch from the beginning (a full window would otherwise be missing
+        # earlier pages we now need for random access).
+        if self._exhausted and not self._materialized:
+            self._cached_results = []
+            self._last_search_after = None
+            self._exhausted = False
+
+        page_size = self._window
+        search_after = self._initial_search_after
+
+        # Fetch pages until we have enough cached
+        while len(self._cached_results) < count and not self._exhausted:
+            want = min(page_size, count - len(self._cached_results))
+            page = self._fetch_page(want, search_after)
+            if not page:
+                self._exhausted = True
                 break
+            self._cached_results.extend(page)
+            if len(page) < want or len(page) < page_size:
+                self._exhausted = True
+            search_after = self._last_search_after
+            if self.limit and len(self._cached_results) >= self.limit:
+                self._exhausted = True
 
     def __repr__(self) -> str:
         """String representation of SearchResults."""
@@ -2210,29 +2283,74 @@ class SearchResults:
         """
         return self.explore(max_items=max_items, **kwargs)
 
-    def save(self, path: Union[str, Path]) -> Path:
+    def save(self, path: Union[str, Path], count: int = -1) -> Path:
         """Save this search to a compressed JSON payload.
 
         The payload records the replayable query parameters, how many results
-        were loaded, the CMR hit count, a fingerprint over the sorted
-        concept-IDs, and the loaded results. Reload with :meth:`load`, which by
+        were saved, the CMR hit count, a fingerprint over the sorted
+        concept-IDs, and the saved results. Reload with :meth:`load`, which by
         default re-runs the query against CMR to verify the search hasn't
         changed.
 
         Parameters:
             path: Where to write the payload (``.gz`` recommended).
+            count: How many results to save. ``-1`` (default) saves every
+                result matching the search. A non-negative value resets the
+                pagination and saves the first ``count`` results, e.g.
+                ``save(count=1000)`` saves the first 1000.
 
         Returns:
             The path the payload was written to.
 
         Examples:
-            >>> results = earthaccess.search_data(short_name="ATL06", count=10)
-            >>> list(results)
-            >>> results.save("atl06_search.json.gz")
+            >>> results = earthaccess.search_data(short_name="ATL06")
+            >>> results.save("atl06_search.json.gz")        # save all matches
+            >>> results.save("atl06_first1k.json.gz", count=1000)  # first 1000
         """
         from earthaccess.search.persistence import save
 
-        return save(self, path)
+        return save(self, path, count=count)
+
+    def reset(self, prefetch: int = 20) -> "SearchResults":
+        """Reset this search back to its initial (prefetched) state.
+
+        Clears any materialized/streamed results and re-fetches the first
+        ``prefetch`` results, so a long iteration does not keep thousands of
+        items resident in the object.
+
+        Parameters:
+            prefetch: How many results to prefetch after resetting
+                (default: 20, matching the constructor).
+
+        Returns:
+            self, for chaining.
+
+        Examples:
+            >>> results = earthaccess.search_data(short_name="ATL06")
+            >>> list(results)   # streams all matches
+            >>> len(results)    # bounded window, not all matches
+            >>> results.reset()
+            >>> len(results)    # back to the initial 20 prefetched
+        """
+        self._cached_results = []
+        self._total_hits = None
+        self._exhausted = False
+        self._materialized = False
+        self._last_search_after = None
+        self._initial_search_after = None
+
+        if prefetch > 0:
+            fetch_count = prefetch if self.limit is None else min(prefetch, self.limit)
+            if fetch_count > 0:
+                initial_page = self._fetch_page(fetch_count)
+                self._cached_results.extend(initial_page)
+                self._initial_search_after = self._last_search_after
+                if len(initial_page) < fetch_count or (
+                    self.limit is not None and len(self._cached_results) >= self.limit
+                ):
+                    self._exhausted = True
+                    self._materialized = True
+        return self
 
     @classmethod
     def load(cls, path: Union[str, Path], verify: bool = True) -> "SearchResults":
@@ -2312,24 +2430,28 @@ class GranuleResults(SearchResults):
     Top-level things you can do with a `GranuleResults` object:
 
     - **Iterate** directly — ``for granule in results:`` yields granules,
-      fetching more pages from CMR as needed.
-    - **Materialize everything** — ``list(results)`` or ``results.all()``
-      fetches all matching granules into memory (up to the search ``count``,
-      if one was set).
+      fetching more pages from CMR as needed. Iteration is a *stream*: the
+      object only retains a bounded window (the last page), not every item.
+    - **Materialize everything** — ``results.all()`` (or ``list(results)``)
+      fetches every matching granule and returns them; ``all()`` also caches
+      the full set on the object.
     - **Paginate through results** — ``results.pages()`` yields pages of
       granules, and ``results.items()`` yields them one at a time.
-    - **See what is loaded** — ``len(results)`` is how many are cached so far;
+    - **See what is loaded** — ``len(results)`` is how many are currently
+      retained (prefetch/window, or the full set after ``all()``);
       ``results.total()`` is the total number of matches CMR reports.
     - **Filter** — ``results.filter(...)`` keeps granules matching size,
       cloud hosting, or a custom predicate.
     - **Explore the map** — ``results.explore()`` shows an interactive map of
-      the loaded granules' spatial extents (requires the ``[widgets]`` extra;
-      materialize first with ``list(results)`` to map more than the prefetched
+      the granules' spatial extents (requires the ``[widgets]`` extra;
+      materialize first with ``results.all()`` to map more than the prefetched
       page).
+    - **Reset** — ``results.reset()`` returns the object to its initial
+      prefetch after a long iteration.
 
     Examples:
         >>> results = earthaccess.search_data(short_name="ATL06", count=10)
-        >>> list(results)  # materialize all 10 granules
+        >>> all_granules = results.all()  # materialize all 10 granules
         >>> len(results)
         10
         >>> results.explore()  # interactive map of their spatial extents

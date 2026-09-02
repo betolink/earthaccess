@@ -18,12 +18,12 @@ exact result set you used so the analysis can be reproduced or audited later.
 `save()` writes everything needed to reproduce the search later:
 
 - the **replayable query parameters** (so the search can be re-run),
-- the **loaded results** themselves (the exact granules/collections you had),
+- the **results** themselves (the exact granules/collections you want),
 - the **CMR hit count** at save time,
 - a **fingerprint** of the result set.
 
-Only the results currently loaded are saved. If you searched with `count=100`
-and materialized all 100, that is exactly what gets persisted:
+By default `save()` saves **every result the search matches**. Use the
+`count` argument to persist only a prefix (e.g. the first 1000):
 
 ```python
 import earthaccess
@@ -32,12 +32,15 @@ results = earthaccess.search_data(
     short_name="ATL06",
     temporal=("2024-01-01", "2024-12-31"),
     bounding_box=(-46.5, 61.0, -42.5, 63.0),
-    count=100,
 )
-list(results)  # materialize the 100 granules you care about
 
-results.save("atl06_2024_search.json.gz")
+results.save("atl06_2024_search.json.gz")  # save all matches
+results.save("atl06_first1k.json.gz", count=1000)  # first 1000
 ```
+
+Iterating a `SearchResults` is a stream, so the object only retains a bounded
+window — `save()` fetches fresh from CMR for the requested `count`, so it does
+not depend on how much you happened to iterate first.
 
 This also works for collections returned by `earthaccess.search_datasets()`.
 
@@ -136,10 +139,11 @@ results for a reproducible workflow.
 
 ## Module reference
 
-- `earthaccess.save_search(results, path)` — save granules or collections.
+- `earthaccess.save_search(results, path, count=-1)` — save granules or collections (`count=-1` saves all).
 - `earthaccess.load_search(path, verify=True)` — load and verify.
-- `SearchResults.save(path)` — method form.
+- `SearchResults.save(path, count=-1)` — method form.
 - `SearchResults.load(path, verify=True)` — classmethod form.
+- `SearchResults.reset()` — drop streamed results and return to the initial prefetch.
 
 See also the [Search persistence API reference](../../api/index.md#search-persistence)
 and the [Granule Results API reference](../../api/granules/granules.md).
