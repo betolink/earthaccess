@@ -2338,7 +2338,7 @@ class SearchResults:
 
         Examples:
             >>> results = earthaccess.search_data(short_name="ATL06")
-            >>> results.save("atl06_search.json.gz")        # save all matches
+            >>> results.save("atl06_search.json.gz")        # default: first 2000
             >>> results.save("atl06_first1k.json.gz", count=1000)  # first 1000
         """
         from earthaccess.search.persistence import save
