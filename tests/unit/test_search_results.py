@@ -462,16 +462,41 @@ class TestSearchResultsCaching:
         assert len(results._cached_results) == 3
 
     def test_repr_shows_cached_count(self) -> None:
-        """Test that repr shows cached count."""
+        """Test that repr shows cached count and offset."""
         mock_query = create_mock_query()
         results = SearchResults(mock_query, prefetch=0)
         results._total_hits = 100
         results._cached_results = [Mock() for _ in range(25)]
+        results._cache_start = 25
 
         repr_str = repr(results)
 
         assert "total=100" in repr_str
         assert "loaded=25" in repr_str
+        assert "offset=25" in repr_str
+        assert "source=" in repr_str
+
+    def test_properties_loaded_offset_source(self) -> None:
+        """loaded/offset/source are exposed as properties."""
+        mock_query = create_mock_query()
+        results = SearchResults(mock_query, prefetch=0)
+        results._total_hits = 100
+        results._cached_results = [Mock() for _ in range(25)]
+        results._cache_start = 25
+
+        assert results.loaded == 25
+        assert results.offset == 25
+        assert results.source  # CMR PROD or UAT (or file path)
+        # total() method still works alongside the properties
+        assert results.total() == 100
+
+    def test_source_from_file_path(self) -> None:
+        """source() reflects the payload file when loaded from disk."""
+        mock_query = create_mock_query()
+        results = SearchResults(mock_query, prefetch=0)
+        results._source = "saved_search.gz"
+
+        assert results.source == "saved_search.gz"
 
 
 class TestSearchResultsUsagePatterns:

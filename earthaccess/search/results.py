@@ -1652,6 +1652,7 @@ class SearchResults:
         self.verification: Optional[Dict[str, Any]] = None
         self._stored_fingerprint: Optional[str] = None
         self._saved_at: Optional[str] = None
+        self._source: Optional[str] = None
 
         # Prefetch initial results
         if prefetch > 0:
@@ -1687,6 +1688,34 @@ class SearchResults:
         if self._total_hits is None:
             self._total_hits = self.query.hits()
         return self._total_hits
+
+    @property
+    def loaded(self) -> int:
+        """Number of results currently materialized/retained in memory."""
+        return len(self._cached_results)
+
+    @property
+    def offset(self) -> int:
+        """Index of the first currently loaded result in the full result set."""
+        return self._cache_start
+
+    @property
+    def source(self) -> str:
+        """Where these results come from.
+
+        Returns ``"CMR PROD"`` or ``"CMR UAT"`` for a live search, or the path
+        of the payload file when the results were loaded with :meth:`load`.
+        """
+        if self._source is not None:
+            return self._source
+        try:
+            url = str(self.query._build_url())
+        except (AttributeError, TypeError):
+            # Legacy/new query builders without _build_url run against PROD.
+            return "CMR PROD"
+        if "uat" in url.lower():
+            return "CMR UAT"
+        return "CMR PROD"
 
     def hits(self) -> int:
         """Return the total number of results matching the query in CMR.
@@ -2146,7 +2175,10 @@ class SearchResults:
     def __repr__(self) -> str:
         """String representation of SearchResults."""
         total = self._total_hits if self._total_hits is not None else "?"
-        return f"{self.__class__.__name__}(total={total}, loaded={len(self._cached_results)})"
+        return (
+            f"{self.__class__.__name__}(total={total}, loaded={len(self._cached_results)}, "
+            f"offset={self._cache_start}, source={self.source})"
+        )
 
     def _repr_html_(self) -> str:
         """Return HTML representation for Jupyter notebook display.
@@ -2524,7 +2556,10 @@ class GranuleResults(SearchResults):
     def __repr__(self) -> str:
         """String representation of GranuleResults."""
         total = self._total_hits if self._total_hits is not None else "?"
-        return f"GranuleResults(total={total}, loaded={len(self._cached_results)})"
+        return (
+            f"GranuleResults(total={total}, loaded={len(self._cached_results)}, "
+            f"offset={self._cache_start}, source={self.source})"
+        )
 
 
 class CollectionResults(SearchResults):
@@ -2550,4 +2585,7 @@ class CollectionResults(SearchResults):
     def __repr__(self) -> str:
         """String representation of CollectionResults."""
         total = self._total_hits if self._total_hits is not None else "?"
-        return f"CollectionResults(total={total}, loaded={len(self._cached_results)})"
+        return (
+            f"CollectionResults(total={total}, loaded={len(self._cached_results)}, "
+            f"offset={self._cache_start}, source={self.source})"
+        )

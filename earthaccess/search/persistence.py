@@ -425,7 +425,7 @@ def load(
 
     kind = payload.get("kind", "granules")
     search_limit = payload.get("limit")
-    results = _rebuild_from_payload(payload, kind, search_limit)
+    results = _rebuild_from_payload(payload, kind, search_limit, source=str(path))
 
     # Verification compares the *whole* saved set against the live search. A
     # partial load (offset/limit slice) can't represent the saved set, so
@@ -498,7 +498,10 @@ def _read_payload(
 
 
 def _rebuild_from_payload(
-    payload: Dict[str, Any], kind: str, limit: Optional[int]
+    payload: Dict[str, Any],
+    kind: str,
+    limit: Optional[int],
+    source: Optional[str] = None,
 ) -> "SearchResults":
     """Reconstruct a SearchResults from saved result dictionaries (offline)."""
     from earthaccess.search.results import (
@@ -530,6 +533,7 @@ def _rebuild_from_payload(
     results._total_hits = payload.get("cmr_hits")
     results._stored_fingerprint = payload.get("fingerprint")
     results._saved_at = payload.get("saved_at")
+    results._source = source
     return results
 
 
