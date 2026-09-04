@@ -63,8 +63,8 @@ first_page = earthaccess.load_search("atl06_all.json.gz")          # all
 page2 = earthaccess.load_search("atl06_all.json.gz", offset=2000, limit=2000)
 ```
 
-Verification is only performed on a full load; loading a slice skips the
-network round-trip.
+Verification is offline by default and only performed on a full load when you
+pass `verify=True`; loading a slice skips the network round-trip.
 
 ## Re-run the saved query
 
@@ -100,12 +100,14 @@ loaded = SearchResults.load("atl06_2024_search.json.gz")
 
 ## Verify the search hasn't changed
 
-By default, `load()` **re-runs the saved query against CMR** and compares the
-result with what was saved. The returned object carries a comparison report in
-`results.verification`:
+By default `load()` is **offline** (no network). Pass `verify=True` to re-run
+the saved query against CMR and compare it with what was saved. The returned
+object carries a comparison report in `results.verification`:
 
 ```python
-loaded = earthaccess.load_search("atl06_2024_search.json.gz")
+loaded = earthaccess.load_search(
+    "atl06_2024_search.json.gz", verify=True, limit=None
+)
 
 loaded.verification
 # {
@@ -133,11 +135,12 @@ removed.
 
 ### Load without verifying
 
-If you don't want the network round-trip (e.g. offline), pass `verify=False`:
+Loading is offline by default, so `results.verification` is `None` unless you
+pass `verify=True`:
 
 ```python
-loaded = earthaccess.load_search("atl06_2024_search.json.gz", verify=False)
-# loaded.verification is None
+loaded = earthaccess.load_search("atl06_2024_search.json.gz")
+# loaded.verification is None (offline, no network)
 ```
 
 ## When would verification report a change?
@@ -155,10 +158,10 @@ results for a reproducible workflow.
 
 ## Module reference
 
-- `earthaccess.save_search(results, path, count=2000)` — save granules or collections (default saves the first page; `count=-1` saves all).
-- `earthaccess.load_search(path, verify=True, offset=0, limit=None)` — load and verify (optionally a slice).
-- `SearchResults.save(path, count=2000)` — method form.
-- `SearchResults.load(path, verify=True, offset=0, limit=None)` — classmethod form.
+- `earthaccess.save_search(results, path, count=2000, offset=0)` — save granules or collections (default saves the first page; `count=-1` saves all).
+- `earthaccess.load_search(path, verify=False, offset=0, limit=2000)` — load offline by default (optionally a slice; `verify=True` to compare).
+- `SearchResults.save(path, count=2000, offset=0)` — method form.
+- `SearchResults.load(path, verify=False, offset=0, limit=2000)` — classmethod form.
 - `SearchResults.reset()` — drop streamed results and return to the initial prefetch.
 
 See also the [Search persistence API reference](../../api/index.md#search-persistence)

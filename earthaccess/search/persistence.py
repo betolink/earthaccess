@@ -365,31 +365,34 @@ def save(
 
 def load(
     path: Union[str, Path],
-    verify: bool = True,
+    verify: bool = False,
     *,
     offset: int = 0,
-    limit: Optional[int] = None,
+    limit: Optional[int] = 2000,
 ) -> "SearchResults":
     """Load a saved search from a compressed JSON payload.
 
     The payload is a gzipped JSON Lines file: a header line, one line per
     result, and a trailing fingerprint line. Loading streams the file line by
-    line, so you can fetch a slice (``offset``/``limit``) without materializing
-    the whole result set.
+    line, so by default only the **first page** of results (``limit=2000``) is
+    materialized and a warning is logged. Pass ``limit=None`` (or ``-1``) to
+    load every saved result, or use ``offset``/``limit`` to page through a
+    large saved set without loading it all at once.
 
-    By default the saved query is re-run against CMR and the result is compared
-    with what was saved. If the search changed (different fingerprint or hit
-    count), the returned results expose a comparison report via
-    ``results.verification``.
+    By default no network request is made. Pass ``verify=True`` to re-run the
+    saved query against CMR and compare it with what was saved; if the search
+    changed (different fingerprint or hit count), the returned results expose a
+    comparison report via ``results.verification``.
 
     Parameters:
         path: Path to the saved payload.
-        verify: If True (default), re-run the saved query and compare. If False,
+        verify: If True, re-run the saved query and compare. If False (default),
             load entirely from disk without a network round-trip.
         offset: Number of saved results to skip before loading (default: 0).
             Use this together with ``limit`` to page through a large saved set
             without materializing all of it.
-        limit: Maximum number of saved results to load (default: None = all).
+        limit: Maximum number of saved results to load. ``2000`` (default)
+            loads the first page. ``None`` or ``-1`` loads every saved result.
 
     Returns:
         A SearchResults instance populated with the requested slice of results.
@@ -401,7 +404,19 @@ def load(
         ValueError: If the payload format is not recognized.
     """
     path = Path(path)
-    payload = _read_payload(path, offset=offset, limit=limit)
+    # -1 means "load everything", like count=-1 in save().
+    load_all = limit is None or limit < 0
+    effective_limit = None if load_all else limit
+
+    if not load_all:
+        logger.warning(
+            "load() will materialize only the first %d results; pass "
+            "limit=None to load every saved result, or use offset/limit to "
+            "page through the payload.",
+            limit,
+        )
+
+    payload = _read_payload(path, offset=offset, limit=effective_limit)
 
     if payload.get("format") != FORMAT_VERSION:
         raise ValueError(
@@ -415,7 +430,7 @@ def load(
     # Verification compares the *whole* saved set against the live search. A
     # partial load (offset/limit slice) can't represent the saved set, so
     # verification is skipped for slices.
-    is_partial = offset > 0 or limit is not None
+    is_partial = offset > 0 or not load_all
     if verify and not is_partial:
         results.verification = _verify(payload, kind, search_limit)
     elif verify and is_partial:
@@ -591,24 +606,25 @@ def save_search(
 
 def load_search(
     path: Union[str, Path],
-    verify: bool = True,
+    verify: bool = False,
     *,
     offset: int = 0,
-    limit: Optional[int] = None,
+    limit: Optional[int] = 2000,
 ) -> "SearchResults":
     """Load a saved search from a compressed JSON payload.
 
     Convenience wrapper around :func:`load`, mirroring the
-    ``SearchResults.load(path, offset=..., limit=...)`` class method. The
-    payload is streamed line by line, so a slice can be loaded with
-    ``offset``/``limit`` without materializing the whole saved set.
+    ``SearchResults.load(path, offset=..., limit=...)`` class method. By default
+    only the **first page** (``limit=2000``) is materialized with a warning;
+    pass ``limit=None`` (or ``-1``) to load every saved result.
 
     Parameters:
         path: Path to the saved payload.
-        verify: If True (default), re-run the saved query against CMR and
-            compare. If False, load offline.
+        verify: If True, re-run the saved query against CMR and compare. If
+            False (default), load offline.
         offset: Number of saved results to skip before loading (default: 0).
-        limit: Maximum number of saved results to load (default: None = all).
+        limit: Maximum number of saved results to load. ``2000`` (default)
+            loads the first page; ``None`` or ``-1`` loads everything.
 
     Returns:
         A SearchResults instance populated with the requested slice of results.

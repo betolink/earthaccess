@@ -173,7 +173,7 @@ def test_loaded_query_params_are_replayable(tmp_path):
     results._query_kwargs = q.to_kwargs()
     path = results.save(tmp_path / "spatial.gz")
 
-    loaded = SearchResults.load(path, verify=False)
+    loaded = SearchResults.load(path, verify=False, limit=None)
     params = loaded.query_params
     assert params is not None
 
@@ -198,7 +198,7 @@ def test_rebuild_query_matches_original(tmp_path):
     results._query_kwargs = q.to_kwargs()
     path = results.save(tmp_path / "rebuild.gz")
 
-    loaded = SearchResults.load(path, verify=False)
+    loaded = SearchResults.load(path, verify=False, limit=None)
     rebuilt = loaded.rebuild_query()
 
     assert rebuilt.to_cmr() == q.to_cmr()
@@ -218,7 +218,7 @@ def test_save_and_load_roundtrip(tmp_path):
 
     assert path.exists()
 
-    loaded = SearchResults.load(path, verify=False)
+    loaded = SearchResults.load(path, verify=False, limit=None)
 
     assert len(loaded) == 2
     assert [g["meta"]["concept-id"] for g in loaded] == ["G1", "G2"]
@@ -263,7 +263,7 @@ def test_load_rejects_unknown_format(tmp_path):
         json.dump({"format": "other-v1"}, f)
 
     with pytest.raises(ValueError, match="Unrecognized search payload format"):
-        SearchResults.load(path, verify=False)
+        SearchResults.load(path, verify=False, limit=None)
 
 
 def test_module_level_functions_roundtrip(tmp_path):
@@ -271,7 +271,7 @@ def test_module_level_functions_roundtrip(tmp_path):
     results = make_results(["G1"], query=make_query(short_name="HLSS30"))
     path = save_search(results, tmp_path / "module.gz")
 
-    loaded = load_search(path, verify=False)
+    loaded = load_search(path, verify=False, limit=None)
 
     assert len(loaded) == 1
     assert loaded._stored_fingerprint == compute_fingerprint(results)
@@ -334,7 +334,7 @@ def test_save_with_count_persists_prefix(tmp_path):
     with patch.object(SearchResults, "_fetch_page", fake_fetch):
         path = results.save(tmp_path / "prefix.gz", count=1000)
 
-    loaded = load(path, verify=False)
+    loaded = load(path, verify=False, limit=None)
     assert len(loaded) == 1000
     assert loaded._cached_results[0]["meta"]["concept-id"] == "G0-PAGED"
     assert loaded._cached_results[-1]["meta"]["concept-id"] == "G999-PAGED"
@@ -390,7 +390,7 @@ def test_save_all_with_count_minus_one(tmp_path):
     with patch.object(SearchResults, "_fetch_page", fake_fetch):
         path = results.save(tmp_path / "all.gz", count=-1)
 
-    loaded = load(path, verify=False)
+    loaded = load(path, verify=False, limit=None)
     assert len(loaded) == 5_000
     assert loaded._cached_results[-1]["meta"]["concept-id"] == "G4999-ALL"
 
@@ -445,7 +445,7 @@ def test_save_default_persists_first_page(tmp_path):
     with patch.object(SearchResults, "_fetch_page", fake_fetch):
         path = results.save(tmp_path / "default.gz")
 
-    loaded = load(path, verify=False)
+    loaded = load(path, verify=False, limit=None)
     assert len(loaded) == 2_000
     assert loaded._cached_results[0]["meta"]["concept-id"] == "G0-DEFAULT"
     assert loaded._cached_results[-1]["meta"]["concept-id"] == "G1999-DEFAULT"
@@ -502,7 +502,7 @@ def test_load_with_offset_and_limit(tmp_path):
         path = results.save(tmp_path / "slice.gz", count=-1)
 
     # Full load
-    full = load(path, verify=False)
+    full = load(path, verify=False, limit=None)
     assert len(full) == 10_000
 
     # A slice loads only the requested window
@@ -565,10 +565,74 @@ def test_save_with_offset_persists_window(tmp_path):
     with patch.object(SearchResults, "_fetch_page", fake_fetch):
         path = results.save(tmp_path / "window.gz", count=1000, offset=2000)
 
-    loaded = load(path, verify=False)
+    loaded = load(path, verify=False, limit=None)
     assert len(loaded) == 1000
     assert loaded._cached_results[0]["meta"]["concept-id"] == "G2000-WINDOW"
     assert loaded._cached_results[-1]["meta"]["concept-id"] == "G2999-WINDOW"
+
+
+def test_load_default_materializes_first_page(tmp_path):
+    """load() without args materializes only the first page (2000), offline."""
+    from unittest.mock import patch
+
+    from earthaccess.search import DataGranule, GranuleResults, SearchResults
+    from earthaccess.search.persistence import load
+
+    class Paged:
+        def __init__(self, total):
+            self.total = total
+            self.cursor = 0
+            self.headers = {}
+
+        def hits(self):
+            return self.total
+
+        def page(self, n):
+            start = self.cursor
+            self.cursor = min(start + n, self.total)
+            return [
+                DataGranule(
+                    {
+                        "umm": {"GranuleUR": f"g{i}"},
+                        "meta": {"concept-id": f"G{i}-DEFAULTLOAD"},
+                    }
+                )
+                for i in range(start, self.cursor)
+            ]
+
+    pager = Paged(10_000)
+    results = GranuleResults.__new__(GranuleResults)
+    SearchResults.__init__(
+        results,
+        query=make_query(short_name="HLSS30"),
+        limit=None,
+        prefetch=0,
+        query_kwargs={"short_name": "HLSS30"},
+    )
+
+    def fake_fetch(self, page_size, search_after=None):
+        if search_after is not None and int(search_after) >= 9_999:
+            return []
+        page = pager.page(page_size)
+        if page:
+            results._last_search_after = str(int(search_after or -1) + len(page))
+        return page
+
+    with patch.object(SearchResults, "_fetch_page", fake_fetch):
+        path = results.save(tmp_path / "defaultload.gz", count=-1)
+
+    # No verify -> no network; only the first page is loaded.
+    with patch.object(earthaccess, "search_data", side_effect=AssertionError("no net")):
+        loaded = load(path)
+
+    assert len(loaded) == 2000
+    assert loaded.verification is None
+    assert loaded._cached_results[0]["meta"]["concept-id"] == "G0-DEFAULTLOAD"
+
+    # limit=None loads everything (still offline by default).
+    full = load(path, limit=None)
+    assert len(full) == 10_000
+    assert full.verification is None
 
 
 def test_load_tolerates_truncated_payload(tmp_path):
@@ -598,7 +662,7 @@ def test_load_tolerates_truncated_payload(tmp_path):
     with gzip_mod.open(path, "wb") as f:
         f.write(truncated_bytes)
 
-    loaded = SearchResults.load(path, verify=False)
+    loaded = SearchResults.load(path, verify=False, limit=None)
     # The completed result lines are recovered; the partial one is dropped.
     assert len(loaded) == 2
     assert loaded._cached_results[0]["meta"]["concept-id"] == "G0-TRUNC"
@@ -625,7 +689,7 @@ def test_load_verify_unchanged(tmp_path):
         "search_data",
         return_value=_fake_fresh_results(["G2", "G1"], 12070),
     ) as mock_search:
-        loaded = SearchResults.load(path, verify=True)
+        loaded = SearchResults.load(path, verify=True, limit=None)
 
     mock_search.assert_called_once()
     report = loaded.verification
@@ -648,7 +712,7 @@ def test_load_verify_detects_removed_granule(tmp_path):
         "search_data",
         return_value=_fake_fresh_results(["G1"], 11999),
     ):
-        loaded = SearchResults.load(path, verify=True)
+        loaded = SearchResults.load(path, verify=True, limit=None)
 
     report = loaded.verification
     assert report is not None
@@ -668,7 +732,7 @@ def test_load_verify_detects_added_granule(tmp_path):
         "search_data",
         return_value=_fake_fresh_results(["G1", "G2"], 12071),
     ):
-        loaded = SearchResults.load(path, verify=True)
+        loaded = SearchResults.load(path, verify=True, limit=None)
 
     report = loaded.verification
     assert report is not None
@@ -687,7 +751,7 @@ def test_load_verify_detects_hit_count_change(tmp_path):
         "search_data",
         return_value=_fake_fresh_results(["G1"], 13000),
     ):
-        loaded = SearchResults.load(path, verify=True)
+        loaded = SearchResults.load(path, verify=True, limit=None)
 
     report = loaded.verification
     assert report is not None
@@ -707,7 +771,7 @@ def test_load_verify_replays_saved_query(tmp_path):
         m.return_value._cached_results = [make_granule(concept_id="G1")]
         m.return_value._total_hits = 12070
         m.return_value.limit = None
-        SearchResults.load(path, verify=True)
+        SearchResults.load(path, verify=True, limit=None)
 
     # search_data was called with the saved params
     call_kwargs = m.call_args.kwargs
@@ -720,7 +784,7 @@ def test_load_verify_offline_has_no_report(tmp_path):
     path = results.save(tmp_path / "search.gz")
 
     with patch.object(earthaccess, "search_data", side_effect=AssertionError("no net")):
-        loaded = SearchResults.load(path, verify=False)
+        loaded = SearchResults.load(path, verify=False, limit=None)
 
     assert loaded.verification is None
     assert len(loaded) == 1
@@ -757,7 +821,7 @@ def test_load_verify_collections(tmp_path):
     fresh._total_hits = 5
 
     with patch.object(earthaccess, "search_datasets", return_value=fresh):
-        loaded = SearchResults.load(path, verify=True)
+        loaded = SearchResults.load(path, verify=True, limit=None)
 
     assert loaded.verification is not None
     assert loaded.verification["unchanged"] is True

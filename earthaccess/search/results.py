@@ -2395,36 +2395,39 @@ class SearchResults:
     def load(
         cls,
         path: Union[str, Path],
-        verify: bool = True,
+        verify: bool = False,
         *,
         offset: int = 0,
-        limit: Optional[int] = None,
+        limit: Optional[int] = 2000,
     ) -> "SearchResults":
         """Load a search saved with :meth:`save`.
 
-        By default the saved query is re-run against CMR and compared with what
-        was saved; the returned results expose a comparison report via
-        ``results.verification``. Pass ``verify=False`` to load from disk
-        without a network round-trip.
+        By default only the **first page** of saved results (``limit=2000``) is
+        materialized and a warning is logged, so a large saved set is not
+        loaded into memory all at once. Pass ``limit=None`` (or ``-1``) to load
+        every saved result, or use ``offset``/``limit`` to page through the
+        payload.
 
-        The payload is read line by line, so a slice can be loaded with
-        ``offset``/``limit`` without materializing the whole saved set.
-        Verification is only performed for a full load.
+        By default no network request is made. Pass ``verify=True`` to re-run
+        the saved query against CMR and compare with what was saved; the
+        returned results expose a comparison report via
+        ``results.verification``. Verification is only performed for a full
+        load.
 
         Parameters:
             path: Path to the saved payload.
-            verify: If True (default), re-run the query and compare fingerprints
-                and hit counts. If False, load offline.
+            verify: If True, re-run the query and compare fingerprints and hit
+                counts. If False (default), load offline.
             offset: Number of saved results to skip before loading (default: 0).
-            limit: Maximum number of saved results to load (default: None = all).
+            limit: Maximum number of saved results to load. ``2000`` (default)
+                loads the first page; ``None`` or ``-1`` loads everything.
 
         Returns:
             A SearchResults instance with the requested slice of results.
 
         Examples:
-            >>> results = SearchResults.load("atl06_search.json.gz")
-            >>> results.verification["unchanged"]
-            True
+            >>> results = SearchResults.load("atl06_search.json.gz")  # first page, offline
+            >>> all_results = SearchResults.load("atl06_search.json.gz", limit=None)
             >>> page2 = SearchResults.load("atl06_search.json.gz", offset=2000, limit=2000)
         """
         from earthaccess.search.persistence import load
