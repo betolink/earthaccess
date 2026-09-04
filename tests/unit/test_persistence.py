@@ -515,6 +515,62 @@ def test_load_with_offset_and_limit(tmp_path):
     assert slice1.verification is None
 
 
+def test_save_with_offset_persists_window(tmp_path):
+    """save(count=1000, offset=2000) saves results 2000-2999."""
+    from unittest.mock import patch
+
+    from earthaccess.search import DataGranule, GranuleResults, SearchResults
+    from earthaccess.search.persistence import load
+
+    class Paged:
+        def __init__(self, total):
+            self.total = total
+            self.cursor = 0
+            self.headers = {}
+
+        def hits(self):
+            return self.total
+
+        def page(self, n):
+            start = self.cursor
+            self.cursor = min(start + n, self.total)
+            return [
+                DataGranule(
+                    {
+                        "umm": {"GranuleUR": f"g{i}"},
+                        "meta": {"concept-id": f"G{i}-WINDOW"},
+                    }
+                )
+                for i in range(start, self.cursor)
+            ]
+
+    pager = Paged(10_000)
+    results = GranuleResults.__new__(GranuleResults)
+    SearchResults.__init__(
+        results,
+        query=make_query(short_name="HLSS30"),
+        limit=None,
+        prefetch=0,
+        query_kwargs={"short_name": "HLSS30"},
+    )
+
+    def fake_fetch(self, page_size, search_after=None):
+        if search_after is not None and int(search_after) >= 9_999:
+            return []
+        page = pager.page(page_size)
+        if page:
+            results._last_search_after = str(int(search_after or -1) + len(page))
+        return page
+
+    with patch.object(SearchResults, "_fetch_page", fake_fetch):
+        path = results.save(tmp_path / "window.gz", count=1000, offset=2000)
+
+    loaded = load(path, verify=False)
+    assert len(loaded) == 1000
+    assert loaded._cached_results[0]["meta"]["concept-id"] == "G2000-WINDOW"
+    assert loaded._cached_results[-1]["meta"]["concept-id"] == "G2999-WINDOW"
+
+
 def test_load_tolerates_truncated_payload(tmp_path):
     """An interrupted save leaves completed lines loadable (last page lost)."""
     import gzip as gzip_mod

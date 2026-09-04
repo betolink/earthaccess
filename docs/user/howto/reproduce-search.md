@@ -38,6 +38,7 @@ results = earthaccess.search_data(
 results.save("atl06_first_page.json.gz")      # default: first 2000
 results.save("atl06_first1k.json.gz", count=1000)  # first 1000
 results.save("atl06_all.json.gz", count=-1)   # every match
+results.save("atl06_3k.json.gz", count=1000, offset=2000)  # results 2000-2999
 ```
 
 Results are streamed page by page into a gzipped JSON Lines payload with a

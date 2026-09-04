@@ -217,44 +217,57 @@ def _serialize_results(results: "SearchResults") -> List[Dict[str, Any]]:
     return [item.to_dict() for item in results._cached_results]
 
 
-def _iter_for_save(results: "SearchResults", count: int) -> Iterator[Any]:
-    """Yield result objects to persist for a given ``count``.
+def _iter_for_save(
+    results: "SearchResults", count: int, offset: int = 0
+) -> Iterator[Any]:
+    """Yield result objects to persist for a given ``count`` and ``offset``.
 
     ``count < 0`` means "save everything the search matches": every result is
     yielded (streamed lazily, no materialization into a list). A positive
-    ``count`` yields up to the first ``count`` results: if the object is
-    already fully materialized the cached prefix is used (no extra network);
-    otherwise the pagination is reset and results are streamed fresh.
+    ``count`` yields up to ``count`` results starting after ``offset`` results
+    are skipped. If the object is already fully materialized the cached list is
+    used (no extra network); otherwise the pagination is reset and results are
+    streamed fresh.
 
     Yields:
         DataGranule/DataCollection objects, one at a time.
     """
     if count < 0:
-        if results._materialized:
-            yield from results._cached_results
-        else:
-            yield from results
+        source = results._cached_results if results._materialized else results
+        if offset > 0:
+            for i, item in enumerate(source):
+                if i >= offset:
+                    yield item
+            return
+        yield from source
         return
+
+    stop = offset + count
 
     if results._materialized:
-        yield from results._cached_results[:count]
+        yield from results._cached_results[offset:stop]
         return
 
-    # Stream a specific prefix: reset and fetch up to `count` fresh.
+    # Stream: reset and skip `offset`, then yield up to `count` fresh.
     saved_limit = results.limit
     results.reset(prefetch=0)
-    yielded = 0
-    for result in results:
-        if yielded >= count:
+    for i, result in enumerate(results):
+        if i < offset:
+            continue
+        if i >= stop:
             break
-        yielded += 1
         yield result
     # Restore the object to a clean prefetch state.
     results.reset()
     results.limit = saved_limit
 
 
-def save(results: "SearchResults", path: Union[str, Path], count: int = 2000) -> Path:
+def save(
+    results: "SearchResults",
+    path: Union[str, Path],
+    count: int = 2000,
+    offset: int = 0,
+) -> Path:
     """Save a SearchResults object to a compressed JSON payload.
 
     The payload records the replayable query parameters, how many results were
@@ -275,8 +288,11 @@ def save(results: "SearchResults", path: Union[str, Path], count: int = 2000) ->
         path: Where to write the payload (``.gz`` recommended).
         count: How many results to save. ``2000`` (default) saves the first
             page of results. ``-1`` saves every result the search matches.
-            A positive value saves the first ``count`` results, e.g.
+            A positive value saves up to ``count`` results, e.g.
             ``save(count=1000)`` saves the first 1000.
+        offset: Number of results to skip before saving (default: 0). Use this
+            together with ``count`` to save a window of a large result set,
+            e.g. ``save(count=1000, offset=2000)`` saves results 2000-2999.
 
     Returns:
         The path the payload was written to.
@@ -286,12 +302,15 @@ def save(results: "SearchResults", path: Union[str, Path], count: int = 2000) ->
     """
     if count == 0:
         raise ValueError("count must be -1 (save all) or a positive integer.")
+    if offset < 0:
+        raise ValueError("offset must be a non-negative integer.")
 
     if count > 0:
         logger.warning(
-            "save() will persist only the first %d results; "
+            "save() will persist only %d result(s) starting at offset %d; "
             "pass count=-1 to save every match of the search.",
             count,
+            offset,
         )
 
     path = Path(path)
@@ -310,7 +329,7 @@ def save(results: "SearchResults", path: Union[str, Path], count: int = 2000) ->
             desc="Saving search",
             disable=total in (None, 0),
         ) as pbar:
-            for item in _iter_for_save(results, count):
+            for item in _iter_for_save(results, count, offset=offset):
                 d = item.to_dict()
                 if not wrote_header:
                     kind = (
@@ -546,24 +565,28 @@ def _verify(payload: Dict[str, Any], kind: str, limit: Optional[int]) -> Dict[st
 
 
 def save_search(
-    results: "SearchResults", path: Union[str, Path], count: int = 2000
+    results: "SearchResults",
+    path: Union[str, Path],
+    count: int = 2000,
+    offset: int = 0,
 ) -> Path:
     """Save a SearchResults object to a compressed JSON payload.
 
     Convenience wrapper around :func:`save`, mirroring the
-    ``results.save(path, count=...)`` method.
+    ``results.save(path, count=..., offset=...)`` method.
 
     Parameters:
         results: A SearchResults instance (granules or collections).
         path: Where to write the payload (``.gz`` recommended).
         count: How many results to save. ``2000`` (default) saves the first
             page of results; ``-1`` saves every match; a positive value saves
-            the first ``count``.
+            up to ``count``.
+        offset: Number of results to skip before saving (default: 0).
 
     Returns:
         The path the payload was written to.
     """
-    return save(results, path, count=count)
+    return save(results, path, count=count, offset=offset)
 
 
 def load_search(

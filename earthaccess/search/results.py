@@ -2312,7 +2312,7 @@ class SearchResults:
         """
         return self.explore(max_items=max_items, **kwargs)
 
-    def save(self, path: Union[str, Path], count: int = 2000) -> Path:
+    def save(self, path: Union[str, Path], count: int = 2000, offset: int = 0) -> Path:
         """Save this search to a compressed JSON payload.
 
         The payload records the replayable query parameters, how many results
@@ -2329,9 +2329,12 @@ class SearchResults:
             path: Where to write the payload (``.gz`` recommended).
             count: How many results to save. ``2000`` (default) saves the first
                 page of results; ``-1`` saves every result matching the search;
-                a positive value resets the pagination and saves the first
+                a positive value resets the pagination and saves up to
                 ``count`` results, e.g. ``save(count=1000)`` saves the first
                 1000.
+            offset: Number of results to skip before saving (default: 0). Use
+                with ``count`` to save a window, e.g. ``save(count=1000,
+                offset=2000)`` saves results 2000-2999.
 
         Returns:
             The path the payload was written to.
@@ -2340,10 +2343,11 @@ class SearchResults:
             >>> results = earthaccess.search_data(short_name="ATL06")
             >>> results.save("atl06_search.json.gz")        # default: first 2000
             >>> results.save("atl06_first1k.json.gz", count=1000)  # first 1000
+            >>> results.save("atl06_3k.json.gz", count=1000, offset=2000)
         """
         from earthaccess.search.persistence import save
 
-        return save(self, path, count=count)
+        return save(self, path, count=count, offset=offset)
 
     def reset(self, prefetch: int = 20) -> "SearchResults":
         """Reset this search back to its initial (prefetched) state.
