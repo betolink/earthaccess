@@ -792,6 +792,40 @@ def test_repr_search_results_granule_main_row_link():
     assert "📥" in main_row
 
 
+def test_repr_search_results_single_file_main_link_is_https():
+    """A single-asset cloud-hosted granule links to HTTPS, not S3."""
+    granule = DataGranule(
+        {
+            "umm": {
+                "GranuleUR": "single-file-granule",
+                "TemporalExtent": {"SingleDateTime": "2024-01-01T00:00:00Z"},
+                "RelatedUrls": [
+                    {
+                        "URL": "s3://bucket/data.nc",
+                        "Type": "GET DATA VIA DIRECT ACCESS",
+                    },
+                    {
+                        "URL": "https://data.example.gov/data.nc",
+                        "Type": "GET DATA",
+                    },
+                ],
+            },
+            "meta": {"concept-id": "G1-X"},
+        },
+        cloud_hosted=True,
+    )
+
+    results = SearchResults(MagicMock())
+    results._total_hits = 1
+    results._cached_results = [granule]
+
+    html = _repr_search_results_html(results)
+    main_row = html.split("detail-")[0]
+
+    assert 'href="https://data.example.gov/data.nc"' in main_row
+    assert 'href="s3://bucket/data.nc"' not in main_row
+
+
 def test_collection_data_type_from_archive_info():
     """Collection data_type() reads Format from FileDistributionInformation."""
     collection = DataCollection(
