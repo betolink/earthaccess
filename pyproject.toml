@@ -45,6 +45,7 @@ dependencies = [
   "importlib-resources >=6.3.2",
   "typing_extensions >=4.10.0",
   "pystac >=1.8",
+  "tqdm >=4.66",
 ]
 
 [project.urls]

@@ -235,20 +235,25 @@ def test_save_raises_without_loaded_results(tmp_path):
 
 
 def test_save_payload_is_compressed_and_valid(tmp_path):
-    """The payload is gzipped JSON with the expected metadata."""
+    """The payload is gzipped JSON Lines with header, results, and trailer."""
     results = make_results(["G1"], query=make_query(short_name="HLSS30"))
     path = results.save(tmp_path / "search.gz")
 
     with gzip.open(path, "rt") as f:
-        payload = json.load(f)
+        lines = [json.loads(line) for line in f.read().splitlines() if line.strip()]
 
-    assert payload["format"] == "earthaccess-search-v1"
-    assert payload["kind"] == "granules"
-    assert payload["limit"] == 10
-    assert payload["cmr_hits"] == 12070
-    assert payload["fingerprint"].startswith("sha256:")
-    assert len(payload["results"]) == 1
-    assert payload["results"][0]["meta"]["concept-id"] == "G1"
+    header = lines[0]
+    assert header["format"] == "earthaccess-search-v2"
+    assert header["kind"] == "granules"
+    assert header["limit"] == 2000  # default count
+    assert header["cmr_hits"] == 12070
+
+    # One result line then a trailer with the fingerprint
+    result_line = lines[1]
+    assert result_line["meta"]["concept-id"] == "G1"
+    trailer = lines[2]
+    assert trailer["fingerprint"].startswith("sha256:")
+    assert trailer["count"] == 1
 
 
 def test_load_rejects_unknown_format(tmp_path):
@@ -335,8 +340,8 @@ def test_save_with_count_persists_prefix(tmp_path):
     assert loaded._cached_results[-1]["meta"]["concept-id"] == "G999-PAGED"
 
 
-def test_save_default_count_saves_all(tmp_path):
-    """save() without count persists every matching result (count=-1)."""
+def test_save_all_with_count_minus_one(tmp_path):
+    """save(count=-1) persists every matching result."""
     from unittest.mock import patch
 
     from earthaccess.search import DataGranule, GranuleResults, SearchResults
@@ -383,11 +388,164 @@ def test_save_default_count_saves_all(tmp_path):
         return page
 
     with patch.object(SearchResults, "_fetch_page", fake_fetch):
-        path = results.save(tmp_path / "all.gz")
+        path = results.save(tmp_path / "all.gz", count=-1)
 
     loaded = load(path, verify=False)
     assert len(loaded) == 5_000
     assert loaded._cached_results[-1]["meta"]["concept-id"] == "G4999-ALL"
+
+
+def test_save_default_persists_first_page(tmp_path):
+    """save() without count persists only the first page (default 2000)."""
+    from unittest.mock import patch
+
+    from earthaccess.search import DataGranule, GranuleResults, SearchResults
+    from earthaccess.search.persistence import load
+
+    class Paged:
+        def __init__(self, total):
+            self.total = total
+            self.cursor = 0
+            self.headers = {}
+
+        def hits(self):
+            return self.total
+
+        def page(self, n):
+            start = self.cursor
+            self.cursor = min(start + n, self.total)
+            return [
+                DataGranule(
+                    {
+                        "umm": {"GranuleUR": f"g{i}"},
+                        "meta": {"concept-id": f"G{i}-DEFAULT"},
+                    }
+                )
+                for i in range(start, self.cursor)
+            ]
+
+    pager = Paged(5_000)
+    results = GranuleResults.__new__(GranuleResults)
+    SearchResults.__init__(
+        results,
+        query=make_query(short_name="HLSS30"),
+        limit=None,
+        prefetch=0,
+        query_kwargs={"short_name": "HLSS30"},
+    )
+
+    def fake_fetch(self, page_size, search_after=None):
+        if search_after is not None and int(search_after) >= 4_999:
+            return []
+        page = pager.page(page_size)
+        if page:
+            results._last_search_after = str(int(search_after or -1) + len(page))
+        return page
+
+    with patch.object(SearchResults, "_fetch_page", fake_fetch):
+        path = results.save(tmp_path / "default.gz")
+
+    loaded = load(path, verify=False)
+    assert len(loaded) == 2_000
+    assert loaded._cached_results[0]["meta"]["concept-id"] == "G0-DEFAULT"
+    assert loaded._cached_results[-1]["meta"]["concept-id"] == "G1999-DEFAULT"
+
+
+def test_load_with_offset_and_limit(tmp_path):
+    """load(offset=..., limit=...) returns a slice without materializing all."""
+    from unittest.mock import patch
+
+    from earthaccess.search import DataGranule, GranuleResults, SearchResults
+    from earthaccess.search.persistence import load
+
+    class Paged:
+        def __init__(self, total):
+            self.total = total
+            self.cursor = 0
+            self.headers = {}
+
+        def hits(self):
+            return self.total
+
+        def page(self, n):
+            start = self.cursor
+            self.cursor = min(start + n, self.total)
+            return [
+                DataGranule(
+                    {
+                        "umm": {"GranuleUR": f"g{i}"},
+                        "meta": {"concept-id": f"G{i}-SLICE"},
+                    }
+                )
+                for i in range(start, self.cursor)
+            ]
+
+    pager = Paged(10_000)
+    results = GranuleResults.__new__(GranuleResults)
+    SearchResults.__init__(
+        results,
+        query=make_query(short_name="HLSS30"),
+        limit=None,
+        prefetch=0,
+        query_kwargs={"short_name": "HLSS30"},
+    )
+
+    def fake_fetch(self, page_size, search_after=None):
+        if search_after is not None and int(search_after) >= 9_999:
+            return []
+        page = pager.page(page_size)
+        if page:
+            results._last_search_after = str(int(search_after or -1) + len(page))
+        return page
+
+    with patch.object(SearchResults, "_fetch_page", fake_fetch):
+        path = results.save(tmp_path / "slice.gz", count=-1)
+
+    # Full load
+    full = load(path, verify=False)
+    assert len(full) == 10_000
+
+    # A slice loads only the requested window
+    slice1 = load(path, verify=False, offset=2000, limit=2000)
+    assert len(slice1) == 2000
+    assert slice1._cached_results[0]["meta"]["concept-id"] == "G2000-SLICE"
+    assert slice1._cached_results[-1]["meta"]["concept-id"] == "G3999-SLICE"
+
+    # Slicing verifies nothing (partial load)
+    assert slice1.verification is None
+
+
+def test_load_tolerates_truncated_payload(tmp_path):
+    """An interrupted save leaves completed lines loadable (last page lost)."""
+    import gzip as gzip_mod
+
+    # Build a JSONL payload and truncate it mid-line (simulating a cancelled
+    # write: header + two complete result lines + a partial trailing line).
+    lines = [
+        {
+            "format": "earthaccess-search-v2",
+            "kind": "granules",
+            "limit": 2000,
+            "cmr_hits": 100,
+            "saved_at": "2026-01-01T00:00:00Z",
+            "query_params": {"short_name": "HLSS30"},
+        },
+        {"GranuleUR": "g0", "meta": {"concept-id": "G0-TRUNC"}},
+        {"GranuleUR": "g1", "meta": {"concept-id": "G1-TRUNC"}},
+        {"GranuleUR": "g2", "meta": {"concept-id": "G2-TRUNC"}},
+    ]
+    full = "\n".join(json.dumps(item) for item in lines) + "\n"
+    # Cut partway through the last line so it is not valid JSON.
+    truncated_bytes = full.encode()[: len(full.encode()) - 10]
+
+    path = tmp_path / "truncated.gz"
+    with gzip_mod.open(path, "wb") as f:
+        f.write(truncated_bytes)
+
+    loaded = SearchResults.load(path, verify=False)
+    # The completed result lines are recovered; the partial one is dropped.
+    assert len(loaded) == 2
+    assert loaded._cached_results[0]["meta"]["concept-id"] == "G0-TRUNC"
 
 
 # =============================================================================

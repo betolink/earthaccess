@@ -22,8 +22,9 @@ exact result set you used so the analysis can be reproduced or audited later.
 - the **CMR hit count** at save time,
 - a **fingerprint** of the result set.
 
-By default `save()` saves **every result the search matches**. Use the
-`count` argument to persist only a prefix (e.g. the first 1000):
+By default `save()` persists the **first page** of results (`count=2000`) and
+logs a warning, so a huge search is never materialized just to save it. Use the
+`count` argument to control how many results are saved:
 
 ```python
 import earthaccess
@@ -34,13 +35,16 @@ results = earthaccess.search_data(
     bounding_box=(-46.5, 61.0, -42.5, 63.0),
 )
 
-results.save("atl06_2024_search.json.gz")  # save all matches
+results.save("atl06_first_page.json.gz")      # default: first 2000
 results.save("atl06_first1k.json.gz", count=1000)  # first 1000
+results.save("atl06_all.json.gz", count=-1)   # every match
 ```
 
-Iterating a `SearchResults` is a stream, so the object only retains a bounded
-window — `save()` fetches fresh from CMR for the requested `count`, so it does
-not depend on how much you happened to iterate first.
+Results are streamed page by page into a gzipped JSON Lines payload with a
+progress bar, so memory stays bounded and an interrupted save keeps every
+completed page (only the in-flight line is lost). Iterating a `SearchResults`
+is a stream, so `save()` fetches fresh from CMR for the requested `count` and
+does not depend on how much you happened to iterate first.
 
 This also works for collections returned by `earthaccess.search_datasets()`.
 
@@ -49,6 +53,17 @@ This also works for collections returned by `earthaccess.search_datasets()`.
 ```python
 loaded = earthaccess.load_search("atl06_2024_search.json.gz")
 ```
+
+The payload is read line by line, so you can load a **slice** of a large saved
+set without materializing all of it:
+
+```python
+first_page = earthaccess.load_search("atl06_all.json.gz")          # all
+page2 = earthaccess.load_search("atl06_all.json.gz", offset=2000, limit=2000)
+```
+
+Verification is only performed on a full load; loading a slice skips the
+network round-trip.
 
 ## Re-run the saved query
 
@@ -139,10 +154,10 @@ results for a reproducible workflow.
 
 ## Module reference
 
-- `earthaccess.save_search(results, path, count=-1)` — save granules or collections (`count=-1` saves all).
-- `earthaccess.load_search(path, verify=True)` — load and verify.
-- `SearchResults.save(path, count=-1)` — method form.
-- `SearchResults.load(path, verify=True)` — classmethod form.
+- `earthaccess.save_search(results, path, count=2000)` — save granules or collections (default saves the first page; `count=-1` saves all).
+- `earthaccess.load_search(path, verify=True, offset=0, limit=None)` — load and verify (optionally a slice).
+- `SearchResults.save(path, count=2000)` — method form.
+- `SearchResults.load(path, verify=True, offset=0, limit=None)` — classmethod form.
 - `SearchResults.reset()` — drop streamed results and return to the initial prefetch.
 
 See also the [Search persistence API reference](../../api/index.md#search-persistence)

@@ -2312,7 +2312,7 @@ class SearchResults:
         """
         return self.explore(max_items=max_items, **kwargs)
 
-    def save(self, path: Union[str, Path], count: int = -1) -> Path:
+    def save(self, path: Union[str, Path], count: int = 2000) -> Path:
         """Save this search to a compressed JSON payload.
 
         The payload records the replayable query parameters, how many results
@@ -2321,12 +2321,17 @@ class SearchResults:
         default re-runs the query against CMR to verify the search hasn't
         changed.
 
+        By default only the **first page** of results (``count=2000``) is saved
+        and a warning is logged, so a huge search never materializes everything
+        just to persist it. Pass ``count=-1`` to save every match.
+
         Parameters:
             path: Where to write the payload (``.gz`` recommended).
-            count: How many results to save. ``-1`` (default) saves every
-                result matching the search. A non-negative value resets the
-                pagination and saves the first ``count`` results, e.g.
-                ``save(count=1000)`` saves the first 1000.
+            count: How many results to save. ``2000`` (default) saves the first
+                page of results; ``-1`` saves every result matching the search;
+                a positive value resets the pagination and saves the first
+                ``count`` results, e.g. ``save(count=1000)`` saves the first
+                1000.
 
         Returns:
             The path the payload was written to.
@@ -2383,7 +2388,14 @@ class SearchResults:
         return self
 
     @classmethod
-    def load(cls, path: Union[str, Path], verify: bool = True) -> "SearchResults":
+    def load(
+        cls,
+        path: Union[str, Path],
+        verify: bool = True,
+        *,
+        offset: int = 0,
+        limit: Optional[int] = None,
+    ) -> "SearchResults":
         """Load a search saved with :meth:`save`.
 
         By default the saved query is re-run against CMR and compared with what
@@ -2391,22 +2403,29 @@ class SearchResults:
         ``results.verification``. Pass ``verify=False`` to load from disk
         without a network round-trip.
 
+        The payload is read line by line, so a slice can be loaded with
+        ``offset``/``limit`` without materializing the whole saved set.
+        Verification is only performed for a full load.
+
         Parameters:
             path: Path to the saved payload.
             verify: If True (default), re-run the query and compare fingerprints
                 and hit counts. If False, load offline.
+            offset: Number of saved results to skip before loading (default: 0).
+            limit: Maximum number of saved results to load (default: None = all).
 
         Returns:
-            A SearchResults instance with the saved results loaded.
+            A SearchResults instance with the requested slice of results.
 
         Examples:
             >>> results = SearchResults.load("atl06_search.json.gz")
             >>> results.verification["unchanged"]
             True
+            >>> page2 = SearchResults.load("atl06_search.json.gz", offset=2000, limit=2000)
         """
         from earthaccess.search.persistence import load
 
-        return load(path, verify=verify)
+        return load(path, verify=verify, offset=offset, limit=limit)
 
     @property
     def query_params(self) -> Optional[Dict[str, Any]]:

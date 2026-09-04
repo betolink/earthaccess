@@ -22,16 +22,19 @@ Design notes
 import gzip
 import hashlib
 import json
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
 
 import earthaccess
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from earthaccess.search.results import SearchResults
 
-FORMAT_VERSION = "earthaccess-search-v1"
+FORMAT_VERSION = "earthaccess-search-v2"
 
 
 def compute_fingerprint(results: "SearchResults") -> str:
@@ -61,7 +64,12 @@ def compute_fingerprint_items(items: List[Any]) -> str:
         A hex SHA-256 digest prefixed with ``sha256:``.
     """
     concept_ids = sorted(item.get("meta", {}).get("concept-id", "") for item in items)
-    digest = hashlib.sha256("\n".join(concept_ids).encode("utf-8")).hexdigest()
+    return _fingerprint_from_ids(concept_ids)
+
+
+def _fingerprint_from_ids(concept_ids: List[str]) -> str:
+    """Compute the SHA-256 fingerprint from a list of concept-IDs."""
+    digest = hashlib.sha256("\n".join(sorted(concept_ids)).encode("utf-8")).hexdigest()
     return f"sha256:{digest}"
 
 
@@ -209,50 +217,66 @@ def _serialize_results(results: "SearchResults") -> List[Dict[str, Any]]:
     return [item.to_dict() for item in results._cached_results]
 
 
-def _collect_for_save(results: "SearchResults", count: int) -> List[Union[Any, Any]]:
-    """Collect the results to persist for a given ``count``.
+def _iter_for_save(results: "SearchResults", count: int) -> Iterator[Any]:
+    """Yield result objects to persist for a given ``count``.
 
-    ``count < 0`` means "save everything the search matches": the full result
-    set is materialized. A non-negative ``count`` resets the pagination and
-    returns the first ``count`` results (fetching fresh, independent of any
-    prior streaming/iteration state on ``results``).
+    ``count < 0`` means "save everything the search matches": every result is
+    yielded (streamed lazily, no materialization into a list). A positive
+    ``count`` yields up to the first ``count`` results: if the object is
+    already fully materialized the cached prefix is used (no extra network);
+    otherwise the pagination is reset and results are streamed fresh.
 
-    Returns:
-        The list of result objects to persist.
+    Yields:
+        DataGranule/DataCollection objects, one at a time.
     """
     if count < 0:
-        # Save every match: materialize the whole (respecting the search limit).
-        return list(results.all())
+        if results._materialized:
+            yield from results._cached_results
+        else:
+            yield from results
+        return
 
-    # Save a specific prefix: reset and fetch up to `count` fresh.
+    if results._materialized:
+        yield from results._cached_results[:count]
+        return
+
+    # Stream a specific prefix: reset and fetch up to `count` fresh.
     saved_limit = results.limit
     results.reset(prefetch=0)
-    items: List[Any] = []
+    yielded = 0
     for result in results:
-        items.append(result)
-        if len(items) >= count:
+        if yielded >= count:
             break
+        yielded += 1
+        yield result
     # Restore the object to a clean prefetch state.
     results.reset()
-    # Preserve the original search limit semantics.
     results.limit = saved_limit
-    return items[:count]
 
 
-def save(results: "SearchResults", path: Union[str, Path], count: int = -1) -> Path:
+def save(results: "SearchResults", path: Union[str, Path], count: int = 2000) -> Path:
     """Save a SearchResults object to a compressed JSON payload.
 
     The payload records the replayable query parameters, how many results were
     saved, the CMR hit count at save time, a content fingerprint over the
     sorted concept-IDs, and the results themselves.
 
+    Results are streamed to a **gzipped JSON Lines** payload one per line and
+    flushed per page, so a huge search is never materialized in memory and an
+    interrupted save keeps every completed page (only the in-flight line is
+    lost).
+
+    By default only the **first page** of results (``count=2000``) is saved and
+    a warning is logged, so a huge search never materializes everything just to
+    persist it. Pass ``count=-1`` to save every match, or a specific number.
+
     Parameters:
         results: A SearchResults instance (granules or collections).
         path: Where to write the payload (``.gz`` recommended).
-        count: How many results to save. ``-1`` (default) saves every result
-            the search matches. A non-negative value resets the pagination and
-            saves the first ``count`` results, e.g. ``save(count=1000)`` saves
-            the first 1000.
+        count: How many results to save. ``2000`` (default) saves the first
+            page of results. ``-1`` saves every result the search matches.
+            A positive value saves the first ``count`` results, e.g.
+            ``save(count=1000)`` saves the first 1000.
 
     Returns:
         The path the payload was written to.
@@ -263,30 +287,59 @@ def save(results: "SearchResults", path: Union[str, Path], count: int = -1) -> P
     if count == 0:
         raise ValueError("count must be -1 (save all) or a positive integer.")
 
-    items = _collect_for_save(results, count)
-    if not items:
-        raise ValueError("The search returned no results to save.")
-
-    kind = (
-        "granules"
-        if any("GranuleUR" in item.get("umm", {}) for item in items)
-        else "collections"
-    )
-
-    payload = {
-        "format": FORMAT_VERSION,
-        "saved_at": datetime.now(timezone.utc).isoformat(),
-        "kind": kind,
-        "query_params": _serialize_query_params(results),
-        "limit": count if count >= 0 else results.limit,
-        "cmr_hits": results.total(),
-        "fingerprint": compute_fingerprint_items(items),
-        "results": [item.to_dict() for item in items],
-    }
+    if count > 0:
+        logger.warning(
+            "save() will persist only the first %d results; "
+            "pass count=-1 to save every match of the search.",
+            count,
+        )
 
     path = Path(path)
+    concept_ids: List[str] = []
+    wrote_header = False
+
+    # Progress bar: up to `count` (or the CMR hit count when saving all).
+    total = count if count > 0 else results.total()
+
+    from tqdm.auto import tqdm
+
     with gzip.open(path, "wt", encoding="utf-8") as f:
-        json.dump(payload, f)
+        with tqdm(
+            total=total,
+            unit="granules",
+            desc="Saving search",
+            disable=total in (None, 0),
+        ) as pbar:
+            for item in _iter_for_save(results, count):
+                d = item.to_dict()
+                if not wrote_header:
+                    kind = (
+                        "granules" if "GranuleUR" in d.get("umm", {}) else "collections"
+                    )
+                    header = {
+                        "format": FORMAT_VERSION,
+                        "saved_at": datetime.now(timezone.utc).isoformat(),
+                        "kind": kind,
+                        "query_params": _serialize_query_params(results),
+                        "limit": count if count >= 0 else results.limit,
+                        "cmr_hits": results.total(),
+                    }
+                    f.write(json.dumps(header) + "\n")
+                    wrote_header = True
+                concept_ids.append(d.get("meta", {}).get("concept-id", ""))
+                f.write(json.dumps(d) + "\n")
+                f.flush()
+                pbar.update(1)
+
+        if not wrote_header:
+            raise ValueError("The search returned no results to save.")
+
+        trailer = {
+            "fingerprint": _fingerprint_from_ids(concept_ids),
+            "count": len(concept_ids),
+        }
+        f.write(json.dumps(trailer) + "\n")
+        f.flush()
 
     return path
 
@@ -294,8 +347,16 @@ def save(results: "SearchResults", path: Union[str, Path], count: int = -1) -> P
 def load(
     path: Union[str, Path],
     verify: bool = True,
+    *,
+    offset: int = 0,
+    limit: Optional[int] = None,
 ) -> "SearchResults":
     """Load a saved search from a compressed JSON payload.
+
+    The payload is a gzipped JSON Lines file: a header line, one line per
+    result, and a trailing fingerprint line. Loading streams the file line by
+    line, so you can fetch a slice (``offset``/``limit``) without materializing
+    the whole result set.
 
     By default the saved query is re-run against CMR and the result is compared
     with what was saved. If the search changed (different fingerprint or hit
@@ -306,19 +367,22 @@ def load(
         path: Path to the saved payload.
         verify: If True (default), re-run the saved query and compare. If False,
             load entirely from disk without a network round-trip.
+        offset: Number of saved results to skip before loading (default: 0).
+            Use this together with ``limit`` to page through a large saved set
+            without materializing all of it.
+        limit: Maximum number of saved results to load (default: None = all).
 
     Returns:
-        A SearchResults instance populated with the saved results. When
-        ``verify=True``, ``results.verification`` holds the comparison report;
-        when ``verify=False`` it is ``None``.
+        A SearchResults instance populated with the requested slice of results.
+        When ``verify=True``, ``results.verification`` holds the comparison
+        report; when ``verify=False`` it is ``None``.
 
     Raises:
         FileNotFoundError: If the payload does not exist.
         ValueError: If the payload format is not recognized.
     """
     path = Path(path)
-    with gzip.open(path, "rt", encoding="utf-8") as f:
-        payload = json.load(f)
+    payload = _read_payload(path, offset=offset, limit=limit)
 
     if payload.get("format") != FORMAT_VERSION:
         raise ValueError(
@@ -326,15 +390,77 @@ def load(
         )
 
     kind = payload.get("kind", "granules")
-    limit = payload.get("limit")
-    results = _rebuild_from_payload(payload, kind, limit)
+    search_limit = payload.get("limit")
+    results = _rebuild_from_payload(payload, kind, search_limit)
 
-    if verify:
-        results.verification = _verify(payload, kind, limit)
+    # Verification compares the *whole* saved set against the live search. A
+    # partial load (offset/limit slice) can't represent the saved set, so
+    # verification is skipped for slices.
+    is_partial = offset > 0 or limit is not None
+    if verify and not is_partial:
+        results.verification = _verify(payload, kind, search_limit)
+    elif verify and is_partial:
+        logger.info(
+            "load() loaded a slice of the saved search; verification is skipped."
+        )
+        results.verification = None
     else:
         results.verification = None
 
     return results
+
+
+def _read_payload(
+    path: Path, offset: int = 0, limit: Optional[int] = None
+) -> Dict[str, Any]:
+    """Read a gzipped JSON Lines payload, keeping only ``[offset, offset+limit)``.
+
+    Only the requested slice of results is materialized; the file is streamed
+    line by line so huge payloads are not loaded into memory.
+
+    Returns:
+        A payload dict with ``results`` holding the requested slice.
+    """
+    header: Optional[Dict[str, Any]] = None
+    trailer: Dict[str, Any] = {}
+    items: List[Dict[str, Any]] = []
+    seen = 0
+
+    with gzip.open(path, "rt", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+            except json.JSONDecodeError:
+                # Interrupted save: keep the completed lines only.
+                logger.warning(
+                    "Search payload appears truncated; ignoring the final "
+                    "incomplete line."
+                )
+                break
+            if "format" in obj:
+                header = obj
+            elif "fingerprint" in obj and "count" in obj:
+                trailer = obj
+            else:
+                # A result line.
+                if seen < offset:
+                    seen += 1
+                    continue
+                if limit is not None and len(items) >= limit:
+                    continue
+                items.append(obj)
+                seen += 1
+
+    if header is None:
+        raise ValueError(f"Unrecognized search payload: no header line in {path}")
+
+    payload = dict(header)
+    payload["results"] = items
+    payload.update(trailer)
+    return payload
 
 
 def _rebuild_from_payload(
@@ -420,7 +546,7 @@ def _verify(payload: Dict[str, Any], kind: str, limit: Optional[int]) -> Dict[st
 
 
 def save_search(
-    results: "SearchResults", path: Union[str, Path], count: int = -1
+    results: "SearchResults", path: Union[str, Path], count: int = 2000
 ) -> Path:
     """Save a SearchResults object to a compressed JSON payload.
 
@@ -430,8 +556,9 @@ def save_search(
     Parameters:
         results: A SearchResults instance (granules or collections).
         path: Where to write the payload (``.gz`` recommended).
-        count: How many results to save. ``-1`` (default) saves every result
-            the search matches; a non-negative value saves the first ``count``.
+        count: How many results to save. ``2000`` (default) saves the first
+            page of results; ``-1`` saves every match; a positive value saves
+            the first ``count``.
 
     Returns:
         The path the payload was written to.
@@ -439,18 +566,28 @@ def save_search(
     return save(results, path, count=count)
 
 
-def load_search(path: Union[str, Path], verify: bool = True) -> "SearchResults":
+def load_search(
+    path: Union[str, Path],
+    verify: bool = True,
+    *,
+    offset: int = 0,
+    limit: Optional[int] = None,
+) -> "SearchResults":
     """Load a saved search from a compressed JSON payload.
 
     Convenience wrapper around :func:`load`, mirroring the
-    ``SearchResults.load(path)`` class method.
+    ``SearchResults.load(path, offset=..., limit=...)`` class method. The
+    payload is streamed line by line, so a slice can be loaded with
+    ``offset``/``limit`` without materializing the whole saved set.
 
     Parameters:
         path: Path to the saved payload.
         verify: If True (default), re-run the saved query against CMR and
             compare. If False, load offline.
+        offset: Number of saved results to skip before loading (default: 0).
+        limit: Maximum number of saved results to load (default: None = all).
 
     Returns:
-        A SearchResults instance populated with the saved results.
+        A SearchResults instance populated with the requested slice of results.
     """
-    return load(path, verify=verify)
+    return load(path, verify=verify, offset=offset, limit=limit)
