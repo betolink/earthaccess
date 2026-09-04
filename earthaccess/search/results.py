@@ -1646,6 +1646,7 @@ class SearchResults:
         self._exhausted = False
         self._materialized = False
         self._window: int = page_size
+        self._cache_start: int = 0
         self._last_search_after: Optional[str] = None
         self._initial_search_after: Optional[str] = None
         self.verification: Optional[Dict[str, Any]] = None
@@ -1713,8 +1714,10 @@ class SearchResults:
         """Iterate through all results, fetching pages as needed.
 
         Iteration is a **stream**: it yields every matching result but keeps
-        the internal cache bounded to the most recent page (see ``window``), so
-        scanning a very large result set does not retain all of it in memory.
+        the internal cache bounded to the most recent page (a sliding window,
+        see ``window``), so scanning a very large result set does not retain
+        all of it in memory. After a full scan the cache holds the *last*
+        page of results.
 
         The first iteration resumes right after the prefetched window; later
         iterations restart from the beginning of the result set (a fresh scan).
@@ -1728,23 +1731,34 @@ class SearchResults:
             yield from self._cached_results
             return
 
-        # Yield the prefetch/prefix cache first, then continue fetching pages
-        # from the cursor right after it. Iteration never grows the cache, so
-        # scanning a very large result set does not retain it in memory (the
-        # cache stays a small prefix, and len()/indexing stay correct).
-        self._exhausted = False
-        cached = list(self._cached_results)
-        for result in cached:
-            yield result
-        results_yielded = len(cached)
+        restart = self._exhausted
+
+        # A previous bounded stream already ran to the end; restart from the
+        # beginning so a new iteration is a complete, fresh scan.
+        if restart:
+            self._cached_results = []
+            self._cache_start = 0
+            self._exhausted = False
+            self._last_search_after = None
 
         page_size = self._window
-        search_after = self._initial_search_after
+        results_yielded = 0
+
+        # First scan: reuse the prefetched window, then continue after it.
+        # Restarted scans have an empty cache and start from the beginning.
+        if not restart:
+            for result in list(self._cached_results):
+                results_yielded += 1
+                yield result
+        search_after = self._initial_search_after if not restart else None
 
         while True:
+            # Check limit (None or a negative limit means "unlimited").
             if self.limit is not None and results_yielded >= self.limit:
+                self._exhausted = True
                 break
 
+            page_start = results_yielded
             page = self._fetch_page(page_size, search_after)
             if not page:
                 self._exhausted = True
@@ -1758,6 +1772,11 @@ class SearchResults:
                 yield result
                 if self._exhausted:
                     break
+
+            # Slide the cache window to this page (the last page iterated).
+            self._cached_results = list(page)
+            self._cache_start = page_start
+            self._materialized = False
 
             if self._exhausted:
                 break
@@ -1808,6 +1827,7 @@ class SearchResults:
             search_after = self._last_search_after
 
         self._cached_results = collected
+        self._cache_start = 0
         self._exhausted = True
         self._materialized = True
         return self._cached_results
@@ -2077,17 +2097,15 @@ class SearchResults:
         return self._cached_results[index]
 
     def _ensure_cached(self, count: int) -> None:
-        """Ensure at least `count` results are cached.
+        """Ensure at least `count` results are cached as a *prefix*.
 
-        Fetches additional pages as needed to cache the requested number
-        of results.
+        Random access (``[i]``, slicing, repr) needs a contiguous prefix of the
+        result set starting at index 0. If the cache is currently a sliding
+        window (from a streaming iteration), it is rebuilt from the beginning.
 
         Parameters:
             count: Minimum number of results to cache
         """
-        if len(self._cached_results) >= count:
-            return
-
         if self._materialized:
             return
 
@@ -2095,13 +2113,18 @@ class SearchResults:
         if self.limit:
             count = min(count, self.limit)
 
-        # If the current cache is a stale bounded window, restart the cursor so
-        # we fetch from the beginning (a full window would otherwise be missing
-        # earlier pages we now need for random access).
-        if self._exhausted and not self._materialized:
+        # If the cache is a sliding window (does not start at 0), or the
+        # previous scan ended mid-way, rebuild a proper prefix from the start.
+        rebuild = self._cache_start != 0 or (self._exhausted and not self._materialized)
+        if rebuild:
             self._cached_results = []
+            self._cache_start = 0
             self._last_search_after = None
+            self._initial_search_after = None
             self._exhausted = False
+
+        if len(self._cached_results) >= count:
+            return
 
         page_size = self._window
         search_after = self._initial_search_after
@@ -2339,6 +2362,7 @@ class SearchResults:
             >>> len(results)    # back to the initial 20 prefetched
         """
         self._cached_results = []
+        self._cache_start = 0
         self._total_hits = None
         self._exhausted = False
         self._materialized = False

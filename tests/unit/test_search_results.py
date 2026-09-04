@@ -51,7 +51,12 @@ class PagedQuery:
         end = min(start + page_size, self.total_items)
         if start >= end:
             return []
-        return [Mock(spec=DataGranule) for _ in range(start, end)]
+        items = []
+        for i in range(start, end):
+            m = Mock(spec=DataGranule)
+            m._idx = i
+            items.append(m)
+        return items
 
 
 def paged_search_results(pager: PagedQuery, limit=None, prefetch: int = 0):
@@ -641,6 +646,34 @@ class TestStreamingIteration:
 
         assert first == 5_000
         assert second == 5_000  # stale window must not truncate a re-scan
+
+    def test_iteration_leaves_last_page_in_cache(self):
+        """After a full stream, the cache holds the last page (a sliding window)."""
+        pager = PagedQuery(total_items=10_000, page_size=2000)
+        results, fetch = paged_search_results(pager, prefetch=20)
+
+        with patch.object(SearchResults, "_fetch_page", side_effect=fetch):
+            count = sum(1 for _ in results)
+
+        assert count == 10_000
+        # The cache is the last page: after prefetch(20) + 4x2000 pages the
+        # final page starts at index 8020 and holds the remaining 1980 items.
+        assert results._cache_start == 8_020
+        assert len(results._cached_results) == 1_980
+        # The first cached item is the last page's first item (index 8020)
+        assert getattr(results._cached_results[0], "_idx") == 8_020
+
+    def test_index_after_iteration_returns_true_first_item(self):
+        """Random access after a stream rebuilds a prefix and returns item 0."""
+        pager = PagedQuery(total_items=10_000, page_size=2000)
+        results, fetch = paged_search_results(pager, prefetch=20)
+
+        with patch.object(SearchResults, "_fetch_page", side_effect=fetch):
+            sum(1 for _ in results)  # full stream leaves a window
+            first = results[0]
+            # _ensure_cached rebuilt a prefix from the start
+            assert results._cache_start == 0
+            assert getattr(first, "_idx") == 0
 
     def test_fresh_search_starts_at_prefetch(self):
         """A freshly constructed SearchResults holds the prefetch window."""
