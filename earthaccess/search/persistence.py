@@ -218,13 +218,13 @@ def _serialize_results(results: "SearchResults") -> List[Dict[str, Any]]:
 
 
 def _iter_for_save(
-    results: "SearchResults", count: int, offset: int = 0
+    results: "SearchResults", limit: int, offset: int = 0
 ) -> Iterator[Any]:
-    """Yield result objects to persist for a given ``count`` and ``offset``.
+    """Yield result objects to persist for a given ``limit`` and ``offset``.
 
-    ``count < 0`` means "save everything the search matches": every result is
+    ``limit < 0`` means "save everything the search matches": every result is
     yielded (streamed lazily, no materialization into a list). A positive
-    ``count`` yields up to ``count`` results starting after ``offset`` results
+    ``limit`` yields up to ``limit`` results starting after ``offset`` results
     are skipped. If the object is already fully materialized the cached list is
     used (no extra network); otherwise the pagination is reset and results are
     streamed fresh.
@@ -232,7 +232,7 @@ def _iter_for_save(
     Yields:
         DataGranule/DataCollection objects, one at a time.
     """
-    if count < 0:
+    if limit < 0:
         source = results._cached_results if results._materialized else results
         if offset > 0:
             for i, item in enumerate(source):
@@ -242,13 +242,13 @@ def _iter_for_save(
         yield from source
         return
 
-    stop = offset + count
+    stop = offset + limit
 
     if results._materialized:
         yield from results._cached_results[offset:stop]
         return
 
-    # Stream: reset and skip `offset`, then yield up to `count` fresh.
+    # Stream: reset and skip `offset`, then yield up to `limit` fresh.
     saved_limit = results.limit
     results.reset(prefetch=0)
     for i, result in enumerate(results):
@@ -265,7 +265,7 @@ def _iter_for_save(
 def save(
     results: "SearchResults",
     path: Union[str, Path],
-    count: int = 2000,
+    limit: int = 2000,
     offset: int = 0,
 ) -> Path:
     """Save a SearchResults object to a compressed JSON payload.
@@ -279,20 +279,20 @@ def save(
     interrupted save keeps every completed page (only the in-flight line is
     lost).
 
-    By default only the **first page** of results (``count=2000``) is saved and
+    By default only the **first page** of results (``limit=2000``) is saved and
     a warning is logged, so a huge search never materializes everything just to
-    persist it. Pass ``count=-1`` to save every match, or a specific number.
+    persist it. Pass ``limit=-1`` to save every match, or a specific number.
 
     Parameters:
         results: A SearchResults instance (granules or collections).
         path: Where to write the payload (``.gz`` recommended).
-        count: How many results to save. ``2000`` (default) saves the first
+        limit: How many results to save. ``2000`` (default) saves the first
             page of results. ``-1`` saves every result the search matches.
-            A positive value saves up to ``count`` results, e.g.
-            ``save(count=1000)`` saves the first 1000.
+            A positive value saves up to ``limit`` results, e.g.
+            ``save(limit=1000)`` saves the first 1000.
         offset: Number of results to skip before saving (default: 0). Use this
-            together with ``count`` to save a window of a large result set,
-            e.g. ``save(count=1000, offset=2000)`` saves results 2000-2999.
+            together with ``limit`` to save a window of a large result set,
+            e.g. ``save(limit=1000, offset=2000)`` saves results 2000-2999.
 
     Returns:
         The path the payload was written to.
@@ -300,16 +300,16 @@ def save(
     Raises:
         ValueError: If the search returns no results to persist.
     """
-    if count == 0:
-        raise ValueError("count must be -1 (save all) or a positive integer.")
+    if limit == 0:
+        raise ValueError("limit must be -1 (save all) or a positive integer.")
     if offset < 0:
         raise ValueError("offset must be a non-negative integer.")
 
-    if count > 0:
+    if limit > 0:
         logger.warning(
             "save() will persist only %d result(s) starting at offset %d; "
-            "pass count=-1 to save every match of the search.",
-            count,
+            "pass limit=-1 to save every match of the search.",
+            limit,
             offset,
         )
 
@@ -317,8 +317,8 @@ def save(
     concept_ids: List[str] = []
     wrote_header = False
 
-    # Progress bar: up to `count` (or the CMR hit count when saving all).
-    total = count if count > 0 else results.total()
+    # Progress bar: up to `limit` (or the CMR hit count when saving all).
+    total = limit if limit > 0 else results.total()
 
     from tqdm.auto import tqdm
 
@@ -329,7 +329,7 @@ def save(
             desc="Saving search",
             disable=total in (None, 0),
         ) as pbar:
-            for item in _iter_for_save(results, count, offset=offset):
+            for item in _iter_for_save(results, limit, offset=offset):
                 d = item.to_dict()
                 if not wrote_header:
                     kind = (
@@ -340,7 +340,7 @@ def save(
                         "saved_at": datetime.now(timezone.utc).isoformat(),
                         "kind": kind,
                         "query_params": _serialize_query_params(results),
-                        "limit": count if count >= 0 else results.limit,
+                        "limit": limit if limit >= 0 else results.limit,
                         "cmr_hits": results.total(),
                     }
                     f.write(json.dumps(header) + "\n")
@@ -582,26 +582,26 @@ def _verify(payload: Dict[str, Any], kind: str, limit: Optional[int]) -> Dict[st
 def save_search(
     results: "SearchResults",
     path: Union[str, Path],
-    count: int = 2000,
+    limit: int = 2000,
     offset: int = 0,
 ) -> Path:
     """Save a SearchResults object to a compressed JSON payload.
 
     Convenience wrapper around :func:`save`, mirroring the
-    ``results.save(path, count=..., offset=...)`` method.
+    ``results.save(path, limit=..., offset=...)`` method.
 
     Parameters:
         results: A SearchResults instance (granules or collections).
         path: Where to write the payload (``.gz`` recommended).
-        count: How many results to save. ``2000`` (default) saves the first
+        limit: How many results to save. ``2000`` (default) saves the first
             page of results; ``-1`` saves every match; a positive value saves
-            up to ``count``.
+            up to ``limit``.
         offset: Number of results to skip before saving (default: 0).
 
     Returns:
         The path the payload was written to.
     """
-    return save(results, path, count=count, offset=offset)
+    return save(results, path, limit=limit, offset=offset)
 
 
 def load_search(

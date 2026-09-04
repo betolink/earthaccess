@@ -22,9 +22,9 @@ exact result set you used so the analysis can be reproduced or audited later.
 - the **CMR hit count** at save time,
 - a **fingerprint** of the result set.
 
-By default `save()` persists the **first page** of results (`count=2000`) and
+By default `save()` persists the **first page** of results (`limit=2000`) and
 logs a warning, so a huge search is never materialized just to save it. Use the
-`count` argument to control how many results are saved:
+`limit` argument to control how many results are saved:
 
 ```python
 import earthaccess
@@ -36,15 +36,15 @@ results = earthaccess.search_data(
 )
 
 results.save("atl06_first_page.json.gz")      # default: first 2000
-results.save("atl06_first1k.json.gz", count=1000)  # first 1000
-results.save("atl06_all.json.gz", count=-1)   # every match
-results.save("atl06_3k.json.gz", count=1000, offset=2000)  # results 2000-2999
+results.save("atl06_first1k.json.gz", limit=1000)  # first 1000
+results.save("atl06_all.json.gz", limit=-1)   # every match
+results.save("atl06_3k.json.gz", limit=1000, offset=2000)  # results 2000-2999
 ```
 
 Results are streamed page by page into a gzipped JSON Lines payload with a
 progress bar, so memory stays bounded and an interrupted save keeps every
 completed page (only the in-flight line is lost). Iterating a `SearchResults`
-is a stream, so `save()` fetches fresh from CMR for the requested `count` and
+is a stream, so `save()` fetches fresh from CMR for the requested `limit` and
 does not depend on how much you happened to iterate first.
 
 This also works for collections returned by `earthaccess.search_datasets()`.
@@ -158,9 +158,9 @@ results for a reproducible workflow.
 
 ## Module reference
 
-- `earthaccess.save_search(results, path, count=2000, offset=0)` — save granules or collections (default saves the first page; `count=-1` saves all).
+- `earthaccess.save_search(results, path, limit=2000, offset=0)` — save granules or collections (default saves the first page; `limit=-1` saves all).
 - `earthaccess.load_search(path, verify=False, offset=0, limit=2000)` — load offline by default (optionally a slice; `verify=True` to compare).
-- `SearchResults.save(path, count=2000, offset=0)` — method form.
+- `SearchResults.save(path, limit=2000, offset=0)` — method form.
 - `SearchResults.load(path, verify=False, offset=0, limit=2000)` — classmethod form.
 - `SearchResults.reset()` — drop streamed results and return to the initial prefetch.
 

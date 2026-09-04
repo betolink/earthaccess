@@ -245,7 +245,7 @@ def test_save_payload_is_compressed_and_valid(tmp_path):
     header = lines[0]
     assert header["format"] == "earthaccess-search-v2"
     assert header["kind"] == "granules"
-    assert header["limit"] == 2000  # default count
+    assert header["limit"] == 2000  # default limit
     assert header["cmr_hits"] == 12070
 
     # One result line then a trailer with the fingerprint
@@ -277,8 +277,8 @@ def test_module_level_functions_roundtrip(tmp_path):
     assert loaded._stored_fingerprint == compute_fingerprint(results)
 
 
-def test_save_with_count_persists_prefix(tmp_path):
-    """save(count=1000) resets pagination and saves the first 1000."""
+def test_save_with_limit_persists_prefix(tmp_path):
+    """save(limit=1000) resets pagination and saves the first 1000."""
     from unittest.mock import patch
 
     from earthaccess.search import DataGranule, GranuleResults, SearchResults
@@ -332,7 +332,7 @@ def test_save_with_count_persists_prefix(tmp_path):
         return page
 
     with patch.object(SearchResults, "_fetch_page", fake_fetch):
-        path = results.save(tmp_path / "prefix.gz", count=1000)
+        path = results.save(tmp_path / "prefix.gz", limit=1000)
 
     loaded = load(path, verify=False, limit=None)
     assert len(loaded) == 1000
@@ -340,8 +340,8 @@ def test_save_with_count_persists_prefix(tmp_path):
     assert loaded._cached_results[-1]["meta"]["concept-id"] == "G999-PAGED"
 
 
-def test_save_all_with_count_minus_one(tmp_path):
-    """save(count=-1) persists every matching result."""
+def test_save_all_with_limit_minus_one(tmp_path):
+    """save(limit=-1) persists every matching result."""
     from unittest.mock import patch
 
     from earthaccess.search import DataGranule, GranuleResults, SearchResults
@@ -388,7 +388,7 @@ def test_save_all_with_count_minus_one(tmp_path):
         return page
 
     with patch.object(SearchResults, "_fetch_page", fake_fetch):
-        path = results.save(tmp_path / "all.gz", count=-1)
+        path = results.save(tmp_path / "all.gz", limit=-1)
 
     loaded = load(path, verify=False, limit=None)
     assert len(loaded) == 5_000
@@ -396,7 +396,7 @@ def test_save_all_with_count_minus_one(tmp_path):
 
 
 def test_save_default_persists_first_page(tmp_path):
-    """save() without count persists only the first page (default 2000)."""
+    """save() without limit persists only the first page (default 2000)."""
     from unittest.mock import patch
 
     from earthaccess.search import DataGranule, GranuleResults, SearchResults
@@ -499,7 +499,7 @@ def test_load_with_offset_and_limit(tmp_path):
         return page
 
     with patch.object(SearchResults, "_fetch_page", fake_fetch):
-        path = results.save(tmp_path / "slice.gz", count=-1)
+        path = results.save(tmp_path / "slice.gz", limit=-1)
 
     # Full load
     full = load(path, verify=False, limit=None)
@@ -516,7 +516,7 @@ def test_load_with_offset_and_limit(tmp_path):
 
 
 def test_save_with_offset_persists_window(tmp_path):
-    """save(count=1000, offset=2000) saves results 2000-2999."""
+    """save(limit=1000, offset=2000) saves results 2000-2999."""
     from unittest.mock import patch
 
     from earthaccess.search import DataGranule, GranuleResults, SearchResults
@@ -563,7 +563,7 @@ def test_save_with_offset_persists_window(tmp_path):
         return page
 
     with patch.object(SearchResults, "_fetch_page", fake_fetch):
-        path = results.save(tmp_path / "window.gz", count=1000, offset=2000)
+        path = results.save(tmp_path / "window.gz", limit=1000, offset=2000)
 
     loaded = load(path, verify=False, limit=None)
     assert len(loaded) == 1000
@@ -619,7 +619,7 @@ def test_load_default_materializes_first_page(tmp_path):
         return page
 
     with patch.object(SearchResults, "_fetch_page", fake_fetch):
-        path = results.save(tmp_path / "defaultload.gz", count=-1)
+        path = results.save(tmp_path / "defaultload.gz", limit=-1)
 
     # No verify -> no network; only the first page is loaded.
     with patch.object(earthaccess, "search_data", side_effect=AssertionError("no net")):
