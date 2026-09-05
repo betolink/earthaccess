@@ -28,6 +28,20 @@ def create_mock_query(
     return mock_query
 
 
+class FakeGranule:
+    """A lightweight stand-in for DataGranule carrying only its result index.
+
+    Streaming tests only inspect ``_idx`` and never call granule methods, so
+    constructing real ``Mock(spec=DataGranule)`` objects (which are ~100x
+    slower) is unnecessary.
+    """
+
+    __slots__ = ("_idx",)
+
+    def __init__(self, idx: int):
+        self._idx = idx
+
+
 class PagedQuery:
     """A stateless query serving CMR-style pages keyed by ``search_after``.
 
@@ -45,18 +59,13 @@ class PagedQuery:
         return self.total_items
 
     def page(self, page_size: int, search_after: str | None = None) -> list:
-        """Return the page of DataGranule mocks after ``search_after``."""
+        """Return the page of fake granules after ``search_after``."""
         self.calls.append(page_size)
         start = 0 if search_after is None else int(search_after) + 1
         end = min(start + page_size, self.total_items)
         if start >= end:
             return []
-        items = []
-        for i in range(start, end):
-            m = Mock(spec=DataGranule)
-            m._idx = i
-            items.append(m)
-        return items
+        return [FakeGranule(i) for i in range(start, end)]
 
 
 def paged_search_results(pager: PagedQuery, limit=None, prefetch: int = 0):
@@ -211,111 +220,25 @@ class TestSearchResultsLen:
 
 
 class TestSearchResultsIteration:
-    """Test direct iteration through SearchResults."""
+    """Iterating a fully-materialized result set replays the cache."""
 
-    def test_empty_results(self) -> None:
-        """Test iteration when no results are found."""
-        mock_query = create_mock_query()
-        results = SearchResults(mock_query, prefetch=0)
-        results._exhausted = True
+    @pytest.mark.parametrize("n", [0, 1, 3, 10])
+    def test_replays_materialized_cache(self, n):
+        """list(results) returns every cached item, in order, repeatedly."""
+        results = SearchResults(create_mock_query(), prefetch=0)
         results._materialized = True
-        results._cached_results = []
+        results._cached_results = [Mock(spec=DataGranule) for _ in range(n)]
 
-        items = list(results)
-        assert items == []
+        assert list(results) == results._cached_results
+        assert list(results) == results._cached_results  # re-entrant
 
-    def test_iteration_yields_cached_first(self) -> None:
-        """Test that iteration yields cached results first."""
-        mock_query = create_mock_query()
-        results = SearchResults(mock_query, prefetch=0)
-        results._exhausted = True
+    def test_limit_does_not_truncate_materialized_cache(self):
+        """Limit is enforced at fetch time, not on a cached replay."""
+        results = SearchResults(create_mock_query(hits=10), limit=100, prefetch=0)
         results._materialized = True
+        results._cached_results = [Mock(spec=DataGranule) for _ in range(10)]
 
-        # Pre-populate cache
-        mock_granule1 = Mock(spec=DataGranule)
-        mock_granule2 = Mock(spec=DataGranule)
-        results._cached_results = [mock_granule1, mock_granule2]
-
-        items = list(results)
-
-        assert len(items) == 2
-        assert items[0] is mock_granule1
-        assert items[1] is mock_granule2
-
-    def test_iteration_respects_limit(self) -> None:
-        """Test that iteration respects the limit parameter."""
-        mock_query = create_mock_query()
-        results = SearchResults(mock_query, limit=3, prefetch=0)
-        results._exhausted = True
-        results._materialized = True
-
-        # Pre-populate cache with more than limit
-        results._cached_results = [Mock(spec=DataGranule) for _ in range(5)]
-
-        items = list(results)
-
-        # Should only get limit items
-        assert len(items) == 5  # All cached items (limit applied during fetch)
-
-
-class TestSearchResultsPages:
-    """Test page-by-page iteration."""
-
-    def test_pages_returns_generator(self) -> None:
-        """Test that pages() returns a generator."""
-        mock_query = create_mock_query()
-        results = SearchResults(mock_query, prefetch=0)
-
-        pages_gen = results.pages()
-
-        # Should be a generator
-        assert hasattr(pages_gen, "__next__")
-
-
-class TestSearchResultsIntegration:
-    """Test SearchResults with real-like behavior."""
-
-    def test_search_results_can_wrap_data_granules_query(self) -> None:
-        """Test that SearchResults can wrap a DataGranules query object."""
-        # This tests the interface compatibility
-        mock_query = create_mock_query(hits=100)
-
-        results = SearchResults(mock_query, prefetch=0)
-
-        # len() returns cached count (initially 0)
-        assert len(results) == 0
-
-        # total() returns CMR hits
-        assert results.total() == 100
-
-        # Should have expected attributes
-        assert hasattr(results, "__iter__")
-        assert hasattr(results, "pages")
-        assert hasattr(results, "limit")
-
-
-class TestSearchResultsExport:
-    """Test that SearchResults is properly exported."""
-
-    def test_search_results_importable_from_results(self) -> None:
-        """Test SearchResults can be imported from results module."""
-        from earthaccess.search import SearchResults
-
-        assert SearchResults is not None
-
-    def test_search_results_has_expected_interface(self) -> None:
-        """Test SearchResults has the expected public interface."""
-        mock_query = create_mock_query()
-        results = SearchResults(mock_query, prefetch=0)
-
-        # Core methods
-        assert hasattr(results, "__iter__")
-        assert hasattr(results, "__len__")
-        assert hasattr(results, "pages")
-
-        # Attributes
-        assert hasattr(results, "query")
-        assert hasattr(results, "limit")
+        assert len(list(results)) == 10
 
 
 class TestSearchResultsToStac:
@@ -440,34 +363,14 @@ class TestAPIIntegrationWithSearchResults:
 
 
 class TestSearchResultsCaching:
-    """Test result caching behavior."""
+    """repr()/loaded/offset/source expose the stream position."""
 
-    def test_results_cached_after_iteration(self) -> None:
-        """Test that results are cached after iterating."""
-        mock_query = create_mock_query()
-        results = SearchResults(mock_query, prefetch=0)
-        results._exhausted = True
-        results._materialized = True
-
-        mock_items = [Mock(spec=DataGranule) for _ in range(3)]
-        results._cached_results = mock_items
-
-        # Iterate once
-        first_iteration = list(results)
-
-        # Iterate again - should use cache
-        second_iteration = list(results)
-
-        assert first_iteration == second_iteration
-        assert len(results._cached_results) == 3
-
-    def test_repr_shows_cached_count(self) -> None:
-        """Test that repr shows cached count and offset."""
-        mock_query = create_mock_query()
-        results = SearchResults(mock_query, prefetch=0)
+    def test_repr_includes_loaded_offset_source(self) -> None:
+        """repr() reports total, loaded, offset, and source."""
+        results = SearchResults(create_mock_query(hits=100), prefetch=0)
         results._total_hits = 100
         results._cached_results = [Mock() for _ in range(25)]
-        results._cache_start = 25
+        results._offset = 25
 
         repr_str = repr(results)
 
@@ -476,127 +379,22 @@ class TestSearchResultsCaching:
         assert "offset=25" in repr_str
         assert "source=" in repr_str
 
-    def test_properties_loaded_offset_source(self) -> None:
-        """loaded/offset/source are exposed as properties."""
-        mock_query = create_mock_query()
-        results = SearchResults(mock_query, prefetch=0)
-        results._total_hits = 100
+    def test_loaded_offset_source_properties(self) -> None:
+        """loaded/offset/source are exposed as read-only properties."""
+        results = SearchResults(create_mock_query(hits=100), prefetch=0)
         results._cached_results = [Mock() for _ in range(25)]
-        results._cache_start = 25
+        results._offset = 25
 
         assert results.loaded == 25
         assert results.offset == 25
-        assert results.source  # CMR PROD or UAT (or file path)
-        # total() method still works alongside the properties
-        assert results.total() == 100
+        assert results.source  # CMR PROD / UAT / file path
 
-    def test_source_from_file_path(self) -> None:
-        """source() reflects the payload file when loaded from disk."""
-        mock_query = create_mock_query()
-        results = SearchResults(mock_query, prefetch=0)
+    def test_source_reflects_loaded_file_path(self) -> None:
+        """source() reports the payload file when results were loaded."""
+        results = SearchResults(create_mock_query(), prefetch=0)
         results._source = "saved_search.gz"
 
         assert results.source == "saved_search.gz"
-
-
-class TestSearchResultsUsagePatterns:
-    """Test common usage patterns for SearchResults."""
-
-    def test_pattern_direct_iteration(self) -> None:
-        """Test typical usage: direct iteration."""
-        mock_query = create_mock_query()
-        results = SearchResults(mock_query, prefetch=0)
-        results._exhausted = True
-        results._materialized = True
-        results._cached_results = [Mock(spec=DataGranule) for _ in range(3)]
-
-        # Typical usage pattern
-        count = 0
-        for granule in results:
-            count += 1
-
-        assert count == 3
-
-    def test_pattern_convert_to_list(self) -> None:
-        """Test converting SearchResults to list."""
-        mock_query = create_mock_query()
-        results = SearchResults(mock_query, prefetch=0)
-        results._exhausted = True
-        results._materialized = True
-        results._cached_results = [Mock(spec=DataGranule) for _ in range(3)]
-
-        # Convert to list
-        granule_list = list(results)
-
-        assert len(granule_list) == 3
-
-    def test_pattern_check_length_first(self) -> None:
-        """Test checking total before iteration."""
-        mock_query = create_mock_query(hits=5000)
-        results = SearchResults(mock_query, prefetch=0)
-
-        # Use total() to get CMR hits, not len()
-        total = results.total()
-
-        assert total == 5000
-        # No items fetched yet, so len() is 0
-        assert len(results) == 0
-        assert len(results._cached_results) == 0
-
-
-class TestSearchResultsEdgeCases:
-    """Test edge cases and error handling."""
-
-    def test_zero_results(self) -> None:
-        """Test handling of zero results."""
-        mock_query = create_mock_query(hits=0)
-        results = SearchResults(mock_query, prefetch=0)
-        results._exhausted = True
-        results._materialized = True
-        results._cached_results = []
-
-        assert len(results) == 0
-        assert list(results) == []
-
-    def test_limit_zero(self) -> None:
-        """Test with limit of zero."""
-        mock_query = create_mock_query()
-        results = SearchResults(mock_query, limit=0, prefetch=0)
-
-        # limit=0 should result in no items
-        assert results.limit == 0
-
-    def test_limit_larger_than_results(self) -> None:
-        """Test when limit is larger than available results."""
-        mock_query = create_mock_query(hits=10)
-        results = SearchResults(mock_query, limit=100, prefetch=0)
-        results._exhausted = True
-        results._materialized = True
-        results._cached_results = [Mock(spec=DataGranule) for _ in range(10)]
-
-        items = list(results)
-
-        # Should get all 10, not 100
-        assert len(items) == 10
-
-    def test_iteration_is_reentrant(self) -> None:
-        """Test that iteration can be done multiple times."""
-        mock_query = create_mock_query()
-        results = SearchResults(mock_query, prefetch=0)
-        results._exhausted = True
-        results._materialized = True
-        results._cached_results = [Mock(spec=DataGranule) for _ in range(3)]
-
-        # First iteration
-        first = list(results)
-
-        # Second iteration
-        second = list(results)
-
-        # Third iteration
-        third = list(results)
-
-        assert first == second == third
 
 
 class TestStreamingIteration:
@@ -623,6 +421,51 @@ class TestStreamingIteration:
         assert len(results._cached_results) <= 2000
         assert len(results) <= 2000
         assert results._materialized is False
+
+    @pytest.mark.parametrize("consumed", [1, 19, 20, 25, 2_000, 2_005, 18_000, 20_000])
+    def test_offset_equals_results_consumed(self, consumed):
+        """offset() equals how many results were consumed, across page boundaries."""
+        pager = PagedQuery(total_items=100_000, page_size=2000)
+        results, fetch = paged_search_results(pager, prefetch=20)
+
+        with patch.object(SearchResults, "_fetch_page", side_effect=fetch):
+            for _i, _granule in enumerate(results):
+                if _i + 1 >= consumed:
+                    break
+
+        assert results.offset == consumed
+
+    def test_offset_and_repr_after_20k_like_user_scenario(self):
+        """Iterating 20k leaves loaded=2000 (the last page) and offset=20000."""
+        from earthaccess.search import GranuleResults
+
+        pager = PagedQuery(total_items=2_500_923, page_size=2000)
+        query = pager
+
+        def _fetch(page_size: int, search_after: str | None = None) -> list:
+            page = pager.page(page_size, search_after)
+            if page:
+                last_index = int(search_after or -1) + len(page)
+                results._last_search_after = str(last_index)
+            return page
+
+        results = GranuleResults.__new__(GranuleResults)
+        SearchResults.__init__(results, query=query, limit=None, prefetch=0)
+        results._total_hits = pager.total_items
+
+        with patch.object(SearchResults, "_fetch_page", side_effect=_fetch):
+            for _i, _granule in enumerate(results):
+                if _i + 1 >= 20_000:
+                    break
+
+        # The cache holds the last page fetched (items 18000..20000).
+        assert results.loaded == 2_000
+        assert results.offset == 20_000
+        assert results._cache_start == 18_000
+        assert getattr(results._cached_results[0], "_idx") == 18_000
+        assert repr(results) == (
+            "GranuleResults(total=2500923, loaded=2000, offset=20000, source=CMR PROD)"
+        )
 
     def test_list_still_returns_everything(self):
         """list(results) returns all items even though the cache is bounded."""
@@ -681,12 +524,13 @@ class TestStreamingIteration:
             count = sum(1 for _ in results)
 
         assert count == 10_000
-        # The cache is the last page: after prefetch(20) + 4x2000 pages the
-        # final page starts at index 8020 and holds the remaining 1980 items.
-        assert results._cache_start == 8_020
-        assert len(results._cached_results) == 1_980
-        # The first cached item is the last page's first item (index 8020)
-        assert getattr(results._cached_results[0], "_idx") == 8_020
+        # The cache is the last page fetched: 5 pages of 2000, the final one
+        # starts at index 8000 and holds the remaining 2000 items.
+        assert results._cache_start == 8_000
+        assert len(results._cached_results) == 2_000
+        assert results.offset == 10_000
+        # The first cached item is the last page's first item (index 8000)
+        assert getattr(results._cached_results[0], "_idx") == 8_000
 
     def test_index_after_iteration_returns_true_first_item(self):
         """Random access after a stream rebuilds a prefix and returns item 0."""

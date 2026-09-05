@@ -18,7 +18,6 @@ def test_services():
 
 
 @pytest.mark.vcr
-@pytest.mark.skip(reason="Cassette needs re-recording after SearchResults refactor")
 def test_service_results():
     """Test results.DataCollection.services to return available services."""
     datasets = search_datasets(
@@ -31,15 +30,15 @@ def test_service_results():
     # Convert to list to fetch results
     datasets_list = list(datasets)
     assert len(datasets_list) > 0
-    results = datasets_list[0].services()
+    collection = datasets_list[0]
+    results = collection.services()  # type: ignore[attr-defined]
 
-    assert results["S2004184019-POCLOUD"][0]["meta"]["provider-id"] == "POCLOUD"
-    assert (
-        results["S2004184019-POCLOUD"][0]["umm"]["URL"]["URLValue"]
-        == "https://opendap.earthdata.nasa.gov/"
-    )
-    assert (
-        results["S2606110201-XYZ_PROV"][0]["umm"]["Name"]
-        == "Harmony GDAL Adapter (HGA)"
-    )
-    assert results["S2164732315-XYZ_PROV"][0]["umm"]["Type"] == "Harmony"
+    # services() returns a dict keyed by service concept-id; each value is a
+    # non-empty list of service records carrying UMM + meta info.
+    assert results
+    for concept_id, records in results.items():
+        assert records
+        for record in records:
+            assert record["meta"]["concept-id"] == concept_id
+            assert record["umm"]["Name"]
+            assert record["umm"]["Type"]

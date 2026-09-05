@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from functools import cache, cached_property
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterator, List, Optional, Union
+from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Union
 
 import pystac
 import requests
@@ -1647,6 +1647,7 @@ class SearchResults:
         self._materialized = False
         self._window: int = page_size
         self._cache_start: int = 0
+        self._offset: int = 0
         self._last_search_after: Optional[str] = None
         self._initial_search_after: Optional[str] = None
         self.verification: Optional[Dict[str, Any]] = None
@@ -1686,7 +1687,7 @@ class SearchResults:
             >>> print(f"Total matching: {results.total()}")  # doctest: +SKIP
         """
         if self._total_hits is None:
-            self._total_hits = self.query.hits()
+            self._total_hits = int(self.query.hits())
         return self._total_hits
 
     @property
@@ -1696,8 +1697,13 @@ class SearchResults:
 
     @property
     def offset(self) -> int:
-        """Index of the first currently loaded result in the full result set."""
-        return self._cache_start
+        """Number of results already consumed from the result set.
+
+        This is the read position of the stream: how many results have been
+        iterated so far. It equals the index of the first result that has not
+        been read yet, so after iterating over N results ``offset == N``.
+        """
+        return self._offset
 
     @property
     def source(self) -> str:
@@ -1739,47 +1745,44 @@ class SearchResults:
         """
         return len(self._cached_results)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Union[DataGranule, DataCollection]]:
         """Iterate through all results, fetching pages as needed.
 
-        Iteration is a **stream**: it yields every matching result but keeps
-        the internal cache bounded to the most recent page (a sliding window,
-        see ``window``), so scanning a very large result set does not retain
-        all of it in memory. After a full scan the cache holds the *last*
-        page of results.
+        Iteration is a **stream**: each ``__iter__`` starts a fresh scan from
+        the beginning of the result set. The cache holds at most one page of
+        results (``window``, default 2000) at a time: each page is fetched in
+        a single request and its items are yielded one by one, then the cache
+        slides to the next page. This keeps memory bounded while still
+        streaming large result sets.
 
-        The first iteration resumes right after the prefetched window; later
-        iterations restart from the beginning of the result set (a fresh scan).
-        Fully materialized results (after :meth:`all`) are replayed from cache.
+        CMR may return fewer results than requested even when more matches
+        exist, so a short page is *not* treated as the end of the result set:
+        iteration continues until CMR returns an empty page, the total number
+        of matches is reached, or ``limit`` is met.
+
+        Fully materialized results (after :meth:`all` or a full stream that
+        reached the end of a small set) are replayed from cache.
 
         Yields:
             DataGranule or DataCollection instances
         """
-        # If the whole result set is already materialized, replay it.
+        # If the whole result set is already in memory, replay it.
         if self._materialized:
-            yield from self._cached_results
+            self._offset = 0
+            for i, result in enumerate(self._cached_results, start=1):
+                self._offset = i
+                yield result
             return
 
-        restart = self._exhausted
-
-        # A previous bounded stream already ran to the end; restart from the
-        # beginning so a new iteration is a complete, fresh scan.
-        if restart:
-            self._cached_results = []
-            self._cache_start = 0
-            self._exhausted = False
-            self._last_search_after = None
-
+        # Fresh scan from the beginning of the result set.
         page_size = self._window
+        self._cached_results = []
+        self._cache_start = 0
+        self._offset = 0
+        self._exhausted = False
+        self._last_search_after = None
         results_yielded = 0
-
-        # First scan: reuse the prefetched window, then continue after it.
-        # Restarted scans have an empty cache and start from the beginning.
-        if not restart:
-            for result in list(self._cached_results):
-                results_yielded += 1
-                yield result
-        search_after = self._initial_search_after if not restart else None
+        search_after = None
 
         while True:
             # Check limit (None or a negative limit means "unlimited").
@@ -1787,31 +1790,33 @@ class SearchResults:
                 self._exhausted = True
                 break
 
-            page_start = results_yielded
+            # Always fetch a full page: CMR is most efficient at page_size
+            # (2000). We only enforce the limit when yielding below.
             page = self._fetch_page(page_size, search_after)
             if not page:
                 self._exhausted = True
                 break
 
+            # Cache holds this page (a sliding window of at most `page_size`).
+            self._cached_results = list(page)
+            self._cache_start = results_yielded
+            self._materialized = False
+
             for result in page:
                 results_yielded += 1
+                self._offset = results_yielded
+                yield result
                 if self.limit is not None and results_yielded >= self.limit:
                     self._exhausted = True
                     break
-                yield result
                 if self._exhausted:
                     break
-
-            # Slide the cache window to this page (the last page iterated).
-            self._cached_results = list(page)
-            self._cache_start = page_start
-            self._materialized = False
 
             if self._exhausted:
                 break
 
-            # Last page when CMR returns fewer results than requested.
-            if len(page) < page_size:
+            # We reached the end of the result set (total hits fetched).
+            if self._total_hits is not None and results_yielded >= self._total_hits:
                 self._exhausted = True
                 break
 
@@ -1942,8 +1947,10 @@ class SearchResults:
         if filter_obj is None:
             return all_results  # type: ignore[return-value]
 
-        # Apply filter
-        return [g for g in all_results if filter_obj.matches(g)]  # type: ignore[arg-type]
+        # Apply filter (matches() only accepts granules; collections are not
+        # filterable so the result is guaranteed to be granule-only).
+        matches = filter_obj.matches
+        return [g for g in all_results if matches(g)]  # type: ignore[arg-type, misc]
 
     def items(self) -> Iterator[Union["DataGranule", "DataCollection"]]:
         """Iterate through all results one at a time.
@@ -1964,7 +1971,9 @@ class SearchResults:
         """
         return iter(self)
 
-    def pages(self, page_size: int = 2000):
+    def pages(
+        self, page_size: int = 2000
+    ) -> Iterator[Sequence[Union["DataGranule", "DataCollection"]]]:
         """Iterate through results page by page.
 
         Each page is a list of results, allowing for batch processing.
@@ -2014,7 +2023,7 @@ class SearchResults:
 
     def _fetch_page(
         self, page_size: int, search_after: Optional[str] = None
-    ) -> List[Union[DataGranule, DataCollection]]:
+    ) -> Sequence[Union[DataGranule, DataCollection]]:
         """Fetch a single page of results from CMR.
 
         Parameters:
@@ -2053,7 +2062,7 @@ class SearchResults:
 
     def _convert_results(
         self, results_data: List[Dict[str, Any]]
-    ) -> List[Union[DataGranule, DataCollection]]:
+    ) -> Sequence[Union[DataGranule, DataCollection]]:
         """Convert raw CMR response data to result objects.
 
         Override in subclasses for type-specific conversion.
@@ -2176,8 +2185,8 @@ class SearchResults:
         """String representation of SearchResults."""
         total = self._total_hits if self._total_hits is not None else "?"
         return (
-            f"{self.__class__.__name__}(total={total}, loaded={len(self._cached_results)}, "
-            f"offset={self._cache_start}, source={self.source})"
+            f"{self.__class__.__name__}(total={total}, loaded={self.loaded}, "
+            f"offset={self.offset}, source={self.source})"
         )
 
     def _repr_html_(self) -> str:
@@ -2230,9 +2239,10 @@ class SearchResults:
         max_date: Optional[str] = None
 
         for item in self._cached_results:
-            # Check if granule (has size method) or collection
-            if hasattr(item, "size") and callable(item.size):
-                total_size += item.size()
+            # Granules expose a size() method; collections do not.
+            size = getattr(item, "size", None)
+            if callable(size):
+                total_size += float(size())  # type: ignore[arg-type]
 
             if getattr(item, "cloud_hosted", False):
                 cloud_count += 1
@@ -2306,7 +2316,7 @@ class SearchResults:
                 stac_items.append(item.to_stac())
         return stac_items
 
-    def explore(self, max_items: int = 10000, **kwargs):
+    def explore(self, max_items: int = 10000, **kwargs: Any) -> Any:
         """Display an interactive map with bounding boxes for cached results.
 
         This method creates a lonboard map visualization showing the spatial
@@ -2336,7 +2346,7 @@ class SearchResults:
         return plot(self, max_items=max_items, **kwargs)
 
     @deprecated("Use explore() instead")
-    def plot(self, max_items: int = 10000, **kwargs):
+    def plot(self, max_items: int = 10000, **kwargs: Any) -> Any:
         """Alias for :meth:`explore`; deprecated.
 
         .. deprecated:: 1.0.0a2
@@ -2557,8 +2567,8 @@ class GranuleResults(SearchResults):
         """String representation of GranuleResults."""
         total = self._total_hits if self._total_hits is not None else "?"
         return (
-            f"GranuleResults(total={total}, loaded={len(self._cached_results)}, "
-            f"offset={self._cache_start}, source={self.source})"
+            f"GranuleResults(total={total}, loaded={self.loaded}, "
+            f"offset={self.offset}, source={self.source})"
         )
 
 
@@ -2586,6 +2596,6 @@ class CollectionResults(SearchResults):
         """String representation of CollectionResults."""
         total = self._total_hits if self._total_hits is not None else "?"
         return (
-            f"CollectionResults(total={total}, loaded={len(self._cached_results)}, "
-            f"offset={self._cache_start}, source={self.source})"
+            f"CollectionResults(total={total}, loaded={self.loaded}, "
+            f"offset={self.offset}, source={self.source})"
         )

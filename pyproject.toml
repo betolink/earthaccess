@@ -86,6 +86,9 @@ widgets = [
   "lonboard >=0.13; python_version < '3.14' and platform_python_implementation != 'PyPy'",
   "geopandas >=0.14; python_version < '3.14' and platform_python_implementation != 'PyPy'",
   "shapely >=2.0; python_version < '3.14' and platform_python_implementation != 'PyPy'",
+  # lonboard auto-downcasts to pyarrow dtypes but no longer declares pyarrow,
+  # so it must be pinned here or plotting raises a NameError (ArrowDtype).
+  "pyarrow >=14; python_version < '3.14' and platform_python_implementation != 'PyPy'",
 ]
 stac = [
   "odc-stac >=0.5",

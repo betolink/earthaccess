@@ -45,7 +45,7 @@ For more information, see https://earthaccess.readthedocs.io/
 import logging
 import threading
 from importlib.metadata import version
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from .api import (
     auth_environ,
@@ -85,7 +85,7 @@ from .search.query import (
     Point,
     Polygon,
 )
-from .store import Store
+from .store.core import Store
 from .virtual import open_virtual, virtualize, write_virtual
 
 logger = logging.getLogger(__name__)
@@ -144,8 +144,13 @@ _auth = Auth()
 _store: Optional[Store] = None
 _lock = threading.Lock()
 
+if TYPE_CHECKING:
+    # Help type checkers resolve the __getattr__-provided attributes.
+    __auth__: Auth
+    __store__: Optional[Store]
 
-def __getattr__(name):  # type: ignore
+
+def __getattr__(name: str) -> Any:
     """Module-level getattr to handle automatic authentication when accessing
     `earthaccess.__auth__` and `earthaccess.__store__`.
 

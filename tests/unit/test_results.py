@@ -86,82 +86,112 @@ def test_data_links(vcr):
     assert g.data_links(access="external")[0].startswith("https://")
 
 
-@pytest.mark.vcr
-def test_get_more_than_2000(vcr):
-    """Test pagination when requesting more than 2000 granules.
+def _register_granule_pages(
+    *, total: int, limit: int, short_name: str = "MOD02QKM", page_size: int = 2000
+):
+    """Register CMR granule-search responses for a ``search_data`` + iteration.
 
-    If we execute a get with a limit of more than 2000 then we expect
-    multiple invocations of a CMR granule search.
+    The sequence a ``SearchResults`` triggers is: one ``hits`` request
+    (``page_size=0``), one prefetch (``page_size=20``), then successive
+    ``page_size`` requests until ``limit`` is reached or the feed is empty.
 
-    Note: Cassettes are truncated to 20 items per response to reduce size.
-    We verify pagination behavior via request count, not result count.
+    Returns the total number of items the responses will serve (so tests can
+    assert how many results iteration should yield).
     """
-    results = earthaccess.search_data(short_name="MOD02QKM", count=3000)
+    url = "https://cmr.earthdata.nasa.gov/search/granules.umm_json"
 
-    # Convert to list to fetch all results (SearchResults is lazy)
+    def items(start, end):
+        return [
+            {"meta": {"concept-id": f"G{i}-{short_name}"}, "umm": {}}
+            for i in range(start, end)
+        ]
+
+    # hits() query
+    responses.add(
+        responses.GET,
+        url,
+        json={"hits": total, "items": []},
+        headers={"CMR-Hits": str(total)},
+        status=200,
+    )
+
+    # prefetch page
+    responses.add(
+        responses.GET,
+        url,
+        json={"hits": total, "items": items(0, min(20, total))},
+        headers={"CMR-Hits": str(total)},
+        status=200,
+    )
+
+    served = 0
+    while served < limit and served < total:
+        page_end = min(served + page_size, total)
+        responses.add(
+            responses.GET,
+            url,
+            json={"hits": total, "items": items(served, page_end)},
+            headers={"CMR-Hits": str(total)},
+            status=200,
+        )
+        served = page_end
+
+    return min(total, limit)
+
+
+@responses.activate
+def test_get_more_than_2000():
+    """Iterating past 2000 granules issues multiple page fetches."""
+    served = _register_granule_pages(total=3000, limit=3000)
+
+    results = earthaccess.search_data(short_name="MOD02QKM", count=3000)
     granules = list(results)
 
-    # Assert pagination occurred (multiple requests made)
-    # With truncated cassettes, we get max 20 items per page
-    assert len(vcr) >= 2  # At least prefetch + one page fetch
-    assert len(granules) <= 40  # Truncated: max 20 items × 2 pages
+    assert len(granules) == served == 3000
     assert unique_results(granules)
+    # hits + prefetch + 2 full pages
+    assert len(responses.calls) == 4
 
 
-@pytest.mark.vcr
-def test_get(vcr):
-    """Test single-page granule search.
+@responses.activate
+def test_get():
+    """A single-page search returns the requested number of granules."""
+    served = _register_granule_pages(total=3000, limit=2000)
 
-    If we execute a get with no arguments then we expect to get the
-    maximum number of granules from a single CMR call (2000).
-
-    Note: Cassettes are truncated to 20 items per response to reduce size.
-    """
     results = earthaccess.search_data(short_name="MOD02QKM", count=2000)
     granules = list(results)
 
-    # Assert that we performed search queries
-    assert len(vcr) >= 1
-    # With truncated cassettes (20 items per response), we get max 20 items per request
-    assert len(granules) <= 40  # May include prefetch + one page
+    assert len(granules) == served == 2000
     assert unique_results(granules)
 
 
-@pytest.mark.vcr
-def test_get_all_less_than_2k(vcr):
-    """Test search for collection with fewer than 2000 total granules.
+@responses.activate
+def test_get_all_less_than_2k():
+    """Search for a collection with fewer than 2000 granules returns all of them."""
+    served = _register_granule_pages(total=163, limit=2000)
 
-    Note: Cassettes are truncated to 20 items per response to reduce size.
-    """
     results = earthaccess.search_data(
         short_name="TELLUS_GRAC_L3_JPL_RL06_LND_v04", count=2000
     )
     granules = list(results)
 
-    # Assert search was performed
-    assert len(vcr) >= 1
-    # With truncated cassettes (20 items per response), we get max 20 items per request
-    assert len(granules) <= 40  # May include prefetch + one page
+    assert len(granules) == served == 163
     assert unique_results(granules)
 
 
-@pytest.mark.vcr
-def test_get_all_more_than_2k(vcr):
-    """Test pagination for collection with more than 2000 granules.
+@responses.activate
+def test_get_all_more_than_2k():
+    """Search for a collection with more than 2000 granules pages correctly."""
+    served = _register_granule_pages(total=3000, limit=3000)
 
-    Note: Cassettes are truncated to 20 items per response to reduce size.
-    We verify pagination behavior via request count and search-after headers.
-    """
     results = earthaccess.search_data(
         short_name="CYGNSS_NOAA_L2_SWSP_25KM_V1.2", count=3000
     )
     granules = list(results)
 
-    # Assert pagination occurred (multiple requests made)
-    assert len(vcr) >= 2  # Multiple page fetches
-    # With truncated cassettes, we get max 20 items per page
-    assert len(granules) <= 60  # Truncated: max 20 items × 3 pages
+    assert len(granules) == served == 3000
     assert unique_results(granules)
+    assert len(responses.calls) == 4
 
 
 @responses.activate
