@@ -121,6 +121,61 @@ class CustomDict(dict):
                     matched_links.append(link["URL"])
         return matched_links
 
+    def to_geopandas(self, fields: Optional[List[str]] = None) -> "Any":
+        """Return a one-row :class:`geopandas.GeoDataFrame` for this item.
+
+        The geometry column is built from :attr:`__geo_interface__` (the
+        granule/collection's horizontal spatial extent, as a shapely geometry
+        in EPSG:4326). By default the full UMM record is flattened into columns
+        (nested fields become dotted column names, e.g.
+        ``umm.TemporalExtents.0.RangeDateTimes.0.BeginningDateTime``); the CMR
+        metadata block (``concept-id``, ``provider-id``, ...) is always included
+        under ``meta.*``.
+
+        Parameters:
+            fields: Optional list of top-level UMM field names to include
+                (e.g. ``["ShortName", "TemporalExtents"]``). If omitted (the
+                default), the entire UMM record is flattened.
+
+        Returns:
+            A one-row GeoDataFrame (CRS EPSG:4326).
+
+        Raises:
+            ImportError: If geopandas is not installed
+                (``pip install earthaccess[geo]``).
+            ValueError: If this item has no horizontal spatial extent.
+
+        Examples:
+            >>> granule = results[0]
+            >>> gdf = granule.to_geopandas()
+            >>> gdf = granule.to_geopandas(fields=["GranuleUR", "TemporalExtent"])
+        """
+        try:
+            import geopandas as gpd
+            import pandas as pd
+        except ImportError as e:  # pragma: no cover - depends on environment
+            raise ImportError(
+                "to_geopandas() requires geopandas. Install it with: "
+                "pip install earthaccess[geo]"
+            ) from e
+        from shapely.geometry import shape
+
+        geometry = shape(self.__geo_interface__)  # type: ignore[attr-defined]
+
+        umm = self.get("umm", {})
+        if fields is not None:
+            umm = {field: umm[field] for field in fields if field in umm}
+
+        meta = {
+            field: self["meta"][field]
+            for field in self._basic_meta_fields_
+            if field in self.get("meta", {})
+        }
+
+        frame = pd.json_normalize({"umm": umm, "meta": meta})
+        frame["geometry"] = geometry
+        return gpd.GeoDataFrame(frame, geometry="geometry", crs="EPSG:4326")
+
 
 class DataCollection(CustomDict):
     """Dictionary-like object to represent a data collection from CMR."""

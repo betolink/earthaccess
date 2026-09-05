@@ -73,6 +73,7 @@ virtualizarr = [
 ]
 geo = [
   "shapely >=2.0",
+  "geopandas >=0.14",
 ]
 kerchunk = [
   "kerchunk >=0.2.9",
@@ -209,6 +210,9 @@ module = [
   "s3fs",
   "tinynetrc.*", # TODO: generate stubs for tinynetrc and remove this line
   "vcr.unittest", # TODO: generate stubs for vcr and remove this line
+  "geopandas",
+  "pandas",
+  "shapely",
 ]
 ignore_missing_imports = true
 

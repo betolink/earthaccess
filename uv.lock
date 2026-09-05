@@ -1048,7 +1048,7 @@ all = [
     { name = "anywidget", marker = "python_full_version < '3.14' and platform_python_implementation != 'PyPy'" },
     { name = "dask" },
     { name = "fastparquet" },
-    { name = "geopandas", marker = "python_full_version < '3.14' and platform_python_implementation != 'PyPy'" },
+    { name = "geopandas" },
     { name = "h5netcdf" },
     { name = "h5py" },
     { name = "icechunk" },
@@ -1105,6 +1105,7 @@ docs = [
     { name = "zarr" },
 ]
 geo = [
+    { name = "geopandas" },
     { name = "shapely" },
 ]
 kerchunk = [
@@ -1186,6 +1187,7 @@ requires-dist = [
     { name = "fastparquet", marker = "extra == 'virtualizarr'", specifier = ">=2023.4.0" },
     { name = "fsspec", specifier = ">=2025.2" },
     { name = "geopandas", marker = "python_full_version < '3.14' and platform_python_implementation != 'PyPy' and extra == 'widgets'", specifier = ">=0.14" },
+    { name = "geopandas", marker = "extra == 'geo'", specifier = ">=0.14" },
     { name = "h5netcdf", marker = "extra == 'docs'", specifier = ">=0.11" },
     { name = "h5netcdf", marker = "extra == 'kerchunk'" },
     { name = "h5netcdf", marker = "extra == 'virtualizarr'" },
@@ -1486,12 +1488,12 @@ name = "geopandas"
 version = "1.1.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "numpy", marker = "python_full_version < '3.14' and platform_python_implementation != 'PyPy'" },
-    { name = "packaging", marker = "python_full_version < '3.14' and platform_python_implementation != 'PyPy'" },
-    { name = "pandas", marker = "python_full_version < '3.14' and platform_python_implementation != 'PyPy'" },
-    { name = "pyogrio", marker = "python_full_version < '3.14' and platform_python_implementation != 'PyPy'" },
-    { name = "pyproj", marker = "python_full_version < '3.14' and platform_python_implementation != 'PyPy'" },
-    { name = "shapely", marker = "python_full_version < '3.14' and platform_python_implementation != 'PyPy'" },
+    { name = "numpy" },
+    { name = "packaging" },
+    { name = "pandas" },
+    { name = "pyogrio" },
+    { name = "pyproj" },
+    { name = "shapely" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/8d/24/5eb5685d7bf89d64218919379f882d19a60f8219d66d833c83b1cf264c95/geopandas-1.1.2.tar.gz", hash = "sha256:33f7b33565c46a45b8459a2ab699ec943fdbb5716e58e251b3c413cf7783106c", size = 336037, upload-time = "2025-12-22T21:06:13.749Z" }
 wheels = [
@@ -3517,9 +3519,9 @@ name = "pyogrio"
 version = "0.12.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "certifi", marker = "python_full_version < '3.14' and platform_python_implementation != 'PyPy'" },
-    { name = "numpy", marker = "python_full_version < '3.14' and platform_python_implementation != 'PyPy'" },
-    { name = "packaging", marker = "python_full_version < '3.14' and platform_python_implementation != 'PyPy'" },
+    { name = "certifi" },
+    { name = "numpy" },
+    { name = "packaging" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/49/d4/12f86b1ed09721363da4c09622464b604c851a9223fc0c6b393fb2012208/pyogrio-0.12.1.tar.gz", hash = "sha256:e548ab705bb3e5383693717de1e6c76da97f3762ab92522cb310f93128a75ff1", size = 303289, upload-time = "2025-11-28T19:04:53.341Z" }
 wheels = [
