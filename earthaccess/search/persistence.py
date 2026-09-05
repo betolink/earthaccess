@@ -517,7 +517,12 @@ def _rebuild_from_payload(
         items: List[Any] = [DataCollection(item) for item in payload["results"]]
     else:
         cls = GranuleResults
-        items = [DataGranule(item) for item in payload["results"]]
+        from earthaccess.search.queries import is_cloud_hosted
+
+        items = [
+            DataGranule(item, cloud_hosted=is_cloud_hosted(item))
+            for item in payload["results"]
+        ]
 
     results = cls.__new__(cls)  # type: ignore[call-arg]
     SearchResults.__init__(

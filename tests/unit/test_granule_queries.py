@@ -4,6 +4,7 @@ from unittest import mock
 
 import pytest
 from earthaccess.search import DataGranules
+from earthaccess.search.queries import is_cloud_hosted
 
 valid_single_dates = [
     ("2001-12-12", "2001-12-21", "2001-12-12T00:00:00Z,2001-12-21T23:59:59Z"),
@@ -88,3 +89,26 @@ def test_doi_multiple_collections_warns_and_picks_first(caplog):
         granules = DataGranules().doi("10.5067/MULTI")
     assert granules.params["concept_id"] == "C1-FOO"
     assert "maps to 2 collections" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "related_urls,expected",
+    [
+        ([], False),
+        ([{"Type": "GET DATA", "URL": "https://data.example.com/f.nc"}], False),
+        (
+            [
+                {"Type": "GET DATA", "URL": "https://data.example.com/f.nc"},
+                {
+                    "Type": "GET DATA VIA DIRECT ACCESS",
+                    "URL": "s3://cumulus-prod-protected/f.nc",
+                },
+            ],
+            True,
+        ),
+        ([{"Type": "GET DATA", "URL": "s3://bucket-protected/f.nc"}], True),
+    ],
+)
+def test_is_cloud_hosted(related_urls, expected):
+    granule = {"umm": {"RelatedUrls": related_urls}}
+    assert is_cloud_hosted(granule) is expected

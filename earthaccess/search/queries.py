@@ -36,6 +36,21 @@ FloatLike: TypeAlias = Union[str, SupportsFloat]
 PointLike: TypeAlias = Tuple[FloatLike, FloatLike]
 
 
+def is_cloud_hosted(granule: Any) -> bool:
+    """Return True if a granule record advertises Earthdata Cloud direct access.
+
+    A granule is cloud-hosted when it exposes an S3 (direct-access) link, which
+    CMR represents as a ``GET DATA VIA DIRECT ACCESS`` related URL, or an S3 URL
+    whose bucket/path is marked ``protected``.
+    """
+    for link in granule.get("umm", {}).get("RelatedUrls", []):
+        if link.get("Type") == "GET DATA VIA DIRECT ACCESS" or "protected" in link.get(
+            "URL", ""
+        ):
+            return True
+    return False
+
+
 class DataCollections(CmrCollectionQuery):
     """Placeholder.
 
@@ -540,9 +555,11 @@ class DataGranules(CmrGranuleQuery):
             RuntimeError: The CMR query failed.
         """
         response = get_results(self.session, self, limit)
-        cloud = len(response) > 0 and self._is_cloud_hosted(response[0])
 
-        return [DataGranule(granule, cloud_hosted=cloud) for granule in response]
+        return [
+            DataGranule(granule, cloud_hosted=is_cloud_hosted(granule))
+            for granule in response
+        ]
 
     @override
     def parameters(self, **kwargs: Any) -> Self:
@@ -808,14 +825,7 @@ class DataGranules(CmrGranuleQuery):
 
     def _is_cloud_hosted(self, granule: Any) -> bool:
         """Check if a granule record, from CMR, advertises "direct access"."""
-        if "RelatedUrls" not in granule["umm"]:
-            return False
-
-        direct_def = "GET DATA VIA DIRECT ACCESS"
-        for link in granule["umm"]["RelatedUrls"]:
-            if "protected" in link["URL"] or link["Type"] == direct_def:
-                return True
-        return False
+        return is_cloud_hosted(granule)
 
     @override
     def short_name(self, short_name: str) -> Self:

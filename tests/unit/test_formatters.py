@@ -59,11 +59,16 @@ def test_repr_granule_html():
         },
     }
 
-    html = _repr_granule_html(DataGranule({"umm": umm}, cloud_hosted=True))
+    html = _repr_granule_html(
+        DataGranule({"umm": umm, "meta": {"concept-id": "G3859310711-GES_DISC"}})
+    )
 
     assert f"{round((size1 + size2) / 1024 / 1024, 2)} MB" in html
     assert [url["URL"] in html for url in umm["RelatedUrls"]] == [True, False, True]
     assert all(content in html for content in static_contents)
+    # No cloud-hosted banner, and the concept-id links to the UMM record.
+    assert "Cloud Hosted" not in html
+    assert "search/concepts/G3859310711-GES_DISC.umm_json" in html
 
 
 # =============================================================================

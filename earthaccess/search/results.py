@@ -2074,13 +2074,13 @@ class SearchResults:
             List of DataGranule or DataCollection instances
         """
         # Import here to avoid circular imports
-        from earthaccess.search.queries import DataGranules
+        from earthaccess.search.queries import DataGranules, is_cloud_hosted
 
         if isinstance(self.query, DataGranules):
-            cloud = len(results_data) > 0 and self.query._is_cloud_hosted(
-                results_data[0]
-            )
-            return [DataGranule(item, cloud_hosted=cloud) for item in results_data]
+            return [
+                DataGranule(item, cloud_hosted=is_cloud_hosted(item))
+                for item in results_data
+            ]
         else:
             return [DataCollection(item) for item in results_data]
 
@@ -2560,8 +2560,12 @@ class GranuleResults(SearchResults):
 
     def _convert_results(self, results_data: List[Dict[str, Any]]) -> List[DataGranule]:
         """Convert raw CMR response data to DataGranule objects."""
-        cloud = len(results_data) > 0 and self.query._is_cloud_hosted(results_data[0])
-        return [DataGranule(item, cloud_hosted=cloud) for item in results_data]
+        from earthaccess.search.queries import is_cloud_hosted
+
+        return [
+            DataGranule(item, cloud_hosted=is_cloud_hosted(item))
+            for item in results_data
+        ]
 
     def __repr__(self) -> str:
         """String representation of GranuleResults."""

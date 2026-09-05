@@ -11,6 +11,18 @@ import importlib_resources
 
 STATIC_FILES = ["styles.css"]
 
+CMR_CONCEPT_BASE = "https://cmr.earthdata.nasa.gov/search/concepts"
+
+
+def _concept_link(concept_id: str) -> str:
+    """Render a CMR concept-id as a link to its UMM metadata record."""
+    if not concept_id:
+        return "N/A"
+    return (
+        f'<a href="{CMR_CONCEPT_BASE}/{concept_id}.umm_json" '
+        f'target="_blank">{concept_id}</a>'
+    )
+
 
 def _load_css_files() -> List[str]:
     """Load CSS styles for HTML formatting.
@@ -207,6 +219,7 @@ def _repr_granule_html(granule: "DataGranule") -> str:
     # Get granule ID
     granule_ur = granule.get("umm", {}).get("GranuleUR", "Unknown")
     concept_id = granule.get("meta", {}).get("concept-id", "")
+    concept_html = _concept_link(concept_id)
 
     return f"""
     {css_inline}
@@ -215,10 +228,9 @@ def _repr_granule_html(granule: "DataGranule") -> str:
         <div class="row">
           <div class="col-8">
             <p style="margin: 2px 0;"><b>Granule</b>: <code>{granule_ur}</code></p>
-            <p style="margin: 2px 0;"><b>Concept ID</b>: <code>{concept_id}</code></p>
+            <p style="margin: 2px 0;"><b>Concept ID</b>: <code>{concept_html}</code></p>
             <p style="margin: 2px 0;"><b>Temporal</b>: {temporal_str}</p>
             <p style="margin: 2px 0;"><b>Size</b>: {granule_size} MB</p>
-            <p style="margin: 2px 0;"><b>Cloud Hosted</b>: {"☁️ Yes" if granule.cloud_hosted else "🖥️ No"}</p>
             <p style="margin: 2px 0;"><b>Data</b>: {data_links if data_links else "No direct links"}</p>
           </div>
           <div class="col-4 text-right">
@@ -263,10 +275,6 @@ def _repr_collection_html(collection: "DataCollection") -> str:
     # Get provider
     provider = collection.get("meta", {}).get("provider-id", "Unknown")
 
-    # Cloud hosted
-    cloud_info = collection.get_umm("DirectDistributionInformation")
-    is_cloud = cloud_info is not None and bool(cloud_info)
-
     # Temporal extent
     temporal_extents = collection.get_umm("TemporalExtents")
     temporal_str = _format_collection_temporal(temporal_extents)
@@ -289,6 +297,7 @@ def _repr_collection_html(collection: "DataCollection") -> str:
     )
 
     concept_id = collection.concept_id()
+    concept_html = _concept_link(concept_id)
 
     return f"""
     {css_inline}
@@ -310,11 +319,10 @@ def _repr_collection_html(collection: "DataCollection") -> str:
         <div class="row">
           <div class="col-6">
             <p style="margin: 2px 0;"><b>Provider</b>: {provider}</p>
-            <p style="margin: 2px 0;"><b>Concept ID</b>: <code>{concept_id}</code></p>
+            <p style="margin: 2px 0;"><b>Concept ID</b>: <code>{concept_html}</code></p>
             <p style="margin: 2px 0;"><b>Temporal</b>: {temporal_str}</p>
           </div>
           <div class="col-6">
-            <p style="margin: 2px 0;"><b>Cloud Hosted</b>: {"☁️ Yes" if is_cloud else "🖥️ No"}</p>
             <p style="margin: 2px 0;"><b>DOI</b>: {doi_html}</p>
           </div>
         </div>
@@ -740,7 +748,7 @@ def _granule_row_with_index(granule: "DataGranule", idx: int, widget_id: str) ->
         <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 10px;">
           <div>
             {thumb_html}
-            <p style="margin: 4px 0;"><b>Concept ID:</b> <code style="font-size: 0.85em;">{concept_id}</code></p>
+            <p style="margin: 4px 0;"><b>Concept ID:</b> <code style="font-size: 0.85em;">{_concept_link(concept_id)}</code></p>
             <p style="margin: 4px 0;"><b>File Type:</b> {file_type}</p>
             <p style="margin: 4px 0;"><b>Size:</b> {size} MB</p>
             <p style="margin: 4px 0;"><b>Temporal:</b> {date_str}</p>
@@ -879,7 +887,7 @@ def _collection_row_with_index(
       <td colspan="6" style="padding: 10px 15px;">
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
           <div>
-            <p style="margin: 4px 0;"><b>Concept ID:</b> <code style="font-size: 0.85em;">{concept_id}</code></p>
+            <p style="margin: 4px 0;"><b>Concept ID:</b> <code style="font-size: 0.85em;">{_concept_link(concept_id)}</code></p>
             <p style="margin: 4px 0;"><b>DOI:</b> {doi_html}</p>
             <p style="margin: 4px 0;"><b>Avg File Size:</b> {avg_size or "—"}</p>
             <p style="margin: 4px 0;"><b>Temporal:</b> {temporal_str}</p>
