@@ -1,0 +1,3464 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Client library for NASA Earthdata APIs">
+      
+      
+      
+        <link rel="canonical" href="https://betolink.github.io/earthaccess/user/explanation/search/">
+      
+      
+        <link rel="prev" href="../status/">
+      
+      
+        <link rel="next" href="../access/">
+      
+      
+      <link rel="icon" href="../../../earth.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.18">
+    
+    
+      
+        <title>Search - earthaccess</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.7e37652d.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="../../../css/styles.css">
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#search" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="earthaccess" class="md-header__button md-logo" aria-label="earthaccess" data-md-component="logo">
+      
+  <img src="../../../earth.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            earthaccess
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Search
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 6H7c-3.31 0-6 2.69-6 6s2.69 6 6 6h10c3.31 0 6-2.69 6-6s-2.69-6-6-6m0 10H7c-2.21 0-4-1.79-4-4s1.79-4 4-4h10c2.21 0 4 1.79 4 4s-1.79 4-4 4M7 9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/nsidc/earthaccess" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.0.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    nsidc/earthaccess
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="earthaccess" class="md-nav__button md-logo" aria-label="earthaccess" data-md-component="logo">
+      
+  <img src="../../../earth.png" alt="logo">
+
+    </a>
+    earthaccess
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/nsidc/earthaccess" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.0.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    nsidc/earthaccess
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    What is earthaccess?
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../quick-start/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Quick start
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../contributor/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    Work with us
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            Work with us
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../contributor/howto/development/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Development Guide
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../contributor/howto/releasing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Releasing Guide
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../contributor/howto/maintainers-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Maintainers Guide
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../contributor/howto/triaging/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Triaging Guide
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../contributor/howto/pr-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pull Request Guide
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../contributor/code-of-conduct/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Code of Conduct
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../contributor/reference/naming-convention/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Contributing naming convention
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../contributor/explanation/integration-tests/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Integration tests
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_10" id="__nav_3_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Architecture & Design
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_10">
+            <span class="md-nav__icon md-icon"></span>
+            Architecture & Design
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../migration-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Migration Guide: v0.x → v1.0.0
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../refactoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Refactoring Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../refactoring/icechunk-vcc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Icechunk Virtual Chunk Containers
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../refactoring/virtualize-combine-tree/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Virtualize: combine strategies
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../refactoring/stac-module-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    STAC Module Architecture
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../refactoring/stac-implementation-log/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Implementation Phases (Historical)
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../refactoring/stac-comparison/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Architecture Comparison
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../refactoring/earthaccess-nextgen/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Next-Gen Vision
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../resources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Resources
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    USER GUIDE
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            USER GUIDE
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../authenticate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Authentication
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../status/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Status
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Search
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    Search
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      Overview
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#search-for-datasets-using-search_datasets" class="md-nav__link">
+    <span class="md-ellipsis">
+      Search for datasets using search_datasets
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#search-for-data-granules-using-search_data" class="md-nav__link">
+    <span class="md-ellipsis">
+      Search for data granules using search_data
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#search-for-datasets-or-data-by-time-range" class="md-nav__link">
+    <span class="md-ellipsis">
+      Search for datasets or data by time range
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#search-for-datasets-or-data-using-a-region-of-interest" class="md-nav__link">
+    <span class="md-ellipsis">
+      Search for datasets or data using a region of interest
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#search-for-services" class="md-nav__link">
+    <span class="md-ellipsis">
+      Search for services
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#using-query-objects-advanced" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using Query Objects (Advanced)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#converting-results-to-stac-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      Converting Results to STAC Format
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../access/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Access
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../backwards-compatibility/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Backwards Compatibility
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    HOW-TO
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            HOW-TO
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../howto/authenticate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Authenticate with Earthdata Login
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../howto/search-granules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Search for data using filters
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../howto/access-data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Access data
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../howto/reproduce-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Reproduce, save, and verify searches
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../howto/cloud/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Direct S3 access - Open/stream files in the cloud
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../howto/edl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    earthaccess and NASA EDL
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../fsspec/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Remote files and fsspec caching
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../howto/search-services/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Search for services
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    TUTORIALS
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            TUTORIALS
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_1" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../tutorials/stac/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    STAC
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7_1" id="__nav_7_1_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_1">
+            <span class="md-nav__icon md-icon"></span>
+            STAC
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../tutorials/cmr-to-stac/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    CMR to STAC Semantics
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../tutorials/odc-stac-cmr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    STAC Interoperability
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../tutorials/vds/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    Virtual Datasets (VDS)
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7_2" id="__nav_7_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_2">
+            <span class="md-nav__icon md-icon"></span>
+            Virtual Datasets (VDS)
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../tutorials/icechunk_virtual/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Virtual Datasets with Icechunk and
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../tutorials/virtualize_combine_tree/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    VDS Strategies
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/virtual_dataset_tutorial_with_TEMPO_Level3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Using virtual dataset capability to work with TEMPO Level 3 data
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/dmrpp-virtualizarr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Cloud optimized access to NASA data with earthaccess and virtualizarr
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../tutorials/advanced-search/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    Advanced Search
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7_3" id="__nav_7_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_3">
+            <span class="md-nav__icon md-icon"></span>
+            Advanced Search
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../tutorials/advanced-search/filter-bands/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Filtering granules by file (band) patterns
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../howto/search-granules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Search for data using filters
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/restricted-datasets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Accessing Datasets under an Access Control List (ACL)
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../tutorials/results/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    Results Class
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7_4" id="__nav_7_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_4">
+            <span class="md-nav__icon md-icon"></span>
+            Results Class
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../tutorials/results/results-class/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Results Class Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../tutorials/access-datasets/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    Access to selected datasets
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7_5" id="__nav_7_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_5">
+            <span class="md-nav__icon md-icon"></span>
+            Access to selected datasets
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/emit-earthaccess/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Streaming data from NASA's Earth Surface Minteral Dust Source Investigation (EMIT)
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/SSL/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    🌍 Analyzing Sea Level Rise Using Earth Data in the Cloud
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/file-access/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Accessing remote files with earthaccess
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../api/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    API REFERENCE
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8" id="__nav_8_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            API REFERENCE
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_8_2" id="__nav_8_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Collections
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8_2">
+            <span class="md-nav__icon md-icon"></span>
+            Collections
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../api/collections/collections-query/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Collection Queries
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../api/collections/collections/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Collection Results
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../api/collections/collections-services/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Collection Services
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_8_3" id="__nav_8_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Granules
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8_3">
+            <span class="md-nav__icon md-icon"></span>
+            Granules
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../api/granules/granules-query/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Granule Queries
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../api/granules/granules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Granule Results
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_8_4" id="__nav_8_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    STAC
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8_4">
+            <span class="md-nav__icon md-icon"></span>
+            STAC
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../api/stac/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../api/stac/converters/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Conversion Functions
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../api/stac/queries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Query Builders
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../api/stac/methods/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Result Methods
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_8_5" id="__nav_8_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Store
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8_5">
+            <span class="md-nav__icon md-icon"></span>
+            Store
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../api/store/store/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Store
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_8_6" id="__nav_8_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Auth
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8_6">
+            <span class="md-nav__icon md-icon"></span>
+            Auth
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../api/auth/auth/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Auth
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_8_7" id="__nav_8_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Glossary
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8_7">
+            <span class="md-nav__icon md-icon"></span>
+            Glossary
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/glossary/nasa-glossary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    NASA Glossary
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/glossary/cloud-glossary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Cloud Computing Terminology
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../about-us/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    About Us
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      Overview
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#search-for-datasets-using-search_datasets" class="md-nav__link">
+    <span class="md-ellipsis">
+      Search for datasets using search_datasets
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#search-for-data-granules-using-search_data" class="md-nav__link">
+    <span class="md-ellipsis">
+      Search for data granules using search_data
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#search-for-datasets-or-data-by-time-range" class="md-nav__link">
+    <span class="md-ellipsis">
+      Search for datasets or data by time range
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#search-for-datasets-or-data-using-a-region-of-interest" class="md-nav__link">
+    <span class="md-ellipsis">
+      Search for datasets or data using a region of interest
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#search-for-services" class="md-nav__link">
+    <span class="md-ellipsis">
+      Search for services
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#using-query-objects-advanced" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using Query Objects (Advanced)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#converting-results-to-stac-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      Converting Results to STAC Format
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="search">Search</h1>
+<h2 id="overview">Overview</h2>
+<p>Searching for NASA Earthdata is the core function is <code>earthaccess</code>.  NASA organizes Earthdata into <a href="../../reference/glossary/nasa-glossary/"><em>collections</em></a>.  An example of a collection is the <a href="https://nsidc.org/data/mod10a1/versions/61">MODIS/TERRA Global Daily Snow Cover</a>.  You can think of a collection as a dataset.  Collections contain many data <em>granules</em>, each granule is a file.  For the MODIS snow cover data, each granule (or file) contains data for one day for a 10&deg; x 10&deg; area of the globe.</p>
+<p>Using <code>earthaccess</code>, you can search for datasets using <a href="#search-for-datasets-using-search_datasets"><code>search_datasets</code></a> or search for files (or granules) within a dataset using <a href="#search-for-data-granules-using-search_data"><code>search_data</code></a>.  For example, you may want snow cover data or perhaps data for ocean color but not know a specific dataset that contains this data.  <code>search_datasets</code> allows you to search by keywords.  Or you may want data about canopy height in the Amazon rain forest for a given date but do not know what datasets are available for this region of time range.  <code>search_datasets</code> allows you to define a region of interest and a time range of interest to your search.  Alternatively, you might know you want to work with data from the MODIS snow cover dataset, in the example above, but want to find out which version of that data is available.</p>
+<p>On the other hand, you may know which dataset you want to work with but need to find the data files for a time period and region of interest.  You can find these files with <code>search_data</code>.  You might want to further refine that search to find only files with less than 50% cloud cover or with data collected during day-time.  <code>search_data</code> accepts these search terms as well.</p>
+<p>NASA also offers a number of services to subset and transform data.  These services are not available for datasets.  You can use <code>search_services</code> to discover which datasets have particular services.</p>
+<p><code>search_datasets</code> and <code>search_data</code> have some search parameters in common, as well as some parameters that are only available to <code>search_datasets</code> and <code>search_data</code>.  Below, we first cover some basic searches using <code>search_datasets</code> and <code>search_data</code>.  We then give some more examples and detail on keywords common to both functions.</p>
+<h2 id="search-for-datasets-using-search_datasets">Search for datasets using <code>search_datasets</code></h2>
+<h3 id="a-basic-search">A basic search</h3>
+<p><a href="../../../api/#earthaccess.api.search_datasets"><code>search_datasets</code></a> allows you to search for NASA datasets using combinations of keywords.  As a simple example, we use the <code>keyword</code> keyword to search for all datasets matching <code>icesat-2</code>.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">results</span> <span class="o">=</span> <span class="n">earthaccess</span><span class="o">.</span><span class="n">search_datasets</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">keyword</span><span class="o">=</span><span class="s2">&quot;icesat-2&quot;</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="p">)</span>
+</code></pre></div>
+<p><code>search_datasets</code> returns a Python list of results.  We can find the number of datasets using the built-in Python <code>len()</code> function.  If there are no matches for the search, the list is empty with length 0.</p>
+<p><div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="p">))</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>82
+</code></pre></div></p>
+<div class="admonition note">
+<p class="admonition-title">Migrating NASA Earthdata to the Cloud</p>
+<p>NASA is in the process of migrating datasets from on-premises archives to the cloud.  By July 2026, all NASA data will be hosted in the cloud.  During migration, as datasets are moved, access to on-premises archives is being removed.  This may cause you to have counts of results different from counts here.</p>
+</div>
+<h3 id="refine-the-search-by-adding-more-keywords">Refine the search by adding more keywords</h3>
+<p>The number of datasets returned can be refined by using additional keywords.  For a full list of keywords accepted by <code>search_datasets</code> see the <a href="../../../api/#earthaccess.api.search_datasets">User Reference</a>.  Here, we use <code>cloud_hosted</code> and <code>downloadable</code> to restrict datasets returned to only those that can be downloaded from the AWS-hosted NASA Earthdata Cloud.</p>
+<p><div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">results</span> <span class="o">=</span> <span class="n">earthaccess</span><span class="o">.</span><span class="n">search_datasets</span><span class="p">(</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">platform</span><span class="o">=</span><span class="s2">&quot;icesat-2&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">downloadable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">cloud_hosted</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="p">)</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">results</span><span class="p">))</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>59
+</code></pre></div></p>
+<p>This refined search now returns 59 datasets.</p>
+<h4 id="search-by-provider-or-data-archive">Search by provider or data archive</h4>
+<p>You might know that a particular DAAC has a dataset or just datasets for a given variable, for example snow.  Here, we use the <code>daac</code> or <code>provider</code> keywords to find all the datasets at NSIDC DAAC, the National Snow and Ice Data Center.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">results</span> <span class="o">=</span> <span class="n">earthaccess</span><span class="o">.</span><span class="n">search_datasets</span><span class="p">(</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="n">daac</span><span class="o">=</span><span class="s2">&quot;nsidc&quot;</span><span class="p">,</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="p">)</span>
+</code></pre></div>
+<h4 id="search-by-version">Search by version</h4>
+<p>In general, DAACs archive the two most recent versions of a dataset.  You might want to find the <strong>concept-id</strong>, the unique identifier for a dataset for that version.  Here, we search for the concept-id for version 007 of ICESat-2 Geolocated Photon Heights (ATL03).</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">results</span> <span class="o">=</span> <span class="n">earthaccess</span><span class="o">.</span><span class="n">search_datasets</span><span class="p">(</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    <span class="n">short_name</span><span class="o">=</span><span class="s2">&quot;ATL03&quot;</span><span class="p">,</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="n">version</span><span class="o">=</span><span class="s2">&quot;007&quot;</span><span class="p">,</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nb">len</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>1
+</code></pre></div>
+<p>The concept-id can be accessed directly using the <code>concept_id</code> method.</p>
+<p><div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>results[0].concept_id()
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>&#39;C3326974349-NSIDC_CPRD&#39;
+</code></pre></div></p>
+<h3 id="accessing-and-understanding-the-search-results">Accessing and understanding the search results</h3>
+<p>Each element of the <code>results</code> list is a <code>earthaccess.results.DataCollection</code> object.  A summary showing key fields for each result in <code>results</code> can be displayed using the <code>summary</code> method.  Each result in <code>results</code> is accessed in the same way you access elements in a Python list; by giving an index.</p>
+<p><div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># Add code for getting summary etc</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="n">pprint</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">summary</span><span class="p">())</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>{
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>    &#39;short-name&#39;: &#39;ATL07&#39;,
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>    &#39;concept-id&#39;: &#39;C2564625052-NSIDC_ECS&#39;,
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>    &#39;version&#39;: &#39;006&#39;,
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>    &#39;file-type&#39;: &quot;[{&#39;FormatType&#39;: &#39;Native&#39;, &#39;Format&#39;: &#39;HDF5&#39;, &#39;FormatDescription&#39;: &#39;HTTPS&#39;}]&quot;,
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>    &#39;get-data&#39;: [
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>        &#39;https://n5eil01u.ecs.nsidc.org/ATLAS/ATL07.006/&#39;,
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>        &#39;https://search.earthdata.nasa.gov/search?q=ATL07+V006&#39;,
+<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>        &#39;https://nsidc.org/data/data-access-tool/ATL07/versions/6/&#39;
+<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a>        ]
+<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a>}
+</code></pre></div></p>
+<p>The <code>summary</code> method returns the <strong>short-name</strong> for the dataset; the <strong>concept-id</strong>, a unique identifier for the dataset; the dataset <strong>version</strong>; the <strong>file-type</strong> of the files in the dataset; and a set of links to access the data files.</p>
+<div class="admonition note">
+<p class="admonition-title">You need to login to use the <strong>get-data</strong> links</p>
+<p>You can search for datasets and data without logging in to NASA's Earthdata Login but you must login before you download data.  <code>earthaccess</code> makes this easy with the <code>login</code> method.  See the <a href="../authenticate/">Authentication section</a> for more information.</p>
+</div>
+<p>In addition to the <code>summary</code> method, there are methods to return the dataset <a href="../../reference/glossary/nasa-glossary/"><code>concept_id</code></a>, <code>data_type</code>, <code>version</code>, the dataset <code>abstract</code>, the url for the dataset <code>landing_page</code>, urls for data links - <code>get_data</code>, information about the S3 bucket containing the data granules - <code>s3_bucket</code>, and a list of services available for the dataset <code>services</code>.</p>
+<p>The <code>concept_id</code> is one way to search for granules in a dataset using <code>search_data</code>.</p>
+<p><div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="nb">print</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">concept_id</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>&#39;C2564625052-NSIDC_ECS&#39;
+</code></pre></div></p>
+<h2 id="search-for-data-granules-using-search_data">Search for data granules using <code>search_data</code></h2>
+<h3 id="a-simple-example">A simple example</h3>
+<p>Once you know which dataset you want to use, you can use <code>search_data</code> to find data files to work with.  NASA Earthdata archives contain 1000's of datasets and files.  The preserve computational resources you can only search a subset of datasets, so you must provide a <strong>concept-id</strong>, <strong>provider</strong>, <strong>short-name</strong> or <strong>version</strong> to <code>search_datasets</code> to limit the search.  Even then, large searches can take a long time, so it is best to further refine your search using a time range or region of interest.  <code>search_datasets</code> also allows you to request a given number of datasets using the <code>count</code> parameter.  This is useful is you want to find a small number data files so you can explore the data before downloading a large number of files.</p>
+<p>In this example, we use dataset <code>short_name</code>, <code>version</code> and <code>count</code> to find land ice heights from the ICESat-2 laser altimeter.  The <code>short_name</code> for this dataset is <strong>ATL06</strong>.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="n">results</span> <span class="o">=</span> <span class="n">earthaccess</span><span class="o">.</span><span class="n">search_data</span><span class="p">(</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>    <span class="n">short_name</span><span class="o">=</span><span class="s2">&quot;ATL06&quot;</span><span class="p">,</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>    <span class="n">version</span><span class="o">=</span><span class="s2">&quot;007&quot;</span><span class="p">,</span>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>    <span class="n">count</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>    <span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="nb">len</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>10
+</code></pre></div>
+<p>Because we requested only the first 10 results, we only get 10 results.</p>
+<h3 id="refining-the-search">Refining the search</h3>
+<p>Searches can be refined further by <code>orbit_number</code>, cloud cover fraction and day-night flag.</p>
+<div class="admonition warning">
+<p class="admonition-title">Not all datasets have metadata to use these keywords</p>
+<p>Not all datasets have the relevant metadata to allow all keywords to be used.  If the metadata relevant to a keyword is not included in the dataset metadata record, a search will return zero results.  One strategy is to start with a broard search, for example just <code>short_name</code> or <code>concept_id</code>, for a dataset but set the <code>count</code> argument to a small number, e.g. 10.  Then add keywords to see if you continue to get results.  If you continue to get 10 results with a new keyword, it is likely that the keyword is valid.</p>
+</div>
+<p>Orbit number is a way to track the number of passes a satellite platform has made.  You can think of it as a proxy for time since launch.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="n">results</span> <span class="o">=</span> <span class="n">earthaccess</span><span class="o">.</span><span class="n">search_data</span><span class="p">(</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>    <span class="n">short_name</span><span class="o">=</span><span class="s2">&quot;ALT10&quot;</span><span class="p">,</span>
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>    <span class="n">version</span><span class="o">=</span><span class="s2">&quot;007&quot;</span><span class="p">,</span>
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>    <span class="n">orbit_number</span><span class="o">=</span><span class="mi">436</span><span class="p">,</span>
+<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>    <span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="nb">len</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>4
+</code></pre></div>
+<p>For datasets with data in visible wavelengths, cloud cover can be a problem.  For most analyses, users want data with little or no clouds.  The <code>cloud_cover</code> can be used to filter results to return images with cloud cover less than or between certain ranges.  Cloud cover is takes a Python tuple containing a minimum and maximum cloud cover fraction.</p>
+<p>In this example we search for data from the Harmonized-Landsat-Sentinel Sentinel-2 Multi-spectral Instrument Surface Reflectance Daily Global 30m v2.0 (concept-id: C2021957295-LPCLOUD) with less than 50% cloud cover.  Here, we limit results to the first 10 granules found.  Without the cloud cover filter, a full search returns 111,006 granules.  With the cloud cover filter, the search returns 63,114.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="n">results</span> <span class="o">=</span> <span class="n">earthaccess</span><span class="o">.</span><span class="n">search_data</span><span class="p">(</span>
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>    <span class="n">concept_id</span><span class="o">=</span><span class="s2">&quot;C2021957295-LPCLOUD&quot;</span><span class="p">,</span>
+<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>    <span class="n">cloud_cover</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">50</span><span class="p">),</span>
+<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a>    <span class="n">count</span><span class="o">=</span><span class="mi">10</span>
+<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a>    <span class="p">)</span>
+</code></pre></div>
+<p>Filtering for only day-time granules is another useful filter.  This can be done with the <code>day_night_flag</code>.  <code>day_night_flag</code> accepts <code>day</code>, <code>night</code> and <code>unspecified</code>.</p>
+<div class="admonition warning">
+<p class="admonition-title">Not all datasets use these flags</p>
+<p>Some datasets have "both" as a value for the day-night metadata.  This is not a valid input for CMR and will raise an error.</p>
+</div>
+<p>In this example, we search for daytime granules in the MODIS/Terra Global Daily Snow Cover dataset (MOD10A1).</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="n">results</span> <span class="o">=</span> <span class="n">earthaccess</span><span class="o">.</span><span class="n">search_data</span><span class="p">(</span>
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>    <span class="n">short_name</span><span class="o">=</span><span class="s2">&quot;MOD10A1&quot;</span><span class="p">,</span>
+<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a>    <span class="n">day_night_flag</span><span class="o">=</span><span class="s2">&quot;day&quot;</span><span class="p">,</span>
+<a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a>    <span class="n">count</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+<a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a>    <span class="p">)</span>
+</code></pre></div>
+<p>The MODIS data is a big dataset.  The dataset contain 2,814,982 granules.  With <code>day_night_flag="day"</code>, a full search would return 2,465,185 granules.</p>
+<h3 id="search-by-granule-name">Search by Granule name</h3>
+<p><code>search_data</code> allows for searches by granule name.  This is useful if you know which granule you want.  For example, a particular granule is used in a paper and you want to reproduce the analysis.</p>
+<p>Here, we search for a particular granule from the ICESat-2 Sea Ice Freeboard dataset (ATL10).</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="n">results</span> <span class="o">=</span> <span class="n">earthaccess</span><span class="o">.</span><span class="n">search_data</span><span class="p">(</span>
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>    <span class="n">short_name</span><span class="o">=</span><span class="s2">&quot;ATL10&quot;</span><span class="p">,</span>
+<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>    <span class="n">granule_name</span><span class="o">=</span><span class="s2">&quot;ATL10-02_20181014000347_02350101_006_02.h5&quot;</span><span class="p">,</span>
+<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a>    <span class="p">)</span>
+</code></pre></div>
+<p>The <code>granule_name</code> keyword accepts strings with wildcard characters <code>*?</code>, with <code>*</code> matching zero or more characters and <code>?</code> matching any single character.  Filenames for granules usually encode date and some form of geolocation information.  For example, MODIS granules are organized into a grid of tiles that are referenced by horizontal (<code>h</code>) and vertical (<code>v</code>) indices, e.g.</p>
+<p>MOD10A1.A2025252.<strong>h08v07</strong>.061.2025254175256.hdf</p>
+<p>ICESat-2 products are organized by Reference Ground Track (RGT) and cycles.  A RGT is an imaginary line Earth surface traced by the satellite.  There are 1,387 RGTs.  Each RGT repeated every 91 days as the satellite orbits Earth.  Cycles count the 91-day periods.  RGT and cycle numbers are encoded as 4-digit and 2-digit numbers in ICESat-2 product file names, e.g.</p>
+<p>ATL10-02_20181014000347_<strong>023501</strong>01_006_02.h5</p>
+<p>Dataset user guides contain information about filename formats.</p>
+<p>We can use wildcard characters to construct a filename string to search for a particular set of granules.  Below, modify the last example to search for all ICESat-2 ATL10 granules that follow RGT 235 by relacing the date-time stamp in the filename with <code>*</code>.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="n">results</span> <span class="o">=</span> <span class="n">earthaccess</span><span class="o">.</span><span class="n">search_data</span><span class="p">(</span>
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>    <span class="n">short_name</span><span class="o">=</span><span class="s2">&quot;ATL10&quot;</span><span class="p">,</span>
+<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>    <span class="n">granule_name</span><span class="o">=</span><span class="s2">&quot;ATL10-02_*_0235????_006_02.h5&quot;</span><span class="p">,</span>
+<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a>    <span class="p">)</span>
+<a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a><span class="nb">len</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>9
+</code></pre></div>
+<p>This search matches 9 granules.</p>
+<h2 id="search-for-datasets-or-data-by-time-range">Search for datasets or data by time range</h2>
+<p>The <code>temporal</code> keywords can be used with <code>search_dataset</code> or <code>search_data</code> to find collections
+of granules within a given time range.  A time range is passed to <code>temporal</code> as a two element Python tuple giving the beginning datetime and ending datetime of the search.  Datetime can be passed as a <a href="https://en.wikipedia.org/wiki/ISO_8601">ISO 8601</a> formatted string or as a Python datetime-like object.</p>
+<p>Date strings can be full date-time strings, for example 2025-09-07 16:00:00 or 2025-09-07T16:00:00.  Or a truncated string with just year, month and day, for example 2025-09-07.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="n">results</span> <span class="o">=</span> <span class="n">earthaccess</span><span class="o">.</span><span class="n">search_data</span><span class="p">(</span>
+<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a>    <span class="n">short_name</span><span class="o">=</span><span class="s2">&quot;ATL06&quot;</span><span class="p">,</span>
+<a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a>    <span class="n">temporal</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;2025-01-01&quot;</span><span class="p">,</span><span class="s2">&quot;2025-01-15&quot;</span><span class="p">),</span>
+<a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a>    <span class="p">)</span>
+</code></pre></div>
+<p>Python <code>datetime</code> objects can also be passed to <code>temporal</code>.  This is especially useful if you are trying to automate searches and store dates as <code>datetime</code> objects.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">datetime</span>
+<a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a>
+<a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a><span class="n">results</span> <span class="o">=</span> <span class="n">earthaccess</span><span class="o">.</span><span class="n">search_data</span><span class="p">(</span>
+<a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a>    <span class="n">short_name</span><span class="o">=</span><span class="s2">&quot;ATL06&quot;</span><span class="p">,</span>
+<a id="__codelineno-27-5" name="__codelineno-27-5" href="#__codelineno-27-5"></a>    <span class="n">temporal</span><span class="o">=</span><span class="p">(</span>
+<a id="__codelineno-27-6" name="__codelineno-27-6" href="#__codelineno-27-6"></a>        <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="p">(</span><span class="mi">2025</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">),</span>
+<a id="__codelineno-27-7" name="__codelineno-27-7" href="#__codelineno-27-7"></a>        <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="p">(</span><span class="mi">2025</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">15</span><span class="p">)</span>
+<a id="__codelineno-27-8" name="__codelineno-27-8" href="#__codelineno-27-8"></a>        <span class="p">),</span>
+<a id="__codelineno-27-9" name="__codelineno-27-9" href="#__codelineno-27-9"></a>    <span class="p">)</span>
+</code></pre></div>
+<h2 id="search-for-datasets-or-data-using-a-region-of-interest">Search for datasets or data using a region of interest</h2>
+<p>Both <code>search_datasets</code> and <code>search_data</code> accept several keywords to search by a region of interest.  CMR also accepts Shapefiles and GeoJSON files but these options are not currently available in <code>earthaccess</code>.</p>
+<p>All the methods described here require coordinates to be in geodetic coordinates, e.g. longitude and latitude, expressed as decimal degrees.</p>
+<p>In each case, matching granules or datasets are returned if their geometries intersect with the geometries passed to <code>earthaccess</code>.</p>
+<h3 id="bounding-box">Bounding box</h3>
+<p>A bounding box is defined by lower left longitude, lower left latitude, upper right longitude, upper right latitude.  This is passed to the <code>bounding_box</code> keywords as a Python tuple of floats.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>results = earthaccess.search_data(
+<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a>    short_name=&quot;ATL06&quot;,
+<a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a>    bounding_box=(-46.5, 61.0, -42.5, 63.0),
+<a id="__codelineno-28-4" name="__codelineno-28-4" href="#__codelineno-28-4"></a>    )
+</code></pre></div>
+<h3 id="polygon">Polygon</h3>
+<p>A polygon is defined as a list of tuples containing longitude and latitude points.  The last point in the sequence must match the first point in the sequence. For example:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>[(lon0, lat0), (lon1, lat1), (lon2, lat2),... , (lonN, latN), (lon0, lat0)]
+</code></pre></div>
+<p>Polygon points must be in counter-clockwise order.</p>
+<p>The following example searches for ICESat-2 land ice heights (ATL06) over the Jakobshavn Isbrae in Greenland.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a><span class="n">polygon</span> <span class="o">=</span> <span class="p">[</span>
+<a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a>    <span class="p">(</span><span class="o">-</span><span class="mf">49.64860422604741</span><span class="p">,</span> <span class="mf">69.23553485026147</span><span class="p">),</span>
+<a id="__codelineno-30-3" name="__codelineno-30-3" href="#__codelineno-30-3"></a>    <span class="p">(</span><span class="o">-</span><span class="mf">49.667876114626296</span><span class="p">,</span> <span class="mf">69.07309059285959</span><span class="p">),</span>
+<a id="__codelineno-30-4" name="__codelineno-30-4" href="#__codelineno-30-4"></a>    <span class="p">(</span><span class="o">-</span><span class="mf">49.1722491331669</span><span class="p">,</span> <span class="mf">69.03175841820749</span><span class="p">),</span>
+<a id="__codelineno-30-5" name="__codelineno-30-5" href="#__codelineno-30-5"></a>    <span class="p">(</span><span class="o">-</span><span class="mf">47.53552489113113</span><span class="p">,</span> <span class="mf">69.03872918462292</span><span class="p">),</span>
+<a id="__codelineno-30-6" name="__codelineno-30-6" href="#__codelineno-30-6"></a>    <span class="p">(</span><span class="o">-</span><span class="mf">47.35616491854395</span><span class="p">,</span> <span class="mf">69.22149993224824</span><span class="p">),</span>
+<a id="__codelineno-30-7" name="__codelineno-30-7" href="#__codelineno-30-7"></a>    <span class="p">(</span><span class="o">-</span><span class="mf">48.1447695277283</span><span class="p">,</span> <span class="mf">69.33507802083219</span><span class="p">),</span>
+<a id="__codelineno-30-8" name="__codelineno-30-8" href="#__codelineno-30-8"></a>    <span class="p">(</span><span class="o">-</span><span class="mf">49.178671242118384</span><span class="p">,</span> <span class="mf">69.29455117736225</span><span class="p">),</span>
+<a id="__codelineno-30-9" name="__codelineno-30-9" href="#__codelineno-30-9"></a>    <span class="p">(</span><span class="o">-</span><span class="mf">49.64860422604741</span><span class="p">,</span> <span class="mf">69.23553485026147</span><span class="p">),</span>
+<a id="__codelineno-30-10" name="__codelineno-30-10" href="#__codelineno-30-10"></a><span class="p">]</span>
+<a id="__codelineno-30-11" name="__codelineno-30-11" href="#__codelineno-30-11"></a>
+<a id="__codelineno-30-12" name="__codelineno-30-12" href="#__codelineno-30-12"></a><span class="n">results</span> <span class="o">=</span> <span class="n">earthaccess</span><span class="o">.</span><span class="n">search_data</span><span class="p">(</span>
+<a id="__codelineno-30-13" name="__codelineno-30-13" href="#__codelineno-30-13"></a>    <span class="n">short_name</span><span class="o">=</span><span class="s2">&quot;ATL06&quot;</span><span class="p">,</span>
+<a id="__codelineno-30-14" name="__codelineno-30-14" href="#__codelineno-30-14"></a>    <span class="n">polygon</span><span class="o">=</span><span class="n">polygon</span><span class="p">,</span>
+<a id="__codelineno-30-15" name="__codelineno-30-15" href="#__codelineno-30-15"></a>    <span class="p">)</span>
+</code></pre></div>
+<p>You can use tools such as <a href="https://geojson.io/">geojson.io</a> to draw polygons and return a GeoJSON file.  Or use a GIS package to create a Shapefile.  The Geopandas Python package can be used to read these files and convert then to the correct format for <code>earthaccess</code>.  For example.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">geopandas</span>
+<a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a>
+<a id="__codelineno-31-3" name="__codelineno-31-3" href="#__codelineno-31-3"></a><span class="n">gdf</span> <span class="o">=</span> <span class="n">geopandas</span><span class="o">.</span><span class="n">read_file</span><span class="p">(</span><span class="o">&lt;</span><span class="n">my_shapefile_or_geojson_file</span><span class="o">&gt;</span><span class="p">)</span>
+<a id="__codelineno-31-4" name="__codelineno-31-4" href="#__codelineno-31-4"></a>
+<a id="__codelineno-31-5" name="__codelineno-31-5" href="#__codelineno-31-5"></a><span class="n">my_polygon</span> <span class="o">=</span> <span class="p">[(</span><span class="n">lon</span><span class="p">,</span><span class="n">lat</span><span class="p">)</span> <span class="k">for</span> <span class="n">lon</span><span class="p">,</span> <span class="n">lat</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">gdf</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">exterior</span><span class="o">.</span><span class="n">xy</span><span class="p">)]</span>
+</code></pre></div>
+<h3 id="point">Point</h3>
+<p>A point is defined as a tuple containing a longitude and latitude.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a><span class="n">lon</span><span class="p">,</span> <span class="n">lat</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mf">105.25303896425012</span><span class="p">,</span> <span class="mf">40.01259873086735</span><span class="p">)</span>
+<a id="__codelineno-32-2" name="__codelineno-32-2" href="#__codelineno-32-2"></a>
+<a id="__codelineno-32-3" name="__codelineno-32-3" href="#__codelineno-32-3"></a><span class="n">results</span> <span class="o">=</span> <span class="n">earthaccess</span><span class="o">.</span><span class="n">search_data</span><span class="p">(</span>
+<a id="__codelineno-32-4" name="__codelineno-32-4" href="#__codelineno-32-4"></a>    <span class="n">short_name</span><span class="o">=</span><span class="s2">&quot;ATL06&quot;</span><span class="p">,</span>
+<a id="__codelineno-32-5" name="__codelineno-32-5" href="#__codelineno-32-5"></a>    <span class="n">point</span><span class="o">=</span><span class="p">(</span><span class="n">lon</span><span class="p">,</span><span class="n">lat</span><span class="p">),</span>
+<a id="__codelineno-32-6" name="__codelineno-32-6" href="#__codelineno-32-6"></a>    <span class="p">)</span>
+</code></pre></div>
+<h3 id="circle">Circle</h3>
+<p>A circle is defined as a longitude, latitude pair and a radius in meters.  Here, we extend the point in the example above to find granules within 1 km of the point (-105.253,40.012).</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a><span class="n">lon</span><span class="p">,</span> <span class="n">lat</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mf">105.25303896425012</span><span class="p">,</span> <span class="mf">40.01259873086735</span><span class="p">)</span>
+<a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a><span class="n">radius</span> <span class="o">=</span> <span class="mf">1000.</span>
+<a id="__codelineno-33-3" name="__codelineno-33-3" href="#__codelineno-33-3"></a>
+<a id="__codelineno-33-4" name="__codelineno-33-4" href="#__codelineno-33-4"></a><span class="n">results</span> <span class="o">=</span> <span class="n">earthaccess</span><span class="o">.</span><span class="n">search_data</span><span class="p">(</span>
+<a id="__codelineno-33-5" name="__codelineno-33-5" href="#__codelineno-33-5"></a>    <span class="n">short_name</span><span class="o">=</span><span class="s2">&quot;ATL06&quot;</span><span class="p">,</span>
+<a id="__codelineno-33-6" name="__codelineno-33-6" href="#__codelineno-33-6"></a>    <span class="n">circle</span><span class="o">=</span><span class="p">(</span><span class="n">lon</span><span class="p">,</span><span class="n">lat</span><span class="p">,</span> <span class="n">radius</span><span class="p">),</span>
+<a id="__codelineno-33-7" name="__codelineno-33-7" href="#__codelineno-33-7"></a>    <span class="p">)</span>
+</code></pre></div>
+<h3 id="line">Line</h3>
+<p>A line is a Python list of tuples containing longitude-latitude pairs.</p>
+<p>In this example we search for ICESat-2 Geolocated photon height (ATL03) tracks that intersect with the <a href="https://www.nps.gov/cach/index.htm">Canyon de Chelly</a>, AZ (Near Chinle, <a href="https://en.wikipedia.org/wiki/Navajo_Nation">Naabeehó Bináhásdzo</a>).</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a><span class="n">line</span> <span class="o">=</span> <span class="p">[</span>
+<a id="__codelineno-34-2" name="__codelineno-34-2" href="#__codelineno-34-2"></a>    <span class="p">(</span><span class="o">-</span><span class="mf">109.49099495904196</span><span class="p">,</span> <span class="mf">36.141620186146454</span><span class="p">),</span>
+<a id="__codelineno-34-3" name="__codelineno-34-3" href="#__codelineno-34-3"></a>    <span class="p">(</span><span class="o">-</span><span class="mf">109.46326273316441</span><span class="p">,</span> <span class="mf">36.12549319389707</span><span class="p">),</span>
+<a id="__codelineno-34-4" name="__codelineno-34-4" href="#__codelineno-34-4"></a>    <span class="p">(</span><span class="o">-</span><span class="mf">109.42416829289516</span><span class="p">,</span> <span class="mf">36.11336807764218</span><span class="p">),</span>
+<a id="__codelineno-34-5" name="__codelineno-34-5" href="#__codelineno-34-5"></a>    <span class="p">(</span><span class="o">-</span><span class="mf">109.39942951589708</span><span class="p">,</span> <span class="mf">36.10816134722084</span><span class="p">),</span>
+<a id="__codelineno-34-6" name="__codelineno-34-6" href="#__codelineno-34-6"></a>    <span class="p">(</span><span class="o">-</span><span class="mf">109.33995221922424</span><span class="p">,</span> <span class="mf">36.10943400693182</span><span class="p">),</span>
+<a id="__codelineno-34-7" name="__codelineno-34-7" href="#__codelineno-34-7"></a>    <span class="p">(</span><span class="o">-</span><span class="mf">109.28600071040317</span><span class="p">,</span> <span class="mf">36.11941578661717</span><span class="p">),</span>
+<a id="__codelineno-34-8" name="__codelineno-34-8" href="#__codelineno-34-8"></a><span class="p">]</span>
+<a id="__codelineno-34-9" name="__codelineno-34-9" href="#__codelineno-34-9"></a>
+<a id="__codelineno-34-10" name="__codelineno-34-10" href="#__codelineno-34-10"></a><span class="n">results</span> <span class="o">=</span> <span class="n">earthaccess</span><span class="o">.</span><span class="n">search_data</span><span class="p">(</span>
+<a id="__codelineno-34-11" name="__codelineno-34-11" href="#__codelineno-34-11"></a>    <span class="n">short_name</span><span class="o">=</span><span class="s2">&quot;ATL03&quot;</span><span class="p">,</span>
+<a id="__codelineno-34-12" name="__codelineno-34-12" href="#__codelineno-34-12"></a>    <span class="n">line</span><span class="o">=</span><span class="n">line</span><span class="p">,</span>
+<a id="__codelineno-34-13" name="__codelineno-34-13" href="#__codelineno-34-13"></a>    <span class="p">)</span>
+</code></pre></div>
+<h2 id="search-for-services">Search for services</h2>
+<p>NASA Earthdata provides services that you can use to transform data before you download it.  Transformations include converting data files to a different file format, subsetting data by spatial extent, time range or variable, reprojecting or transforming data to a different coordinate reference system (CRS) from the one it is stored in.  Not all datasets have services and not all transformation services are available for a given dataset.</p>
+<p>There are wo ways to discover which services are available for a dataset.  One way is to call the <code>services</code> method on a result returned by <code>search_datasets</code>.  See the [Results] section of this User Guide for more information.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a><span class="n">results</span> <span class="o">=</span> <span class="n">earthaccess</span><span class="o">.</span><span class="n">search_datasets</span><span class="p">(</span>
+<a id="__codelineno-35-2" name="__codelineno-35-2" href="#__codelineno-35-2"></a>    <span class="n">short_name</span><span class="o">=</span><span class="s2">&quot;MUR-JPL-L4-GLOB-v4.1&quot;</span><span class="p">,</span>
+<a id="__codelineno-35-3" name="__codelineno-35-3" href="#__codelineno-35-3"></a>    <span class="n">cloud_hosted</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-35-4" name="__codelineno-35-4" href="#__codelineno-35-4"></a>    <span class="n">temporal</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;2024-02-27T00:00:00Z&quot;</span><span class="p">,</span> <span class="s2">&quot;2024-02-29T23:59:59Z&quot;</span><span class="p">),</span>
+<a id="__codelineno-35-5" name="__codelineno-35-5" href="#__codelineno-35-5"></a>    <span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a><span class="k">for</span> <span class="n">dataset</span> <span class="ow">in</span> <span class="n">datasets</span><span class="p">:</span>
+<a id="__codelineno-36-2" name="__codelineno-36-2" href="#__codelineno-36-2"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">services</span><span class="p">())</span>
+</code></pre></div>
+<p>The other way to use the <code>search_services</code> function.  This takes the following keywords:</p>
+<ul>
+<li><code>provider</code>: the name of the DAAC, e.g. <code>"PODAAC"</code></li>
+<li><code>concept_id</code>: the concept ID of the service, e.g. <code>"S3084748458-POCLOUD"</code> (starts with a "S")</li>
+<li><code>name</code>: the name of the service, e.g. <code>"PODAAC_SWODLR"</code></li>
+<li><code>native_id</code>: an alternative name of the service, e.g <code>"POCLOUD_podaac_swodlr"</code></li>
+</ul>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a>services = earthaccess.search_services(provider=&quot;PODAAC&quot;)
+</code></pre></div>
+<p><code>search_services</code> returns a list of Python doctionaries.</p>
+<h2 id="using-query-objects-advanced">Using Query Objects (Advanced)</h2>
+<p>In addition to passing keyword arguments directly to <code>search_data</code> and <code>search_datasets</code>,
+you can use query objects to build searches programmatically. Query objects provide:</p>
+<ul>
+<li><strong>Method chaining</strong> for a fluent API</li>
+<li><strong>Query validation</strong> before execution</li>
+<li><strong>STAC format conversion</strong> for interoperability with STAC-based tools</li>
+</ul>
+<h3 id="building-a-granule-query">Building a Granule Query</h3>
+<p>Use <code>GranuleQuery</code> to build a search for data granules:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-38-1" name="__codelineno-38-1" href="#__codelineno-38-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earthaccess</span><span class="w"> </span><span class="kn">import</span> <span class="n">GranuleQuery</span><span class="p">,</span> <span class="n">search_data</span>
+<a id="__codelineno-38-2" name="__codelineno-38-2" href="#__codelineno-38-2"></a>
+<a id="__codelineno-38-3" name="__codelineno-38-3" href="#__codelineno-38-3"></a><span class="c1"># Build a query using method chaining</span>
+<a id="__codelineno-38-4" name="__codelineno-38-4" href="#__codelineno-38-4"></a><span class="n">query</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-38-5" name="__codelineno-38-5" href="#__codelineno-38-5"></a>    <span class="n">GranuleQuery</span><span class="p">()</span>
+<a id="__codelineno-38-6" name="__codelineno-38-6" href="#__codelineno-38-6"></a>    <span class="o">.</span><span class="n">short_name</span><span class="p">(</span><span class="s2">&quot;ATL06&quot;</span><span class="p">)</span>
+<a id="__codelineno-38-7" name="__codelineno-38-7" href="#__codelineno-38-7"></a>    <span class="o">.</span><span class="n">temporal</span><span class="p">(</span><span class="s2">&quot;2020-01-01&quot;</span><span class="p">,</span> <span class="s2">&quot;2020-03-31&quot;</span><span class="p">)</span>
+<a id="__codelineno-38-8" name="__codelineno-38-8" href="#__codelineno-38-8"></a>    <span class="o">.</span><span class="n">bounding_box</span><span class="p">(</span><span class="o">-</span><span class="mf">46.5</span><span class="p">,</span> <span class="mf">61.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">42.5</span><span class="p">,</span> <span class="mf">63.0</span><span class="p">)</span>
+<a id="__codelineno-38-9" name="__codelineno-38-9" href="#__codelineno-38-9"></a><span class="p">)</span>
+<a id="__codelineno-38-10" name="__codelineno-38-10" href="#__codelineno-38-10"></a>
+<a id="__codelineno-38-11" name="__codelineno-38-11" href="#__codelineno-38-11"></a><span class="c1"># Execute the search</span>
+<a id="__codelineno-38-12" name="__codelineno-38-12" href="#__codelineno-38-12"></a><span class="n">results</span> <span class="o">=</span> <span class="n">search_data</span><span class="p">(</span><span class="n">query</span><span class="o">=</span><span class="n">query</span><span class="p">)</span>
+</code></pre></div>
+<p>This is equivalent to:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-39-1" name="__codelineno-39-1" href="#__codelineno-39-1"></a><span class="n">results</span> <span class="o">=</span> <span class="n">earthaccess</span><span class="o">.</span><span class="n">search_data</span><span class="p">(</span>
+<a id="__codelineno-39-2" name="__codelineno-39-2" href="#__codelineno-39-2"></a>    <span class="n">short_name</span><span class="o">=</span><span class="s2">&quot;ATL06&quot;</span><span class="p">,</span>
+<a id="__codelineno-39-3" name="__codelineno-39-3" href="#__codelineno-39-3"></a>    <span class="n">temporal</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;2020-01-01&quot;</span><span class="p">,</span> <span class="s2">&quot;2020-03-31&quot;</span><span class="p">),</span>
+<a id="__codelineno-39-4" name="__codelineno-39-4" href="#__codelineno-39-4"></a>    <span class="n">bounding_box</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mf">46.5</span><span class="p">,</span> <span class="mf">61.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">42.5</span><span class="p">,</span> <span class="mf">63.0</span><span class="p">),</span>
+<a id="__codelineno-39-5" name="__codelineno-39-5" href="#__codelineno-39-5"></a><span class="p">)</span>
+</code></pre></div>
+<h3 id="building-a-collection-query">Building a Collection Query</h3>
+<p>Use <code>CollectionQuery</code> to build a search for datasets:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-40-1" name="__codelineno-40-1" href="#__codelineno-40-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earthaccess</span><span class="w"> </span><span class="kn">import</span> <span class="n">CollectionQuery</span><span class="p">,</span> <span class="n">search_datasets</span>
+<a id="__codelineno-40-2" name="__codelineno-40-2" href="#__codelineno-40-2"></a>
+<a id="__codelineno-40-3" name="__codelineno-40-3" href="#__codelineno-40-3"></a><span class="n">query</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-40-4" name="__codelineno-40-4" href="#__codelineno-40-4"></a>    <span class="n">CollectionQuery</span><span class="p">()</span>
+<a id="__codelineno-40-5" name="__codelineno-40-5" href="#__codelineno-40-5"></a>    <span class="o">.</span><span class="n">keyword</span><span class="p">(</span><span class="s2">&quot;sea surface temperature&quot;</span><span class="p">)</span>
+<a id="__codelineno-40-6" name="__codelineno-40-6" href="#__codelineno-40-6"></a>    <span class="o">.</span><span class="n">cloud_hosted</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-40-7" name="__codelineno-40-7" href="#__codelineno-40-7"></a>    <span class="o">.</span><span class="n">temporal</span><span class="p">(</span><span class="s2">&quot;2020-01-01&quot;</span><span class="p">,</span> <span class="s2">&quot;2020-12-31&quot;</span><span class="p">)</span>
+<a id="__codelineno-40-8" name="__codelineno-40-8" href="#__codelineno-40-8"></a><span class="p">)</span>
+<a id="__codelineno-40-9" name="__codelineno-40-9" href="#__codelineno-40-9"></a>
+<a id="__codelineno-40-10" name="__codelineno-40-10" href="#__codelineno-40-10"></a><span class="n">datasets</span> <span class="o">=</span> <span class="n">search_datasets</span><span class="p">(</span><span class="n">query</span><span class="o">=</span><span class="n">query</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="query-validation">Query Validation</h3>
+<p>Query objects validate parameters before execution. Invalid queries raise a
+<code>ValueError</code> with details:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-41-1" name="__codelineno-41-1" href="#__codelineno-41-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earthaccess</span><span class="w"> </span><span class="kn">import</span> <span class="n">GranuleQuery</span><span class="p">,</span> <span class="n">search_data</span>
+<a id="__codelineno-41-2" name="__codelineno-41-2" href="#__codelineno-41-2"></a>
+<a id="__codelineno-41-3" name="__codelineno-41-3" href="#__codelineno-41-3"></a><span class="c1"># This query is invalid: spatial searches require a collection filter</span>
+<a id="__codelineno-41-4" name="__codelineno-41-4" href="#__codelineno-41-4"></a><span class="n">query</span> <span class="o">=</span> <span class="n">GranuleQuery</span><span class="p">()</span><span class="o">.</span><span class="n">bounding_box</span><span class="p">(</span><span class="o">-</span><span class="mi">180</span><span class="p">,</span> <span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="mi">180</span><span class="p">,</span> <span class="mi">90</span><span class="p">)</span>
+<a id="__codelineno-41-5" name="__codelineno-41-5" href="#__codelineno-41-5"></a>
+<a id="__codelineno-41-6" name="__codelineno-41-6" href="#__codelineno-41-6"></a><span class="c1"># This will raise ValueError with explanation</span>
+<a id="__codelineno-41-7" name="__codelineno-41-7" href="#__codelineno-41-7"></a><span class="n">results</span> <span class="o">=</span> <span class="n">search_data</span><span class="p">(</span><span class="n">query</span><span class="o">=</span><span class="n">query</span><span class="p">)</span>
+<a id="__codelineno-41-8" name="__codelineno-41-8" href="#__codelineno-41-8"></a><span class="c1"># ValueError: Invalid query: spatial: Spatial queries require a collection filter</span>
+<a id="__codelineno-41-9" name="__codelineno-41-9" href="#__codelineno-41-9"></a><span class="c1"># (short_name, entry_title, or concept_id)</span>
+</code></pre></div>
+<h3 id="converting-queries-to-stac-format">Converting Queries to STAC Format</h3>
+<p>Query objects can be converted to STAC API format for use with STAC-compatible
+tools like <code>pystac-client</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-42-1" name="__codelineno-42-1" href="#__codelineno-42-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earthaccess</span><span class="w"> </span><span class="kn">import</span> <span class="n">GranuleQuery</span>
+<a id="__codelineno-42-2" name="__codelineno-42-2" href="#__codelineno-42-2"></a>
+<a id="__codelineno-42-3" name="__codelineno-42-3" href="#__codelineno-42-3"></a><span class="n">query</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-42-4" name="__codelineno-42-4" href="#__codelineno-42-4"></a>    <span class="n">GranuleQuery</span><span class="p">()</span>
+<a id="__codelineno-42-5" name="__codelineno-42-5" href="#__codelineno-42-5"></a>    <span class="o">.</span><span class="n">short_name</span><span class="p">(</span><span class="s2">&quot;ATL03&quot;</span><span class="p">)</span>
+<a id="__codelineno-42-6" name="__codelineno-42-6" href="#__codelineno-42-6"></a>    <span class="o">.</span><span class="n">temporal</span><span class="p">(</span><span class="s2">&quot;2020-01-01&quot;</span><span class="p">,</span> <span class="s2">&quot;2020-12-31&quot;</span><span class="p">)</span>
+<a id="__codelineno-42-7" name="__codelineno-42-7" href="#__codelineno-42-7"></a>    <span class="o">.</span><span class="n">bounding_box</span><span class="p">(</span><span class="o">-</span><span class="mi">180</span><span class="p">,</span> <span class="o">-</span><span class="mi">90</span><span class="p">,</span> <span class="mi">180</span><span class="p">,</span> <span class="mi">90</span><span class="p">)</span>
+<a id="__codelineno-42-8" name="__codelineno-42-8" href="#__codelineno-42-8"></a><span class="p">)</span>
+<a id="__codelineno-42-9" name="__codelineno-42-9" href="#__codelineno-42-9"></a>
+<a id="__codelineno-42-10" name="__codelineno-42-10" href="#__codelineno-42-10"></a><span class="c1"># Get STAC-compatible search parameters</span>
+<a id="__codelineno-42-11" name="__codelineno-42-11" href="#__codelineno-42-11"></a><span class="n">stac_params</span> <span class="o">=</span> <span class="n">query</span><span class="o">.</span><span class="n">to_stac</span><span class="p">()</span>
+<a id="__codelineno-42-12" name="__codelineno-42-12" href="#__codelineno-42-12"></a><span class="nb">print</span><span class="p">(</span><span class="n">stac_params</span><span class="p">)</span>
+<a id="__codelineno-42-13" name="__codelineno-42-13" href="#__codelineno-42-13"></a><span class="c1"># {&#39;collections&#39;: [&#39;ATL03&#39;],</span>
+<a id="__codelineno-42-14" name="__codelineno-42-14" href="#__codelineno-42-14"></a><span class="c1">#  &#39;datetime&#39;: &#39;2020-01-01T00:00:00Z/2020-12-31T23:59:59Z&#39;,</span>
+<a id="__codelineno-42-15" name="__codelineno-42-15" href="#__codelineno-42-15"></a><span class="c1">#  &#39;bbox&#39;: [-180.0, -90.0, 180.0, 90.0]}</span>
+<a id="__codelineno-42-16" name="__codelineno-42-16" href="#__codelineno-42-16"></a>
+<a id="__codelineno-42-17" name="__codelineno-42-17" href="#__codelineno-42-17"></a><span class="c1"># Get CMR-compatible search parameters</span>
+<a id="__codelineno-42-18" name="__codelineno-42-18" href="#__codelineno-42-18"></a><span class="n">cmr_params</span> <span class="o">=</span> <span class="n">query</span><span class="o">.</span><span class="n">to_cmr</span><span class="p">()</span>
+<a id="__codelineno-42-19" name="__codelineno-42-19" href="#__codelineno-42-19"></a><span class="nb">print</span><span class="p">(</span><span class="n">cmr_params</span><span class="p">)</span>
+<a id="__codelineno-42-20" name="__codelineno-42-20" href="#__codelineno-42-20"></a><span class="c1"># {&#39;short_name&#39;: &#39;ATL03&#39;,</span>
+<a id="__codelineno-42-21" name="__codelineno-42-21" href="#__codelineno-42-21"></a><span class="c1">#  &#39;temporal&#39;: &#39;2020-01-01T00:00:00Z,2020-12-31T23:59:59Z&#39;,</span>
+<a id="__codelineno-42-22" name="__codelineno-42-22" href="#__codelineno-42-22"></a><span class="c1">#  &#39;bounding_box&#39;: &#39;-180.0,-90.0,180.0,90.0&#39;}</span>
+</code></pre></div>
+<h3 id="available-query-methods">Available Query Methods</h3>
+<p><strong>GranuleQuery</strong> supports:</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>short_name(name)</code></td>
+<td>Filter by collection short name</td>
+</tr>
+<tr>
+<td><code>version(version)</code></td>
+<td>Filter by collection version</td>
+</tr>
+<tr>
+<td><code>concept_id(ids)</code></td>
+<td>Filter by concept ID(s)</td>
+</tr>
+<tr>
+<td><code>provider(provider)</code></td>
+<td>Filter by data provider</td>
+</tr>
+<tr>
+<td><code>temporal(from, to)</code></td>
+<td>Filter by date range</td>
+</tr>
+<tr>
+<td><code>bounding_box(west, south, east, north)</code></td>
+<td>Filter by bounding box</td>
+</tr>
+<tr>
+<td><code>point(lon, lat)</code></td>
+<td>Filter by geographic point</td>
+</tr>
+<tr>
+<td><code>polygon(coords)</code></td>
+<td>Filter by polygon</td>
+</tr>
+<tr>
+<td><code>line(coords)</code></td>
+<td>Filter by line</td>
+</tr>
+<tr>
+<td><code>granule_name(name)</code></td>
+<td>Filter by granule name (wildcards supported)</td>
+</tr>
+<tr>
+<td><code>day_night_flag(flag)</code></td>
+<td>Filter by day/night</td>
+</tr>
+<tr>
+<td><code>cloud_cover(min, max)</code></td>
+<td>Filter by cloud cover percentage</td>
+</tr>
+<tr>
+<td><code>orbit_number(orbit)</code></td>
+<td>Filter by orbit number</td>
+</tr>
+<tr>
+<td><code>instrument(instrument)</code></td>
+<td>Filter by instrument</td>
+</tr>
+<tr>
+<td><code>platform(platform)</code></td>
+<td>Filter by platform</td>
+</tr>
+<tr>
+<td><code>downloadable(bool)</code></td>
+<td>Filter for downloadable granules</td>
+</tr>
+</tbody>
+</table>
+<p><strong>CollectionQuery</strong> supports:</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>keyword(text)</code></td>
+<td>Search by keyword</td>
+</tr>
+<tr>
+<td><code>short_name(name)</code></td>
+<td>Filter by short name</td>
+</tr>
+<tr>
+<td><code>concept_id(ids)</code></td>
+<td>Filter by concept ID(s)</td>
+</tr>
+<tr>
+<td><code>provider(provider)</code></td>
+<td>Filter by provider</td>
+</tr>
+<tr>
+<td><code>daac(daac)</code></td>
+<td>Filter by DAAC</td>
+</tr>
+<tr>
+<td><code>temporal(from, to)</code></td>
+<td>Filter by date range</td>
+</tr>
+<tr>
+<td><code>bounding_box(west, south, east, north)</code></td>
+<td>Filter by bounding box</td>
+</tr>
+<tr>
+<td><code>point(lon, lat)</code></td>
+<td>Filter by point</td>
+</tr>
+<tr>
+<td><code>polygon(coords)</code></td>
+<td>Filter by polygon</td>
+</tr>
+<tr>
+<td><code>cloud_hosted(bool)</code></td>
+<td>Filter for cloud-hosted collections</td>
+</tr>
+<tr>
+<td><code>has_granules(bool)</code></td>
+<td>Filter for collections with granules</td>
+</tr>
+</tbody>
+</table>
+<h2 id="converting-results-to-stac-format">Converting Results to STAC Format</h2>
+<p>Search results can be converted to STAC format for interoperability with
+STAC-based tools and catalogs:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-43-1" name="__codelineno-43-1" href="#__codelineno-43-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">earthaccess</span>
+<a id="__codelineno-43-2" name="__codelineno-43-2" href="#__codelineno-43-2"></a>
+<a id="__codelineno-43-3" name="__codelineno-43-3" href="#__codelineno-43-3"></a><span class="c1"># Search for granules</span>
+<a id="__codelineno-43-4" name="__codelineno-43-4" href="#__codelineno-43-4"></a><span class="n">granules</span> <span class="o">=</span> <span class="n">earthaccess</span><span class="o">.</span><span class="n">search_data</span><span class="p">(</span>
+<a id="__codelineno-43-5" name="__codelineno-43-5" href="#__codelineno-43-5"></a>    <span class="n">short_name</span><span class="o">=</span><span class="s2">&quot;ATL06&quot;</span><span class="p">,</span>
+<a id="__codelineno-43-6" name="__codelineno-43-6" href="#__codelineno-43-6"></a>    <span class="n">count</span><span class="o">=</span><span class="mi">5</span>
+<a id="__codelineno-43-7" name="__codelineno-43-7" href="#__codelineno-43-7"></a><span class="p">)</span>
+<a id="__codelineno-43-8" name="__codelineno-43-8" href="#__codelineno-43-8"></a>
+<a id="__codelineno-43-9" name="__codelineno-43-9" href="#__codelineno-43-9"></a><span class="c1"># Convert a granule to a pystac Item</span>
+<a id="__codelineno-43-10" name="__codelineno-43-10" href="#__codelineno-43-10"></a><span class="n">stac_item</span> <span class="o">=</span> <span class="n">granules</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">to_stac</span><span class="p">()</span>
+<a id="__codelineno-43-11" name="__codelineno-43-11" href="#__codelineno-43-11"></a><span class="nb">print</span><span class="p">(</span><span class="n">stac_item</span><span class="o">.</span><span class="n">STAC_OBJECT_TYPE</span><span class="p">)</span>  <span class="c1"># &quot;Feature&quot;</span>
+<a id="__codelineno-43-12" name="__codelineno-43-12" href="#__codelineno-43-12"></a><span class="nb">print</span><span class="p">(</span><span class="n">stac_item</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()[</span><span class="s2">&quot;stac_version&quot;</span><span class="p">])</span>  <span class="c1"># &quot;1.0.0&quot;</span>
+<a id="__codelineno-43-13" name="__codelineno-43-13" href="#__codelineno-43-13"></a>
+<a id="__codelineno-43-14" name="__codelineno-43-14" href="#__codelineno-43-14"></a><span class="c1"># Convert to a plain dictionary (useful for serialization)</span>
+<a id="__codelineno-43-15" name="__codelineno-43-15" href="#__codelineno-43-15"></a><span class="n">granule_dict</span> <span class="o">=</span> <span class="n">granules</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+</code></pre></div>
+<p>Similarly for collections:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-44-1" name="__codelineno-44-1" href="#__codelineno-44-1"></a><span class="n">datasets</span> <span class="o">=</span> <span class="n">earthaccess</span><span class="o">.</span><span class="n">search_datasets</span><span class="p">(</span>
+<a id="__codelineno-44-2" name="__codelineno-44-2" href="#__codelineno-44-2"></a>    <span class="n">keyword</span><span class="o">=</span><span class="s2">&quot;temperature&quot;</span><span class="p">,</span>
+<a id="__codelineno-44-3" name="__codelineno-44-3" href="#__codelineno-44-3"></a>    <span class="n">count</span><span class="o">=</span><span class="mi">1</span>
+<a id="__codelineno-44-4" name="__codelineno-44-4" href="#__codelineno-44-4"></a><span class="p">)</span>
+<a id="__codelineno-44-5" name="__codelineno-44-5" href="#__codelineno-44-5"></a>
+<a id="__codelineno-44-6" name="__codelineno-44-6" href="#__codelineno-44-6"></a><span class="c1"># Convert to a pystac Collection</span>
+<a id="__codelineno-44-7" name="__codelineno-44-7" href="#__codelineno-44-7"></a><span class="n">stac_collection</span> <span class="o">=</span> <span class="n">datasets</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">to_stac</span><span class="p">()</span>
+<a id="__codelineno-44-8" name="__codelineno-44-8" href="#__codelineno-44-8"></a><span class="nb">print</span><span class="p">(</span><span class="n">stac_collection</span><span class="o">.</span><span class="n">STAC_OBJECT_TYPE</span><span class="p">)</span>  <span class="c1"># &quot;Collection&quot;</span>
+</code></pre></div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.indexes"], "search": "../../../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.92b07e13.min.js"></script>
+      
+    
+  </body>
+</html>

@@ -1,0 +1,3363 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Client library for NASA Earthdata APIs">
+      
+      
+      
+        <link rel="canonical" href="https://betolink.github.io/earthaccess/refactoring/stac-implementation-log/">
+      
+      
+        <link rel="prev" href="../stac-module-architecture/">
+      
+      
+        <link rel="next" href="../stac-comparison/">
+      
+      
+      <link rel="icon" href="../../earth.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.18">
+    
+    
+      
+        <title>Implementation Phases (Historical) - earthaccess</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.7e37652d.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="../../css/styles.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#stac-implementation-log-historical" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="earthaccess" class="md-header__button md-logo" aria-label="earthaccess" data-md-component="logo">
+      
+  <img src="../../earth.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            earthaccess
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Implementation Phases (Historical)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 6H7c-3.31 0-6 2.69-6 6s2.69 6 6 6h10c3.31 0 6-2.69 6-6s-2.69-6-6-6m0 10H7c-2.21 0-4-1.79-4-4s1.79-4 4-4h10c2.21 0 4 1.79 4 4s-1.79 4-4 4M7 9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/nsidc/earthaccess" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.0.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    nsidc/earthaccess
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="earthaccess" class="md-nav__button md-logo" aria-label="earthaccess" data-md-component="logo">
+      
+  <img src="../../earth.png" alt="logo">
+
+    </a>
+    earthaccess
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/nsidc/earthaccess" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.0.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    nsidc/earthaccess
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    What is earthaccess?
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user/quick-start/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Quick start
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../contributor/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    Work with us
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            Work with us
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributor/howto/development/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Development Guide
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributor/howto/releasing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Releasing Guide
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributor/howto/maintainers-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Maintainers Guide
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributor/howto/triaging/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Triaging Guide
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributor/howto/pr-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pull Request Guide
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributor/code-of-conduct/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Code of Conduct
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributor/reference/naming-convention/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Contributing naming convention
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributor/explanation/integration-tests/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Integration tests
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_10" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3_10" id="__nav_3_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Architecture & Design
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_10_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3_10">
+            <span class="md-nav__icon md-icon"></span>
+            Architecture & Design
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../migration-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Migration Guide: v0.x → v1.0.0
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Refactoring Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../icechunk-vcc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Icechunk Virtual Chunk Containers
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../virtualize-combine-tree/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Virtualize: combine strategies
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stac-module-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    STAC Module Architecture
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Implementation Phases (Historical)
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    Implementation Phases (Historical)
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-approach" class="md-nav__link">
+    <span class="md-ellipsis">
+      Implementation Approach
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-1-core-query-architecture-group-a" class="md-nav__link">
+    <span class="md-ellipsis">
+      Phase 1: Core Query Architecture (Group A) ✅
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-2-results-classes-enhancement-group-b" class="md-nav__link">
+    <span class="md-ellipsis">
+      Phase 2: Results Classes Enhancement (Group B) ✅
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-3-stac-conversion-group-d" class="md-nav__link">
+    <span class="md-ellipsis">
+      Phase 3: STAC Conversion (Group D) ✅
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-4-streaming-execution-group-b3" class="md-nav__link">
+    <span class="md-ellipsis">
+      Phase 4: Streaming Execution (Group B.3) ✅
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-5-credential-management-group-02" class="md-nav__link">
+    <span class="md-ellipsis">
+      Phase 5: Credential Management (Group 0.2) ✅
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-6-api-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Phase 6: API Integration ✅
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-7-documentation-group-i" class="md-nav__link">
+    <span class="md-ellipsis">
+      Phase 7: Documentation (Group I) ✅
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-log" class="md-nav__link">
+    <span class="md-ellipsis">
+      Implementation Log
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#commits" class="md-nav__link">
+    <span class="md-ellipsis">
+      Commits
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Notes
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stac-comparison/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Architecture Comparison
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../earthaccess-nextgen/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Next-Gen Vision
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../resources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Resources
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../user/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    USER GUIDE
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            USER GUIDE
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user/explanation/authenticate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Authentication
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user/explanation/status/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Status
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user/explanation/search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Search
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user/explanation/access/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Access
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user/explanation/backwards-compatibility/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Backwards Compatibility
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    HOW-TO
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            HOW-TO
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user/howto/authenticate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Authenticate with Earthdata Login
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user/howto/search-granules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Search for data using filters
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user/howto/access-data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Access data
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user/howto/reproduce-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Reproduce, save, and verify searches
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user/howto/cloud/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Direct S3 access - Open/stream files in the cloud
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user/howto/edl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    earthaccess and NASA EDL
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user/explanation/fsspec/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Remote files and fsspec caching
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user/howto/search-services/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Search for services
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    TUTORIALS
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            TUTORIALS
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_1" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../tutorials/stac/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    STAC
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7_1" id="__nav_7_1_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_1">
+            <span class="md-nav__icon md-icon"></span>
+            STAC
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/cmr-to-stac/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    CMR to STAC Semantics
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/odc-stac-cmr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    STAC Interoperability
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../tutorials/vds/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    Virtual Datasets (VDS)
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7_2" id="__nav_7_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_2">
+            <span class="md-nav__icon md-icon"></span>
+            Virtual Datasets (VDS)
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/icechunk_virtual/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Virtual Datasets with Icechunk and
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/virtualize_combine_tree/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    VDS Strategies
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user/tutorials/virtual_dataset_tutorial_with_TEMPO_Level3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Using virtual dataset capability to work with TEMPO Level 3 data
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user/tutorials/dmrpp-virtualizarr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Cloud optimized access to NASA data with earthaccess and virtualizarr
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../tutorials/advanced-search/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    Advanced Search
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7_3" id="__nav_7_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_3">
+            <span class="md-nav__icon md-icon"></span>
+            Advanced Search
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/advanced-search/filter-bands/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Filtering granules by file (band) patterns
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user/howto/search-granules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Search for data using filters
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user/tutorials/restricted-datasets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Accessing Datasets under an Access Control List (ACL)
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../tutorials/results/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    Results Class
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7_4" id="__nav_7_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_4">
+            <span class="md-nav__icon md-icon"></span>
+            Results Class
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/results/results-class/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Results Class Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../tutorials/access-datasets/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    Access to selected datasets
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7_5" id="__nav_7_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_5">
+            <span class="md-nav__icon md-icon"></span>
+            Access to selected datasets
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user/tutorials/emit-earthaccess/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Streaming data from NASA's Earth Surface Minteral Dust Source Investigation (EMIT)
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user/tutorials/SSL/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    🌍 Analyzing Sea Level Rise Using Earth Data in the Cloud
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user/tutorials/file-access/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Accessing remote files with earthaccess
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../api/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    API REFERENCE
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8" id="__nav_8_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            API REFERENCE
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_8_2" id="__nav_8_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Collections
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8_2">
+            <span class="md-nav__icon md-icon"></span>
+            Collections
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/collections/collections-query/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Collection Queries
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/collections/collections/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Collection Results
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/collections/collections-services/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Collection Services
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_8_3" id="__nav_8_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Granules
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8_3">
+            <span class="md-nav__icon md-icon"></span>
+            Granules
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/granules/granules-query/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Granule Queries
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/granules/granules/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Granule Results
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_8_4" id="__nav_8_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    STAC
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8_4">
+            <span class="md-nav__icon md-icon"></span>
+            STAC
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/stac/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/stac/converters/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Conversion Functions
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/stac/queries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Query Builders
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/stac/methods/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Result Methods
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_8_5" id="__nav_8_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Store
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8_5">
+            <span class="md-nav__icon md-icon"></span>
+            Store
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/store/store/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Store
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_8_6" id="__nav_8_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Auth
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8_6">
+            <span class="md-nav__icon md-icon"></span>
+            Auth
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/auth/auth/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Auth
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_8_7" id="__nav_8_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Glossary
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8_7">
+            <span class="md-nav__icon md-icon"></span>
+            Glossary
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user/reference/glossary/nasa-glossary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    NASA Glossary
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user/reference/glossary/cloud-glossary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Cloud Computing Terminology
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../about-us/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    About Us
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-approach" class="md-nav__link">
+    <span class="md-ellipsis">
+      Implementation Approach
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-1-core-query-architecture-group-a" class="md-nav__link">
+    <span class="md-ellipsis">
+      Phase 1: Core Query Architecture (Group A) ✅
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-2-results-classes-enhancement-group-b" class="md-nav__link">
+    <span class="md-ellipsis">
+      Phase 2: Results Classes Enhancement (Group B) ✅
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-3-stac-conversion-group-d" class="md-nav__link">
+    <span class="md-ellipsis">
+      Phase 3: STAC Conversion (Group D) ✅
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-4-streaming-execution-group-b3" class="md-nav__link">
+    <span class="md-ellipsis">
+      Phase 4: Streaming Execution (Group B.3) ✅
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-5-credential-management-group-02" class="md-nav__link">
+    <span class="md-ellipsis">
+      Phase 5: Credential Management (Group 0.2) ✅
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-6-api-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Phase 6: API Integration ✅
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-7-documentation-group-i" class="md-nav__link">
+    <span class="md-ellipsis">
+      Phase 7: Documentation (Group I) ✅
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#implementation-log" class="md-nav__link">
+    <span class="md-ellipsis">
+      Implementation Log
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#commits" class="md-nav__link">
+    <span class="md-ellipsis">
+      Commits
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Notes
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="stac-implementation-log-historical">STAC Implementation Log (Historical)</h1>
+<blockquote>
+<p><strong>Archived:</strong> This document is historical documentation of the STAC implementation completed in December 2024.
+For current usage and architecture guidance, see <a href="../stac-module-architecture/">STAC Module Architecture</a>.</p>
+</blockquote>
+<p><strong>Started</strong>: 2024-12-22
+<strong>Last Updated</strong>: 2024-12-22
+<strong>Status</strong>: ✅ All 7 phases complete - implementation concluded successfully</p>
+<h2 id="implementation-approach">Implementation Approach</h2>
+<p>Following SOLID principles, TDD, and Pythonic code:
+- <strong>S</strong>ingle Responsibility: Each class has one job
+- <strong>O</strong>pen/Closed: Open for extension, closed for modification
+- <strong>L</strong>iskov Substitution: Subtypes are substitutable
+- <strong>I</strong>nterface Segregation: Small, focused interfaces
+- <strong>D</strong>ependency Inversion: Depend on abstractions</p>
+<h2 id="phase-1-core-query-architecture-group-a">Phase 1: Core Query Architecture (Group A) ✅</h2>
+<h3 id="11-create-query-base-classes">1.1 Create Query Base Classes</h3>
+<ul>
+<li>[x] Create <code>earthaccess/query/__init__.py</code> package</li>
+<li>[x] Create <code>earthaccess/query/base.py</code> with <code>QueryBase</code> abstract class</li>
+<li>[x] Create <code>earthaccess/query/validation.py</code> with <code>ValidationError</code> dataclass and validators</li>
+<li>[x] Create <code>earthaccess/query/types.py</code> for type definitions</li>
+</ul>
+<h3 id="12-implement-granulequery">1.2 Implement GranuleQuery</h3>
+<ul>
+<li>[x] Create <code>earthaccess/query/granule_query.py</code></li>
+<li>[x] Implement method chaining API</li>
+<li>[x] Implement named parameter construction</li>
+<li>[x] Implement <code>to_stac()</code> conversion</li>
+<li>[x] Implement <code>to_cmr()</code> conversion</li>
+<li>[x] Add parameter validation</li>
+</ul>
+<h3 id="13-implement-collectionquery">1.3 Implement CollectionQuery</h3>
+<ul>
+<li>[x] Create <code>earthaccess/query/collection_query.py</code></li>
+<li>[x] Implement method chaining API</li>
+<li>[x] Implement <code>to_stac()</code> conversion</li>
+<li>[x] Implement <code>to_cmr()</code> conversion</li>
+</ul>
+<h3 id="14-tests-for-query-architecture">1.4 Tests for Query Architecture</h3>
+<ul>
+<li>[x] Create <code>tests/unit/test_query.py</code> with 50 tests</li>
+</ul>
+<hr />
+<h2 id="phase-2-results-classes-enhancement-group-b">Phase 2: Results Classes Enhancement (Group B) ✅</h2>
+<h3 id="21-create-results-base-classes">2.1 Create Results Base Classes</h3>
+<ul>
+<li>[ ] Create <code>ResultsBase</code> abstract class with lazy pagination (deferred)</li>
+<li>[ ] Implement CMR <code>search-after</code> token pagination (deferred)</li>
+<li>[ ] Add <code>pages()</code> method for batch iteration (deferred)</li>
+<li>[ ] Add <code>get_all()</code> for backwards compatibility (deferred)</li>
+</ul>
+<h3 id="22-enhance-datagranule">2.2 Enhance DataGranule</h3>
+<ul>
+<li>[x] Add <code>to_stac()</code> method to convert to pystac Item</li>
+<li>[x] Add <code>to_dict()</code> method for serialization (needed for distributed)</li>
+<li>[ ] Add asset filtering methods (deferred)</li>
+</ul>
+<h3 id="23-enhance-datacollection">2.3 Enhance DataCollection</h3>
+<ul>
+<li>[x] Add <code>to_stac()</code> method to convert to pystac Collection</li>
+<li>[x] Add <code>to_dict()</code> method for serialization</li>
+</ul>
+<h3 id="24-tests">2.4 Tests</h3>
+<ul>
+<li>[x] Extend <code>tests/unit/test_results.py</code> with STAC conversion tests (6 new tests)</li>
+</ul>
+<hr />
+<h2 id="phase-3-stac-conversion-group-d">Phase 3: STAC Conversion (Group D) ✅</h2>
+<h3 id="31-umm-to-stac-converter">3.1 UMM to STAC Converter</h3>
+<ul>
+<li>[x] Create <code>earthaccess/stac/__init__.py</code> package</li>
+<li>[x] Create <code>earthaccess/stac/converters.py</code></li>
+<li>[x] Implement <code>umm_granule_to_stac_item()</code> function</li>
+<li>[x] Implement <code>umm_collection_to_stac_collection()</code> function</li>
+</ul>
+<h3 id="32-stac-to-umm-converter-for-external-stac">3.2 STAC to UMM Converter (for external STAC)</h3>
+<ul>
+<li>[x] Implement <code>stac_item_to_data_granule()</code> function</li>
+<li>[x] Implement <code>stac_collection_to_data_collection()</code> function</li>
+</ul>
+<h3 id="33-tests">3.3 Tests</h3>
+<ul>
+<li>[x] Create <code>tests/unit/test_stac_converters.py</code> (44 tests)</li>
+</ul>
+<hr />
+<h2 id="phase-4-streaming-execution-group-b3">Phase 4: Streaming Execution (Group B.3) ✅</h2>
+<h3 id="41-auth-context">4.1 Auth Context</h3>
+<ul>
+<li>[x] Create <code>AuthContext</code> dataclass for credential shipping</li>
+<li>[x] Create <code>WorkerContext</code> for thread-local state</li>
+</ul>
+<h3 id="42-streamingexecutor">4.2 StreamingExecutor</h3>
+<ul>
+<li>[x] Create <code>StreamingExecutor</code> class for lazy iterables</li>
+<li>[x] Implement producer-consumer pattern with backpressure</li>
+<li>[x] Add progress bar support</li>
+</ul>
+<h3 id="43-granuleresults-methods">4.3 GranuleResults Methods</h3>
+<ul>
+<li>[ ] Add <code>open()</code> method with streaming support (deferred to API integration)</li>
+<li>[ ] Add <code>download()</code> method with streaming support (deferred to API integration)</li>
+<li>[ ] Add <code>process()</code> method for map-style processing (deferred to API integration)</li>
+</ul>
+<h3 id="44-tests">4.4 Tests</h3>
+<ul>
+<li>[x] Create <code>tests/unit/test_streaming.py</code> (25 tests)</li>
+</ul>
+<hr />
+<h2 id="phase-5-credential-management-group-02">Phase 5: Credential Management (Group 0.2) ✅</h2>
+<h3 id="51-credential-manager">5.1 Credential Manager</h3>
+<ul>
+<li>[x] Create <code>CredentialManager</code> class</li>
+<li>[x] Implement S3 credential caching with expiration</li>
+<li>[x] Add URL-to-provider inference (bucket prefix mapping)</li>
+</ul>
+<h3 id="52-tests">5.2 Tests</h3>
+<ul>
+<li>[x] Create <code>tests/unit/test_credentials.py</code> (32 tests)</li>
+</ul>
+<hr />
+<h2 id="phase-6-api-integration">Phase 6: API Integration ✅</h2>
+<h3 id="61-update-search_data">6.1 Update search_data()</h3>
+<ul>
+<li>[x] Accept <code>GranuleQuery</code> objects via <code>query</code> parameter</li>
+<li>[x] Maintain backward compatibility with kwargs</li>
+<li>[x] Validate query before execution</li>
+<li>[x] Raise error if both query and kwargs provided</li>
+</ul>
+<h3 id="62-update-search_datasets">6.2 Update search_datasets()</h3>
+<ul>
+<li>[x] Accept <code>CollectionQuery</code> objects via <code>query</code> parameter</li>
+<li>[x] Maintain backward compatibility with kwargs</li>
+<li>[x] Validate query before execution</li>
+<li>[x] Raise error if both query and kwargs provided</li>
+</ul>
+<h3 id="63-update-initpy-exports">6.3 Update <strong>init</strong>.py exports</h3>
+<ul>
+<li>[x] Export <code>GranuleQuery</code>, <code>CollectionQuery</code>, <code>BoundingBox</code>, <code>DateRange</code>, <code>Point</code>, <code>Polygon</code></li>
+</ul>
+<h3 id="64-tests">6.4 Tests</h3>
+<ul>
+<li>[x] Create <code>tests/unit/test_api_query_integration.py</code> with 15 tests</li>
+</ul>
+<h3 id="65-opendownload-streaming-deferred">6.5 Open/Download streaming (deferred)</h3>
+<ul>
+<li>[ ] Add <code>streaming</code> parameter to open() and download()</li>
+<li>[ ] Add <code>auto_batch</code> parameter</li>
+</ul>
+<hr />
+<h2 id="phase-7-documentation-group-i">Phase 7: Documentation (Group I) ✅</h2>
+<h3 id="71-user-documentation">7.1 User Documentation</h3>
+<ul>
+<li>[x] Update <code>docs/user_guide/search.md</code> with new query API</li>
+<li>[x] Add STAC conversion examples</li>
+<li>[x] Document available query methods in tables</li>
+<li>[x] Add architecture documentation with diagrams</li>
+</ul>
+<h3 id="72-api-documentation">7.2 API Documentation</h3>
+<ul>
+<li>[x] All new classes have proper docstrings</li>
+<li>[x] GranuleQuery, CollectionQuery documented with examples</li>
+<li>[x] StreamingExecutor, AuthContext documented</li>
+<li>[x] CredentialManager, S3Credentials documented</li>
+</ul>
+<hr />
+<h2 id="implementation-log">Implementation Log</h2>
+<h3 id="2024-12-22-architecture-documentation-added">2024-12-22 - Architecture Documentation Added</h3>
+<ul>
+<li>Created <code>docs/user_guide/architecture.md</code> with:</li>
+<li>Mermaid diagrams for component overview, class diagrams, sequence diagrams</li>
+<li>5 detailed use case examples with code</li>
+<li>Data flow documentation for search and access</li>
+<li>Extension points documentation</li>
+<li>All 287 unit tests passing</li>
+</ul>
+<h3 id="2024-12-22-phase-7-complete">2024-12-22 - Phase 7 Complete</h3>
+<ul>
+<li>Updated <code>docs/user_guide/search.md</code>:</li>
+<li>Added "Using Query Objects (Advanced)" section</li>
+<li>Documented GranuleQuery and CollectionQuery with examples</li>
+<li>Added query validation examples</li>
+<li>Documented STAC format conversion</li>
+<li>Added method reference tables for both query classes</li>
+<li>Added "Converting Results to STAC Format" section</li>
+<li>Verified all new classes have proper docstrings</li>
+</ul>
+<h3 id="2024-12-22-phase-6-complete">2024-12-22 - Phase 6 Complete</h3>
+<ul>
+<li>Updated <code>earthaccess/api.py</code>:</li>
+<li><code>search_data()</code> now accepts <code>query</code> parameter (GranuleQuery object)</li>
+<li><code>search_datasets()</code> now accepts <code>query</code> parameter (CollectionQuery object)</li>
+<li>Both validate query before execution and raise ValueError if invalid</li>
+<li>Both raise ValueError if both query and kwargs are provided</li>
+<li>Full backward compatibility with existing kwargs API</li>
+<li>Updated <code>earthaccess/__init__.py</code>:</li>
+<li>Export new query classes: <code>GranuleQuery</code>, <code>CollectionQuery</code></li>
+<li>Export type classes: <code>BoundingBox</code>, <code>DateRange</code>, <code>Point</code>, <code>Polygon</code></li>
+<li>Created <code>tests/unit/test_api_query_integration.py</code> with 15 tests:</li>
+<li>Tests for search_data() with GranuleQuery</li>
+<li>Tests for search_datasets() with CollectionQuery</li>
+<li>Tests for STAC output</li>
+<li>Tests for validation</li>
+<li>Total unit tests: 287 (all passing)</li>
+</ul>
+<h3 id="2024-12-22-session-start">2024-12-22 - Session Start</h3>
+<ul>
+<li>Analyzed STAC improvements plan</li>
+<li>Reviewed existing codebase structure</li>
+<li>Created implementation todo list</li>
+<li>Identified key SOLID principles to apply</li>
+</ul>
+<h3 id="2024-12-22-phase-5-complete">2024-12-22 - Phase 5 Complete</h3>
+<ul>
+<li>Created <code>earthaccess/credentials.py</code> module with:</li>
+<li><code>S3Credentials</code> class - Container for AWS temporary credentials</li>
+<li><code>CredentialCache</code> class - Thread-safe credential caching</li>
+<li><code>CredentialManager</code> class - Centralized credential lifecycle management</li>
+<li>Features:</li>
+<li>Automatic credential expiration handling</li>
+<li>Bucket-to-provider inference from URL patterns</li>
+<li>Provider-to-endpoint mapping</li>
+<li>Thread-safe caching with RLock</li>
+<li>Force refresh support</li>
+<li>Created <code>tests/unit/test_credentials.py</code> with 32 tests</li>
+</ul>
+<h3 id="2024-12-22-phase-4-complete">2024-12-22 - Phase 4 Complete</h3>
+<ul>
+<li>Created <code>earthaccess/streaming.py</code> module with:</li>
+<li><code>AuthContext</code> dataclass - Serializable credential container for distributed workers</li>
+<li><code>WorkerContext</code> class - Thread-local state management</li>
+<li><code>StreamingIterator</code> - Lazy iterator with backpressure support</li>
+<li><code>StreamingExecutor</code> - Iterator-based parallel executor</li>
+<li><code>stream_process()</code> convenience function</li>
+<li>Features:</li>
+<li>Thread-local authentication context</li>
+<li>Backpressure with bounded queues</li>
+<li>Ordered and unordered result modes</li>
+<li>Progress bar support via tqdm</li>
+<li>Created <code>tests/unit/test_streaming.py</code> with 25 tests</li>
+</ul>
+<h3 id="2024-12-22-phase-3-complete">2024-12-22 - Phase 3 Complete</h3>
+<ul>
+<li>Created <code>earthaccess/stac/</code> package with:</li>
+<li><code>__init__.py</code> - Package exports</li>
+<li><code>converters.py</code> - Standalone conversion functions</li>
+<li>Implemented UMM to STAC converters:</li>
+<li><code>umm_granule_to_stac_item()</code> - Convert CMR granule to STAC Item</li>
+<li><code>umm_collection_to_stac_collection()</code> - Convert CMR collection to STAC Collection</li>
+<li>Implemented STAC to UMM converters (for external STAC sources):</li>
+<li><code>stac_item_to_data_granule()</code> - Convert STAC Item to DataGranule</li>
+<li><code>stac_collection_to_data_collection()</code> - Convert STAC Collection to DataCollection</li>
+<li>Created <code>tests/unit/test_stac_converters.py</code> with 44 tests</li>
+</ul>
+<h3 id="2024-12-22-phase-2-complete">2024-12-22 - Phase 2 Complete</h3>
+<ul>
+<li>Enhanced <code>earthaccess/results.py</code> with STAC conversion:</li>
+<li><code>DataGranule.to_stac()</code> - Convert CMR UMM granule to STAC Item format</li>
+<li><code>DataGranule.to_dict()</code> - Return plain dictionary for serialization</li>
+<li><code>DataCollection.to_stac()</code> - Convert CMR UMM collection to STAC Collection</li>
+<li><code>DataCollection.to_dict()</code> - Return plain dictionary for serialization</li>
+<li>Added helper methods for temporal, spatial, links, and assets extraction</li>
+<li>Extended <code>tests/unit/test_results.py</code> with 6 new tests (total 21 tests)</li>
+<li>Commit: <code>dc9b277</code></li>
+</ul>
+<h3 id="2024-12-22-phase-1-complete">2024-12-22 - Phase 1 Complete</h3>
+<ul>
+<li>Created <code>earthaccess/query/</code> package with:</li>
+<li><code>__init__.py</code> - Package exports</li>
+<li><code>types.py</code> - Type definitions (BoundingBox, Point, Polygon, DateRange)</li>
+<li><code>validation.py</code> - ValidationError, ValidationResult, validators</li>
+<li><code>base.py</code> - QueryBase abstract class</li>
+<li><code>granule_query.py</code> - GranuleQuery class</li>
+<li><code>collection_query.py</code> - CollectionQuery class</li>
+<li>Created <code>tests/unit/test_query.py</code> with 50 tests (all passing)</li>
+<li>Features implemented:</li>
+<li>Method chaining API</li>
+<li>Named parameter construction</li>
+<li><code>to_cmr()</code> conversion</li>
+<li><code>to_stac()</code> conversion</li>
+<li>Query validation</li>
+<li>Query copying/equality</li>
+</ul>
+<h3 id="what-worked">What Worked</h3>
+<ul>
+<li>Immutable dataclasses for types (BoundingBox, Point, Polygon, DateRange)</li>
+<li>Separating types from query classes (SRP)</li>
+<li>Using Polygon class instead of raw list for type safety</li>
+<li>Comprehensive test coverage from the start</li>
+</ul>
+<h3 id="what-didnt-work">What Didn't Work</h3>
+<ul>
+<li>Initially used <code>list[tuple[float, float]]</code> for polygon which caused type narrowing issues</li>
+<li>Fixed by creating proper Polygon dataclass</li>
+</ul>
+<hr />
+<h2 id="commits">Commits</h2>
+<p>(To be updated with each commit)</p>
+<table>
+<thead>
+<tr>
+<th>Date</th>
+<th>Commit</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2024-12-22</td>
+<td>ed8b1e3</td>
+<td>Add query package with GranuleQuery and CollectionQuery classes</td>
+</tr>
+<tr>
+<td>2024-12-22</td>
+<td>dc9b277</td>
+<td>Add to_stac() and to_dict() methods to DataGranule and DataCollection</td>
+</tr>
+<tr>
+<td>2024-12-22</td>
+<td>7b14b51</td>
+<td>Add STAC converters module with bidirectional conversion</td>
+</tr>
+<tr>
+<td>2024-12-22</td>
+<td>c989800</td>
+<td>Add streaming execution module with AuthContext and StreamingExecutor</td>
+</tr>
+<tr>
+<td>2024-12-22</td>
+<td>41ce123</td>
+<td>Add CredentialManager for S3 credential caching</td>
+</tr>
+<tr>
+<td>2024-12-22</td>
+<td>9bd888f</td>
+<td>Add API integration for new query objects</td>
+</tr>
+<tr>
+<td>2024-12-22</td>
+<td>609d732</td>
+<td>Add documentation for query API and STAC conversion</td>
+</tr>
+<tr>
+<td>2024-12-22</td>
+<td>2d641ed</td>
+<td>Add architecture documentation with diagrams and use cases</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="notes">Notes</h2>
+<h3 id="key-design-decisions">Key Design Decisions</h3>
+<ol>
+<li><strong>Query objects vs kwargs</strong>: New query objects provide validation and STAC conversion while maintaining backward compatibility</li>
+<li><strong>Streaming execution</strong>: Uses producer-consumer pattern to handle large result sets without memory blowup</li>
+<li><strong>Credential shipping</strong>: For distributed backends, fetch credentials once and ship to workers</li>
+<li><strong>fsspec everywhere</strong>: Use fsspec for all I/O to provide unified interface</li>
+</ol>
+<h3 id="dependencies-to-consider">Dependencies to Consider</h3>
+<ul>
+<li><code>pystac</code> for STAC model classes</li>
+<li><code>pystac-client</code> compatibility for <code>to_stac()</code> output</li>
+<li><code>tqdm</code> for progress bars (already optional)</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.indexes"], "search": "../../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.92b07e13.min.js"></script>
+      
+    
+  </body>
+</html>
