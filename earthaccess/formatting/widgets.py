@@ -6,7 +6,7 @@ for rich visualization of earthaccess search results in Jupyter notebooks.
 Requires the [widgets] extra: pip install earthaccess[widgets]
 """
 
-from typing import TYPE_CHECKING, Any, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from earthaccess.formatting.html import (
     _format_collection_temporal,
@@ -46,72 +46,83 @@ def _check_widget_dependencies() -> None:
         )
 
 
-def _extract_granule_bbox(granule: "DataGranule") -> Optional[List[float]]:
-    """Extract bounding box from a granule.
+def _geometry_to_shapely(geometry: Dict[str, Any]) -> "Any":
+    """Convert a UMM-C ``HorizontalSpatialDomain.Geometry`` dict to a shapely geometry.
 
-    Parameters:
-        granule: A DataGranule instance
-
-    Returns:
-        [west, south, east, north] or None if not available
+    Supports ``Points`` (point/MultiPoint), ``Lines`` (LineString),
+    ``BoundingRectangles`` (polygon), and ``GPolygons`` (polygon). Returns
+    ``None`` if no recognizable geometry is present.
     """
-    try:
-        spatial = granule.get("umm", {}).get("SpatialExtent", {})
-        geometry = spatial.get("HorizontalSpatialDomain", {}).get("Geometry", {})
+    from shapely.geometry import LineString, MultiPoint, Point, Polygon, box
 
-        # Try BoundingRectangles first
-        bounding_rects = geometry.get("BoundingRectangles", [])
-        if bounding_rects:
-            rect = bounding_rects[0]
-            return [
-                rect.get("WestBoundingCoordinate", -180.0),
-                rect.get("SouthBoundingCoordinate", -90.0),
-                rect.get("EastBoundingCoordinate", 180.0),
-                rect.get("NorthBoundingCoordinate", 90.0),
-            ]
+    points = geometry.get("Points") or []
+    if points:
+        coords = [
+            (p["Longitude"], p["Latitude"])
+            for p in points
+            if "Longitude" in p and "Latitude" in p
+        ]
+        if coords:
+            return Point(coords[0]) if len(coords) == 1 else MultiPoint(coords)
 
-        # Try GPolygons
-        gpolygons = geometry.get("GPolygons", [])
-        if gpolygons:
-            # Extract bounding box from polygon points
-            points = gpolygons[0].get("Boundary", {}).get("Points", [])
-            if points:
-                lons = [p.get("Longitude", 0) for p in points]
-                lats = [p.get("Latitude", 0) for p in points]
-                return [min(lons), min(lats), max(lons), max(lats)]
+    lines = geometry.get("Lines") or []
+    if lines:
+        coords = [
+            (p["Longitude"], p["Latitude"])
+            for p in lines
+            if "Longitude" in p and "Latitude" in p
+        ]
+        if coords:
+            return LineString(coords)
 
-    except Exception:
-        pass
+    rects = geometry.get("BoundingRectangles") or []
+    if rects:
+        rect = rects[0]
+        west = rect.get("WestBoundingCoordinate", -180.0)
+        south = rect.get("SouthBoundingCoordinate", -90.0)
+        east = rect.get("EastBoundingCoordinate", 180.0)
+        north = rect.get("NorthBoundingCoordinate", 90.0)
+        if west > east:
+            west, east = -180.0, 180.0  # antimeridian-crossing box
+        return box(west, south, east, north)
+
+    gpolygons = geometry.get("GPolygons") or []
+    if gpolygons:
+        boundary = gpolygons[0].get("Boundary", {})
+        coords = [
+            (p["Longitude"], p["Latitude"])
+            for p in boundary.get("Points", [])
+            if "Longitude" in p and "Latitude" in p
+        ]
+        if len(coords) >= 3:
+            return Polygon(coords)
 
     return None
 
 
-def _extract_collection_bbox(collection: "DataCollection") -> Optional[List[float]]:
-    """Extract bounding box from a collection.
+def _geometry_kind(geometry: "Any") -> str:
+    """Classify a shapely geometry as point, line, or polygon."""
+    from shapely.geometry import LineString, MultiPoint, Point
 
-    Parameters:
-        collection: A DataCollection instance
+    if isinstance(geometry, (Point, MultiPoint)):
+        return "point"
+    if isinstance(geometry, LineString):
+        return "line"
+    return "polygon"
 
-    Returns:
-        [west, south, east, north] or None if not available
-    """
-    try:
-        spatial = collection.get("umm", {}).get("SpatialExtent", {})
-        geometry = spatial.get("HorizontalSpatialDomain", {}).get("Geometry", {})
 
-        bounding_rects = geometry.get("BoundingRectangles", [])
-        if bounding_rects:
-            rect = bounding_rects[0]
-            return [
-                rect.get("WestBoundingCoordinate", -180.0),
-                rect.get("SouthBoundingCoordinate", -90.0),
-                rect.get("EastBoundingCoordinate", 180.0),
-                rect.get("NorthBoundingCoordinate", 90.0),
-            ]
-    except Exception:
-        pass
+def _extract_granule_geometry(granule: "DataGranule") -> "Any":
+    """Extract the shapely geometry from a granule, or None if unavailable."""
+    spatial = granule.get("umm", {}).get("SpatialExtent", {})
+    geometry = spatial.get("HorizontalSpatialDomain", {}).get("Geometry", {})
+    return _geometry_to_shapely(geometry)
 
-    return None
+
+def _extract_collection_geometry(collection: "DataCollection") -> "Any":
+    """Extract the shapely geometry from a collection, or None if unavailable."""
+    spatial = collection.get("umm", {}).get("SpatialExtent", {})
+    geometry = spatial.get("HorizontalSpatialDomain", {}).get("Geometry", {})
+    return _geometry_to_shapely(geometry)
 
 
 def _is_global_coverage(bbox: List[float]) -> bool:
@@ -203,17 +214,21 @@ def _query_bounding_box(results: "SearchResults") -> Optional[List[float]]:
 def _bboxes_to_geodataframe(
     items: List[Any], max_items: int = 10000
 ) -> "Any":  # Returns GeoDataFrame
-    """Convert a list of granules/collections to a GeoDataFrame with bbox polygons.
+    """Convert a list of granules/collections to a GeoDataFrame with geometries.
+
+    Supports point, line, and polygon geometries (from ``Points``, ``Lines``,
+    ``BoundingRectangles``, and ``GPolygons``). The ``kind`` column records the
+    geometry type; ``coverage`` marks global vs regional polygons.
 
     Parameters:
         items: List of DataGranule or DataCollection instances
         max_items: Maximum number of items to include (default 10000)
 
     Returns:
-        A GeoDataFrame with polygon geometries and metadata
+        A GeoDataFrame with geometries and metadata
     """
     import geopandas as gpd
-    from shapely.geometry import box
+    from shapely.geometry import LineString, MultiPoint, Point
 
     geometries = []
     ids = []
@@ -223,47 +238,59 @@ def _bboxes_to_geodataframe(
     coverage = []
     temporals = []
     spatials = []
+    kinds = []
 
     for i, item in enumerate(items[:max_items]):
         # Determine if granule or collection
         is_granule = "GranuleUR" in item.get("umm", {})
 
         if is_granule:
-            bbox = _extract_granule_bbox(item)
+            geometry = _extract_granule_geometry(item)
             name = item.get("umm", {}).get("GranuleUR", "Unknown")[:50]
             size = item.size() if hasattr(item, "size") else 0
             temporal = _format_temporal_extent(
                 item.get("umm", {}).get("TemporalExtent", {})
             )
         else:
-            bbox = _extract_collection_bbox(item)
+            geometry = _extract_collection_geometry(item)
             name = item.get("umm", {}).get("ShortName", "Unknown")
             size = 0
             temporal = _format_collection_temporal(
                 item.get("umm", {}).get("TemporalExtents")
             )
 
-        if bbox is None:
+        if geometry is None:
             continue
 
-        # Create polygon from bbox
-        west, south, east, north = bbox
+        kind = _geometry_kind(geometry)
+        west, south, east, north = geometry.bounds
+        if west > east:  # antimeridian-crossing polygon/line
+            west, east = -180.0, 180.0
 
-        # Handle antimeridian crossing
-        if west > east:
-            # Split into two polygons? For now, just use full extent
-            west, east = -180, 180
+        if isinstance(geometry, Point):
+            spatial = f"Lon {geometry.x:.2f}, Lat {geometry.y:.2f}"
+        elif isinstance(geometry, MultiPoint):
+            spatial = f"{len(geometry.geoms)} points"
+        elif isinstance(geometry, LineString):
+            spatial = f"{len(geometry.coords)} points"
+        else:
+            spatial = _format_bbox(west, south, east, north)
 
-        geometries.append(box(west, south, east, north))
+        geometries.append(geometry)
         ids.append(
             _cmr_record_link(item.get("meta", {}).get("concept-id", f"item_{i}"))
         )
         names.append(name)
         sizes.append(size)
         cloud_hosted.append(getattr(item, "cloud_hosted", False))
-        coverage.append("global" if _is_global_coverage(bbox) else "regional")
+        coverage.append(
+            "global"
+            if kind == "polygon" and _is_global_coverage([west, south, east, north])
+            else "regional"
+        )
         temporals.append(temporal)
-        spatials.append(_format_bbox(west, south, east, north))
+        spatials.append(spatial)
+        kinds.append(kind)
 
     if not geometries:
         # Return empty GeoDataFrame
@@ -276,6 +303,7 @@ def _bboxes_to_geodataframe(
                 "coverage": [],
                 "temporal": [],
                 "spatial": [],
+                "kind": [],
             },
             geometry=[],
             crs="EPSG:4326",
@@ -291,6 +319,7 @@ def _bboxes_to_geodataframe(
             "coverage": coverage,
             "temporal": temporals,
             "spatial": spatials,
+            "kind": kinds,
         },
         geometry=geometries,
         crs="EPSG:4326",
@@ -335,7 +364,7 @@ def plot(
     """
     _check_widget_dependencies()
 
-    from lonboard import Map, PolygonLayer
+    from lonboard import Map, PathLayer, PolygonLayer, ScatterplotLayer
 
     # Default colors
     fill_color_defaulted = fill_color is None
@@ -364,16 +393,38 @@ def plot(
     gdf = _bboxes_to_geodataframe(cached, max_items=max_items)
 
     if len(gdf) == 0:
-        raise ValueError("No valid bounding boxes found in results.")
+        raise ValueError("No valid geometries found in results.")
+
+    # Split by geometry type: points, lines, and polygons each need their own
+    # lonboard layer.
+    point_gdf = gdf[gdf["kind"] == "point"]
+    line_gdf = gdf[gdf["kind"] == "line"]
+    poly_gdf = gdf[gdf["kind"] == "polygon"]
 
     # Global-coverage granules (e.g. MUR SST) all share the full-globe extent,
     # so a filled polygon hides the basemap and any individual boundaries.
     # Render them as thin outline-only boxes instead so base layers stay
     # visible and global coverage is visually distinct from regional granules.
-    regional_gdf = gdf[gdf["coverage"] == "regional"]
-    global_gdf = gdf[gdf["coverage"] == "global"]
+    regional_gdf = poly_gdf[poly_gdf["coverage"] == "regional"]
+    global_gdf = poly_gdf[poly_gdf["coverage"] == "global"]
 
     layers = []
+    if len(point_gdf) > 0:
+        layers.append(
+            ScatterplotLayer.from_geopandas(
+                point_gdf,
+                get_fill_color=[*line_color[:3], 255],
+                radius_min_pixels=3,
+            )
+        )
+    if len(line_gdf) > 0:
+        layers.append(
+            PathLayer.from_geopandas(
+                line_gdf,
+                get_color=line_color,
+                width_min_pixels=1,
+            )
+        )
     if len(regional_gdf) > 0:
         layers.append(
             PolygonLayer.from_geopandas(
@@ -453,8 +504,8 @@ def plot_granule(
     _check_widget_dependencies()
 
     import geopandas as gpd
-    from lonboard import Map, PolygonLayer
-    from shapely.geometry import box
+    from lonboard import Map, PathLayer, PolygonLayer, ScatterplotLayer
+    from shapely.geometry import LineString, MultiPoint, Point
 
     # Default colors
     if fill_color is None:
@@ -462,22 +513,24 @@ def plot_granule(
     if line_color is None:
         line_color = [0, 150, 100, 255]  # Solid green
 
-    bbox = _extract_granule_bbox(granule)
-    if bbox is None:
-        raise ValueError("Granule has no valid bounding box.")
+    geometry = _extract_granule_geometry(granule)
+    if geometry is None:
+        raise ValueError("Granule has no valid spatial extent.")
 
-    west, south, east, north = bbox
+    kind = _geometry_kind(geometry)
+    west, south, east, north = geometry.bounds
+    if west > east:  # antimeridian
+        west, east = -180.0, 180.0
 
-    # Handle antimeridian
-    if west > east:
-        west, east = -180, 180
+    if isinstance(geometry, Point):
+        spatial = f"Lon {geometry.x:.2f}, Lat {geometry.y:.2f}"
+    elif isinstance(geometry, MultiPoint):
+        spatial = f"{len(geometry.geoms)} points"
+    elif isinstance(geometry, LineString):
+        spatial = f"{len(geometry.coords)} points"
+    else:
+        spatial = _format_bbox(west, south, east, north)
 
-    # Global-coverage granules span the whole globe; fill the interior would
-    # hide the basemap, so draw them as outline-only boxes.
-    if _is_global_coverage([west, south, east, north]):
-        fill_color = [*fill_color[:3], 0]
-
-    geometry = box(west, south, east, north)
     gdf = gpd.GeoDataFrame(
         {
             "id": [_cmr_record_link(granule.get("meta", {}).get("concept-id"))],
@@ -487,23 +540,34 @@ def plot_granule(
                     granule.get("umm", {}).get("TemporalExtent", {})
                 )
             ],
-            "spatial": [_format_bbox(west, south, east, north)],
+            "spatial": [spatial],
         },
         geometry=[geometry],
         crs="EPSG:4326",
     )
 
-    layer = PolygonLayer.from_geopandas(
-        gdf,
-        get_fill_color=fill_color,
-        get_line_color=line_color,
-        line_width_min_pixels=2,
-    )
+    if kind == "point":
+        layer = ScatterplotLayer.from_geopandas(
+            gdf, get_fill_color=[*line_color[:3], 255], radius_min_pixels=4
+        )
+    elif kind == "line":
+        layer = PathLayer.from_geopandas(gdf, get_color=line_color, width_min_pixels=2)
+    else:
+        # Global-coverage granules span the whole globe; filling the interior
+        # would hide the basemap, so draw them as outline-only boxes.
+        if _is_global_coverage([west, south, east, north]):
+            fill_color = [*fill_color[:3], 0]
+        layer = PolygonLayer.from_geopandas(
+            gdf,
+            get_fill_color=fill_color,
+            get_line_color=line_color,
+            line_width_min_pixels=2,
+        )
 
     center_lon = (west + east) / 2
     center_lat = (south + north) / 2
 
-    # Calculate appropriate zoom level based on bbox size
+    # Calculate appropriate zoom level based on geometry extent
     lat_diff = north - south
     lon_diff = east - west
     max_diff = max(lat_diff, lon_diff)
@@ -555,8 +619,8 @@ def plot_collection(
     _check_widget_dependencies()
 
     import geopandas as gpd
-    from lonboard import Map, PolygonLayer
-    from shapely.geometry import box
+    from lonboard import Map, PathLayer, PolygonLayer, ScatterplotLayer
+    from shapely.geometry import LineString, MultiPoint, Point
 
     # Default colors
     if fill_color is None:
@@ -564,22 +628,24 @@ def plot_collection(
     if line_color is None:
         line_color = [200, 100, 0, 255]  # Solid orange
 
-    bbox = _extract_collection_bbox(collection)
-    if bbox is None:
+    geometry = _extract_collection_geometry(collection)
+    if geometry is None:
         raise ValueError("Collection has no valid spatial extent.")
 
-    west, south, east, north = bbox
+    kind = _geometry_kind(geometry)
+    west, south, east, north = geometry.bounds
+    if west > east:  # antimeridian
+        west, east = -180.0, 180.0
 
-    # Handle antimeridian
-    if west > east:
-        west, east = -180, 180
+    if isinstance(geometry, Point):
+        spatial = f"Lon {geometry.x:.2f}, Lat {geometry.y:.2f}"
+    elif isinstance(geometry, MultiPoint):
+        spatial = f"{len(geometry.geoms)} points"
+    elif isinstance(geometry, LineString):
+        spatial = f"{len(geometry.coords)} points"
+    else:
+        spatial = _format_bbox(west, south, east, north)
 
-    # Global-coverage collections span the whole globe; fill the interior
-    # would hide the basemap, so draw them as outline-only boxes.
-    if _is_global_coverage([west, south, east, north]):
-        fill_color = [*fill_color[:3], 0]
-
-    geometry = box(west, south, east, north)
     short_name = collection.get("umm", {}).get("ShortName", "Unknown")
     version = collection.get("umm", {}).get("Version", "")
 
@@ -592,18 +658,29 @@ def plot_collection(
                     collection.get("umm", {}).get("TemporalExtents")
                 )
             ],
-            "spatial": [_format_bbox(west, south, east, north)],
+            "spatial": [spatial],
         },
         geometry=[geometry],
         crs="EPSG:4326",
     )
 
-    layer = PolygonLayer.from_geopandas(
-        gdf,
-        get_fill_color=fill_color,
-        get_line_color=line_color,
-        line_width_min_pixels=2,
-    )
+    if kind == "point":
+        layer = ScatterplotLayer.from_geopandas(
+            gdf, get_fill_color=[*line_color[:3], 255], radius_min_pixels=4
+        )
+    elif kind == "line":
+        layer = PathLayer.from_geopandas(gdf, get_color=line_color, width_min_pixels=2)
+    else:
+        # Global-coverage collections span the whole globe; filling the
+        # interior would hide the basemap, so draw them outline-only.
+        if _is_global_coverage([west, south, east, north]):
+            fill_color = [*fill_color[:3], 0]
+        layer = PolygonLayer.from_geopandas(
+            gdf,
+            get_fill_color=fill_color,
+            get_line_color=line_color,
+            line_width_min_pixels=2,
+        )
 
     center_lon = (west + east) / 2
     center_lat = (south + north) / 2

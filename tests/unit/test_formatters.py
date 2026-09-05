@@ -1003,6 +1003,99 @@ def test_is_global_coverage():
     assert not _is_global_coverage([-10, 40, 10, 50])
 
 
+@pytest.mark.parametrize(
+    "geometry,kind",
+    [
+        (
+            {"Points": [{"Longitude": 112.19, "Latitude": 42.54}]},
+            "point",
+        ),
+        (
+            {
+                "Points": [
+                    {"Longitude": 0.0, "Latitude": 0.0},
+                    {"Longitude": 1.0, "Latitude": 1.0},
+                ]
+            },
+            "point",
+        ),
+        (
+            {
+                "Lines": [
+                    {"Longitude": 0.0, "Latitude": 0.0},
+                    {"Longitude": 10.0, "Latitude": 10.0},
+                    {"Longitude": 20.0, "Latitude": 20.0},
+                ]
+            },
+            "line",
+        ),
+        (
+            {
+                "BoundingRectangles": [
+                    {
+                        "WestBoundingCoordinate": -98,
+                        "SouthBoundingCoordinate": 19,
+                        "EastBoundingCoordinate": -82,
+                        "NorthBoundingCoordinate": 31,
+                    }
+                ]
+            },
+            "polygon",
+        ),
+        (
+            {
+                "GPolygons": [
+                    {
+                        "Boundary": {
+                            "Points": [
+                                {"Longitude": 0.0, "Latitude": 0.0},
+                                {"Longitude": 1.0, "Latitude": 0.0},
+                                {"Longitude": 1.0, "Latitude": 1.0},
+                                {"Longitude": 0.0, "Latitude": 0.0},
+                            ]
+                        }
+                    }
+                ]
+            },
+            "polygon",
+        ),
+    ],
+)
+def test_geometry_kind(geometry, kind):
+    """Points/lines/bboxes/gpolygons map to point/line/polygon kinds."""
+    from earthaccess.formatting.widgets import _geometry_kind, _geometry_to_shapely
+
+    assert _geometry_kind(_geometry_to_shapely(geometry)) == kind
+
+
+def test_bboxes_to_geodataframe_point_geometry():
+    """A point-only granule (e.g. GNSS RO) still produces a row, not an error."""
+    pytest.importorskip("geopandas")
+
+    from earthaccess.formatting.widgets import _bboxes_to_geodataframe
+
+    granule = DataGranule(
+        {
+            "meta": {"concept-id": "G3859310711-GES_DISC"},
+            "umm": {
+                "GranuleUR": "gnssro-cosmic1-granule",
+                "SpatialExtent": {
+                    "HorizontalSpatialDomain": {
+                        "Geometry": {
+                            "Points": [{"Longitude": 112.19, "Latitude": 42.54}]
+                        }
+                    }
+                },
+            },
+        }
+    )
+
+    gdf = _bboxes_to_geodataframe([granule])
+    assert len(gdf) == 1
+    assert gdf["kind"].tolist() == ["point"]
+    assert gdf["spatial"].tolist() == ["Lon 112.19, Lat 42.54"]
+
+
 def test_bboxes_to_geodataframe_coverage():
     """Test that the coverage column tags global and regional granules."""
     pytest.importorskip("geopandas")
