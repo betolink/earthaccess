@@ -31,7 +31,7 @@ def test_service_results():
     datasets_list = list(datasets)
     assert len(datasets_list) > 0
     collection = datasets_list[0]
-    results = collection.services()  # type: ignore[attr-defined]
+    results = collection.services  # type: ignore[attr-defined]
 
     # services() returns a dict keyed by service concept-id; each value is a
     # non-empty list of service records carrying UMM + meta info.

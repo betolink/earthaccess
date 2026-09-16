@@ -14,7 +14,7 @@ def test_services():
     )
 
     dataset_services = {
-        dataset["umm"]["ShortName"]: dataset.services() for dataset in datasets
+        dataset["umm"]["ShortName"]: dataset.services for dataset in datasets
     }
 
     assert list(dataset_services.keys())[0] == "MUR-JPL-L4-GLOB-v4.1"

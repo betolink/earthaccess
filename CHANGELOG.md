@@ -29,6 +29,51 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   `open_virtual_datatree` for multi-group granules). Single-granule calls are
   opened directly with `open_virtual_dataset`.
 
+## [v0.19.0] - 2026-09-03
+
+### Breaking changes
+
+- Many `DataCollection` and `DataGranule` methods are now read-only fields.
+  For example, you'll get the size of a `DataGranule` named `granule` via
+  `granule.size` instead of `granule.size()`. If you use the old syntax, you'll
+  receive errors like `TypeError: 'NoneType' object is not callable`,
+  `TypeError: 'str' object is not callable`, etc.
+
+  The following methods were changed to read-only fields of the same name,
+  except where noted:
+
+  - `DataCollection.concept_id()` -> `DataCollection.concept_id`
+  - `DataCollection.data_type()` -> `DataCollection.data_type`
+  - `DataCollection.doi()` -> `DataCollection.doi`
+  - `DataCollection.get_links()` -> `DataCollection.data_links` (note the name change, details below)
+  - `DataCollection.landing_page()` -> `DataCollection.landing_page`
+  - `DataCollection.s3_bucket()` -> `DataCollection.s3_bucket`
+  - `DataCollection.services()` -> `DataCollection.services`
+  - `DataCollection.summary()` -> `DataCollection.summary`
+  - `DataCollection.version()` -> `DataCollection.version`
+  - `DataGranule.dataviz_links()` -> `DataGranule.dataviz_links`
+  - `DataGranule.size()` -> `DataGranule.size`
+
+  **NOTE:** The method `DataCollection.get_links()` was replaced with the field
+  `DataCollection.data_links`. The method name was previously `get_links` because in
+  the CMR API, the links are described as links of type "GET DATA". However, while the
+  old method name matches the name of the link type in the CMR API, it can be read as a
+  verb ("get" the links, rather than links of _type_ "get"), when it's an attribute
+  (noun). The name `data_links` was chosen to avoid confusion (noun instead of verb),
+  and for consistency with `DataGranule.data_links()` (SUBNOTE:
+  `DataGranule.data_links()` has arguments, so it was **not** changed to a property at
+  this time).
+
+### Added
+
+- Added an AI policy documenting expectations for AI-assisted contributions,
+  including disclosure, code quality, copyright, and communication, along with
+  an AI usage disclosure prompt in the pull request template.
+  ([#1419](https://github.com/earthaccess-dev/earthaccess/pull/1419))
+- Python 3.14 is now supported.
+  ([#1307](https://github.com/earthaccess-dev/earthaccess/issues/1307))
+  ([@danielfromearth](https://github.com/danielfromearth))
+
 ### Fixed
 
 - `search_services` now respects the authenticated system (UAT vs PROD) instead
@@ -42,6 +87,9 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   storage; NASA HTTPS stores are opened with the EDL bearer header.
 - NASA HTTPS virtual stores are opened via authenticated `http_storage` instead
   of anonymous `redirect_storage` when the user is logged in.
+- `DataGranule.size` is now backed by a private `_size` field, so the
+  deprecated size accessor no longer emits a warning.
+  ([#1420](https://github.com/earthaccess-dev/earthaccess/pull/1420))
 
 
 - **`SessionWithHeaderRedirection`** is now deprecated and will be removed in v2.0.0.
@@ -972,29 +1020,32 @@ _Conception!_
 - Add basic classes to interact with NASA CMR, EDL and cloud access.
 - Basic object formatting.
 
-[0.1.0-beta.1]: https://github.com/betolink/earthaccess/releases/tag/v0.1.0-beta.1
-[0.2.1]: https://github.com/betolink/earthaccess/releases/tag/v0.2.1
-[0.2.2]: https://github.com/betolink/earthaccess/releases/tag/v0.2.2
-[0.3.0]: https://github.com/betolink/earthaccess/releases/tag/v0.3.0
-[0.4.1]: https://github.com/nsidc/earthaccess/releases/tag/v0.4.1
-[0.4.6]: https://github.com/nsidc/earthaccess/releases/tag/v0.4.6
-[0.4.7]: https://github.com/nsidc/earthaccess/releases/tag/v0.4.7
-[0.5.0]: https://github.com/nsidc/earthaccess/releases/tag/v0.5.0
-[0.5.1]: https://github.com/nsidc/earthaccess/releases/tag/v0.5.1
-[0.5.2]: https://github.com/nsidc/earthaccess/releases/tag/v0.5.2
-[0.5.3]: https://github.com/nsidc/earthaccess/releases/tag/v0.5.3
-[0.6.0]: https://github.com/nsidc/earthaccess/releases/tag/v0.6.0
-[0.7.0]: https://github.com/nsidc/earthaccess/releases/tag/v0.7.0
-[0.7.1]: https://github.com/nsidc/earthaccess/releases/tag/v0.7.1
-[0.8.0]: https://github.com/nsidc/earthaccess/releases/tag/v0.8.0
-[0.8.1]: https://github.com/nsidc/earthaccess/releases/tag/v0.8.1
-[0.8.2]: https://github.com/nsidc/earthaccess/releases/tag/v0.8.2
-[0.9.0]: https://github.com/nsidc/earthaccess/releases/tag/v0.9.0
-[0.10.0]: https://github.com/nsidc/earthaccess/releases/tag/v0.10.0
-[0.11.0]: https://github.com/nsidc/earthaccess/releases/tag/v0.11.0
-[0.12.0]: https://github.com/nsidc/earthaccess/releases/tag/v0.12.0
-[0.13.0]: https://github.com/nsidc/earthaccess/releases/tag/v0.13.0
-[0.14.0]: https://github.com/nsidc/earthaccess/releases/tag/v0.14.0
-[0.15.0]: https://github.com/nsidc/earthaccess/releases/tag/v0.15.0
-[0.15.1]: https://github.com/nsidc/earthaccess/releases/tag/v0.15.1
-[Unreleased]: https://github.com/nsidc/earthaccess/compare/v0.15.1...HEAD
+[v0.2.1]: https://github.com/earthaccess-dev/earthaccess/releases/tag/v0.2.1
+[v0.2.2]: https://github.com/earthaccess-dev/earthaccess/releases/tag/v0.2.2
+[v0.3.0]: https://github.com/earthaccess-dev/earthaccess/releases/tag/v0.3.0
+[v0.4.1]: https://github.com/earthaccess-dev/earthaccess/releases/tag/v0.4.1
+[v0.4.6]: https://github.com/earthaccess-dev/earthaccess/releases/tag/v0.4.6
+[v0.4.7]: https://github.com/earthaccess-dev/earthaccess/releases/tag/v0.4.7
+[v0.5.0]: https://github.com/earthaccess-dev/earthaccess/releases/tag/v0.5.0
+[v0.5.1]: https://github.com/earthaccess-dev/earthaccess/releases/tag/v0.5.1
+[v0.5.2]: https://github.com/earthaccess-dev/earthaccess/releases/tag/v0.5.2
+[v0.5.3]: https://github.com/earthaccess-dev/earthaccess/releases/tag/v0.5.3
+[v0.6.0]: https://github.com/earthaccess-dev/earthaccess/releases/tag/v0.6.0
+[v0.7.0]: https://github.com/earthaccess-dev/earthaccess/releases/tag/v0.7.0
+[v0.7.1]: https://github.com/earthaccess-dev/earthaccess/releases/tag/v0.7.1
+[v0.8.0]: https://github.com/earthaccess-dev/earthaccess/releases/tag/v0.8.0
+[v0.8.1]: https://github.com/earthaccess-dev/earthaccess/releases/tag/v0.8.1
+[v0.8.2]: https://github.com/earthaccess-dev/earthaccess/releases/tag/v0.8.2
+[v0.9.0]: https://github.com/earthaccess-dev/earthaccess/releases/tag/v0.9.0
+[v0.10.0]: https://github.com/earthaccess-dev/earthaccess/releases/tag/v0.10.0
+[v0.11.0]: https://github.com/earthaccess-dev/earthaccess/releases/tag/v0.11.0
+[v0.12.0]: https://github.com/earthaccess-dev/earthaccess/releases/tag/v0.12.0
+[v0.13.0]: https://github.com/earthaccess-dev/earthaccess/releases/tag/v0.13.0
+[v0.14.0]: https://github.com/earthaccess-dev/earthaccess/releases/tag/v0.14.0
+[v0.15.0]: https://github.com/earthaccess-dev/earthaccess/releases/tag/v0.15.0
+[v0.15.1]: https://github.com/earthaccess-dev/earthaccess/releases/tag/v0.15.1
+[v0.16.0]: https://github.com/earthaccess-dev/earthaccess/releases/tag/v0.16.0
+[v0.17.0]: https://github.com/earthaccess-dev/earthaccess/compare/v0.16.0...v0.17.0
+[v0.18.0]: https://github.com/earthaccess-dev/earthaccess/compare/v0.17.0...v0.18.0
+[v0.19.0]: https://github.com/earthaccess-dev/earthaccess/compare/v0.18.0...v0.19.0
+[Unreleased]: https://github.com/earthaccess-dev/earthaccess/compare/v0.19.0...HEAD

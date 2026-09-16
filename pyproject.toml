@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling", "hatch-vcs"]
+requires = ["hatchling>=1.27.0,<1.28", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
@@ -27,6 +27,7 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Software Development :: Libraries",
   "Topic :: Software Development",
   "License :: OSI Approved :: MIT License",
@@ -49,10 +50,10 @@ dependencies = [
 ]
 
 [project.urls]
-Repository = "https://github.com/nsidc/earthaccess"
+Repository = "https://github.com/earthaccess-dev/earthaccess"
 Documentation = "https://earthaccess.readthedocs.io"
-"Bug Tracker" = "https://github.com/nsidc/earthaccess/issues"
-Changelog = "https://github.com/nsidc/earthaccess/blob/main/CHANGELOG.md"
+"Bug Tracker" = "https://github.com/earthaccess-dev/earthaccess/issues"
+Changelog = "https://github.com/earthaccess-dev/earthaccess/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 # IMPORTANT: When adding a new optional dependencies group, include it in this

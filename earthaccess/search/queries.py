@@ -1062,7 +1062,7 @@ class DataGranules(CmrGranuleQuery):
             )
             return self
 
-        concept_id = collection[0].concept_id()
+        concept_id = collection[0].concept_id
         if len(collection) > 1:
             logger.warning(
                 f"DOI {doi} maps to {len(collection)} collections; "
