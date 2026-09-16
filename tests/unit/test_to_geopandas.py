@@ -1,6 +1,9 @@
-"""Tests for DataGranule.to_geopandas() and DataCollection.to_geopandas()."""
+"""Tests for DataGranule/DataCollection.to_geopandas() and the bulk variants
+on DataGranules/DataCollections.
+"""
 
 import pytest
+from earthaccess.search.queries import DataCollections, DataGranules
 from earthaccess.search.results import DataCollection, DataGranule
 
 pytest.importorskip("geopandas")
@@ -93,3 +96,65 @@ def test_to_geopandas_missing_spatial_extent_raises():
 
     with pytest.raises(ValueError):
         granule.to_geopandas()
+
+
+def test_data_granules_to_geopandas_bulk():
+    granules = [
+        _granule(POINT_GEOMETRY, granule_ur="g1"),
+        _granule(POINT_GEOMETRY, granule_ur="g2"),
+    ]
+
+    gdf = DataGranules.to_geopandas(granules)
+
+    assert len(gdf) == 2
+    assert list(gdf["umm.GranuleUR"]) == ["g1", "g2"]
+    assert all(geom.geom_type == "MultiPoint" for geom in gdf.geometry)
+    assert gdf.crs is not None
+    assert gdf.crs.to_epsg() == 4326
+
+
+def test_data_collections_to_geopandas_bulk():
+    def _collection(short_name):
+        return DataCollection(
+            {
+                "meta": {"concept-id": f"C-{short_name}", "provider-id": "TEST"},
+                "umm": {
+                    "ShortName": short_name,
+                    "Version": "1",
+                    "SpatialExtent": {
+                        "HorizontalSpatialDomain": {"Geometry": BBOX_GEOMETRY}
+                    },
+                },
+            }
+        )
+
+    collections = [_collection("A"), _collection("B")]
+
+    gdf = DataCollections.to_geopandas(collections)
+
+    assert len(gdf) == 2
+    assert list(gdf["umm.ShortName"]) == ["A", "B"]
+    assert all(geom.geom_type == "MultiPolygon" for geom in gdf.geometry)
+
+
+def test_data_granules_to_geopandas_missing_spatial_extent_raises():
+    granules = [DataGranule({"meta": {"concept-id": "G1"}, "umm": {"GranuleUR": "x"}})]
+
+    with pytest.raises(ValueError):
+        DataGranules.to_geopandas(granules)
+
+
+def test_data_granules_to_geopandas_without_geopandas_raises(monkeypatch):
+    import builtins
+
+    real_import = builtins.__import__
+
+    def fake_import(name, *args, **kwargs):
+        if name == "geopandas":
+            raise ImportError("No module named 'geopandas'")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+
+    with pytest.raises(ImportError, match="pip install earthaccess\\[geo\\]"):
+        DataGranules.to_geopandas([_granule(POINT_GEOMETRY)])

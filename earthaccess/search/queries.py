@@ -7,6 +7,7 @@ queries against NASA's Common Metadata Repository (CMR).
 import datetime as dt
 import logging
 from inspect import getmembers, ismethod
+from typing import TYPE_CHECKING
 
 import requests
 from typing_extensions import (
@@ -29,6 +30,9 @@ from earthaccess.search._utils import get_results
 from earthaccess.search.results import DataCollection, DataGranule
 from earthaccess.store.daac import find_provider, find_provider_by_shortname
 
+if TYPE_CHECKING:
+    import geopandas as gpd
+
 logger = logging.getLogger(__name__)
 
 
@@ -49,6 +53,47 @@ def is_cloud_hosted(granule: Any) -> bool:
         ):
             return True
     return False
+
+
+def _items_to_geopandas(
+    items: Union[Sequence[DataCollection], Sequence[DataGranule]],
+) -> "gpd.GeoDataFrame":
+    """Flatten a list of collections or granules into a GeoDataFrame.
+
+    Each item's ``__geo_interface__`` (its horizontal spatial extent, as a
+    shapely geometry in EPSG:4326) becomes that row's geometry. The full UMM
+    and CMR metadata of each item is flattened into columns.
+
+    Parameters:
+        items: A list of `DataCollection` or `DataGranule` objects, e.g. from
+            `earthaccess.search_datasets()` or `earthaccess.search_data()`.
+
+    Returns:
+        A GeoDataFrame with one row per item (CRS EPSG:4326).
+
+    Raises:
+        ImportError: If geopandas is not installed.
+        ValueError: If any item has no horizontal spatial extent.
+    """
+    try:
+        import geopandas as gpd
+        import pandas as pd
+        from shapely.geometry import shape
+        from shapely.geometry.base import BaseGeometry
+    except ImportError as e:  # pragma: no cover - depends on environment
+        raise ImportError(
+            "to_geopandas() requires geopandas. Install it with: "
+            "pip install earthaccess[geo]"
+        ) from e
+
+    geometries: List[BaseGeometry] = [shape(item.__geo_interface__) for item in items]
+    data = pd.json_normalize(list(items))
+
+    return gpd.GeoDataFrame(
+        data=data,
+        geometry=gpd.GeoSeries(data=geometries, crs="EPSG:4326"),
+        crs="EPSG:4326",
+    )
 
 
 class DataCollections(CmrCollectionQuery):
@@ -482,6 +527,33 @@ class DataCollections(CmrCollectionQuery):
                 parsable as such) and `date_from` is after `date_to`.
         """
         return super().temporal(date_from, date_to, exclude_boundary)
+
+    @staticmethod
+    def to_geopandas(collections: Sequence[DataCollection]) -> "gpd.GeoDataFrame":
+        """Convert a list of collections into a `geopandas.GeoDataFrame`.
+
+        Each collection's `__geo_interface__` (its horizontal spatial extent)
+        becomes that row's geometry, and the full UMM/CMR metadata of each
+        collection is flattened into columns.
+
+        Requires the `geo` extra: `pip install earthaccess[geo]`
+
+        Parameters:
+            collections: A list of `DataCollection` objects, e.g. from
+                `earthaccess.search_datasets()`.
+
+        Returns:
+            A GeoDataFrame with one row per collection (CRS EPSG:4326).
+
+        Raises:
+            ImportError: If geopandas is not installed.
+            ValueError: If any collection has no horizontal spatial extent.
+
+        Examples:
+            >>> collections = earthaccess.search_datasets(keyword="ozone")
+            >>> gdf = earthaccess.DataCollections.to_geopandas(collections)
+        """
+        return _items_to_geopandas(collections)
 
 
 class DataGranules(CmrGranuleQuery):
@@ -1071,3 +1143,30 @@ class DataGranules(CmrGranuleQuery):
         self.params["concept_id"] = concept_id
 
         return self
+
+    @staticmethod
+    def to_geopandas(granules: Sequence[DataGranule]) -> "gpd.GeoDataFrame":
+        """Convert a list of granules into a `geopandas.GeoDataFrame`.
+
+        Each granule's `__geo_interface__` (its horizontal spatial extent)
+        becomes that row's geometry, and the full UMM/CMR metadata of each
+        granule is flattened into columns.
+
+        Requires the `geo` extra: `pip install earthaccess[geo]`
+
+        Parameters:
+            granules: A list of `DataGranule` objects, e.g. from
+                `earthaccess.search_data()`.
+
+        Returns:
+            A GeoDataFrame with one row per granule (CRS EPSG:4326).
+
+        Raises:
+            ImportError: If geopandas is not installed.
+            ValueError: If any granule has no horizontal spatial extent.
+
+        Examples:
+            >>> granules = earthaccess.search_data(short_name="ATL06", count=100)
+            >>> gdf = earthaccess.DataGranules.to_geopandas(granules)
+        """
+        return _items_to_geopandas(granules)
