@@ -28,7 +28,7 @@ Parse the service results to return metadata on services available for the datas
 
 ```py
 for dataset in datasets:
-    print(dataset.services())
+    print(dataset.services)
 ```
 
 Alternatively, you may search directly for services.  For example:

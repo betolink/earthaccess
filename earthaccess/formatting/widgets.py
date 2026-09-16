@@ -247,7 +247,7 @@ def _bboxes_to_geodataframe(
         if is_granule:
             geometry = _extract_granule_geometry(item)
             name = item.get("umm", {}).get("GranuleUR", "Unknown")[:50]
-            size = item.size() if hasattr(item, "size") else 0
+            size = item.size if hasattr(item, "size") else 0
             temporal = _format_temporal_extent(
                 item.get("umm", {}).get("TemporalExtent", {})
             )

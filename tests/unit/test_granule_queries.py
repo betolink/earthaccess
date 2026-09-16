@@ -62,7 +62,7 @@ def test_query_handles_bbox(bbox, expected):
 
 
 def _collection(concept_id: str):
-    return mock.Mock(concept_id=lambda: concept_id)
+    return mock.Mock(concept_id=concept_id)
 
 
 def test_doi_single_collection_sets_concept_id():

@@ -416,7 +416,7 @@ class Store:
         parallel: Union[str, bool, None] = None,
     ) -> List[Any]:
         fileset: List = []
-        total_size = round(sum([granule.size() for granule in granules]) / 1024, 2)
+        total_size = round(sum([granule.size for granule in granules]) / 1024, 2)
         logger.info(f"Opening {len(granules)} granules, approx size: {total_size} GB")
 
         if self.auth is None:
@@ -888,7 +888,7 @@ class Store:
             )
         )
 
-        total_size = round(sum(granule.size() for granule in granules) / 1024, 2)
+        total_size = round(sum(granule.size for granule in granules) / 1024, 2)
         logger.info(
             f" Getting {len(granules)} granules, approx download size: {total_size} GB"
         )

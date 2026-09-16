@@ -237,6 +237,7 @@ class DataCollection(CustomDict):
         "DirectDistributionInformation",
     ]
 
+    @property
     def summary(self) -> Dict[str, Any]:
         """Summary containing short_name, concept-id, file-type, and cloud-info (if cloud-hosted).
 
@@ -248,13 +249,13 @@ class DataCollection(CustomDict):
         summary_dict: Dict[str, Any]
         summary_dict = {
             "short-name": self.get_umm("ShortName"),
-            "concept-id": self.concept_id(),
-            "version": self.version(),
-            "file-type": self.data_type(),
-            "get-data": self.get_data(),
+            "concept-id": self.concept_id,
+            "version": self.version,
+            "file-type": self.data_type,
+            "get-data": self.data_links,
         }
-        if "Region" in self.s3_bucket():
-            summary_dict["cloud-info"] = self.s3_bucket()
+        if "Region" in self.s3_bucket:
+            summary_dict["cloud-info"] = self.s3_bucket
         return summary_dict
 
     def get_umm(self, umm_field: str) -> Union[str, Dict[str, Any]]:
@@ -268,6 +269,7 @@ class DataCollection(CustomDict):
         """
         return self["umm"].get(umm_field, "")
 
+    @property
     def doi(self) -> str | None:
         """Retrieve the Digital Object Identifier (DOI) for this collection.
 
@@ -296,10 +298,11 @@ class DataCollection(CustomDict):
         """
         return (
             None
-            if not (doi := self.doi())
+            if not (doi := self.doi)
             else _citation(doi=doi, format=format, language=language)
         )
 
+    @property
     def concept_id(self) -> str:
         """Placeholder.
 
@@ -308,6 +311,7 @@ class DataCollection(CustomDict):
         """
         return self["meta"]["concept-id"]
 
+    @property
     def data_type(self) -> str:
         """Return the collection's data file type, if advertised.
 
@@ -330,6 +334,7 @@ class DataCollection(CustomDict):
                     return str(entry["Format"])
         return ""
 
+    @property
     def version(self) -> str:
         """Placeholder.
 
@@ -338,6 +343,7 @@ class DataCollection(CustomDict):
         """
         return self["umm"].get("Version", "")
 
+    @property
     def abstract(self) -> str:
         """Placeholder.
 
@@ -346,6 +352,7 @@ class DataCollection(CustomDict):
         """
         return self["umm"].get("Abstract", "")
 
+    @property
     def landing_page(self) -> str:
         """Placeholder.
 
@@ -355,7 +362,8 @@ class DataCollection(CustomDict):
         links = self._filter_related_links("LANDING PAGE")
         return links[0] if len(links) > 0 else ""
 
-    def get_data(self) -> List[str]:
+    @property
+    def data_links(self) -> List[str]:
         """Placeholder.
 
         Returns:
@@ -363,6 +371,7 @@ class DataCollection(CustomDict):
         """
         return self._filter_related_links("GET DATA")
 
+    @property
     def s3_bucket(self) -> Dict[str, Any]:
         """Placeholder.
 
@@ -420,6 +429,7 @@ class DataCollection(CustomDict):
             token=creds["sessionToken"],
         )
 
+    @property
     def services(self) -> Dict[Any, List[Dict[str, Any]]]:
         """Return list of services available for this collection."""
         services = self.get("meta", {}).get("associations", {}).get("services", [])
@@ -428,7 +438,9 @@ class DataCollection(CustomDict):
             for service in services
         )
 
-        return {service: query.get_all() for service, query in zip(services, queries)}
+        return {
+            service: list(query.get_all()) for service, query in zip(services, queries)
+        }
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert the collection to a plain dictionary.
@@ -449,10 +461,10 @@ class DataCollection(CustomDict):
             A pystac Collection.
         """
         # Extract basic metadata
-        concept_id = self.concept_id()
+        concept_id = self.concept_id
         short_name = self.get_umm("ShortName") or concept_id
-        version = self.version()
-        abstract = self.abstract()
+        version = self.version
+        abstract = self.abstract
 
         # Build collection ID
         collection_id = f"{short_name}_v{version}" if version else str(short_name)
@@ -483,7 +495,7 @@ class DataCollection(CustomDict):
         }
 
         # Add DOI if available
-        doi = self.doi()
+        doi = self.doi
         if doi:
             stac_collection["sci:doi"] = doi
             stac_collection["stac_extensions"].append(
@@ -543,7 +555,7 @@ class DataCollection(CustomDict):
         links: List[Dict[str, str]] = []
 
         # Self link
-        concept_id = self.concept_id()
+        concept_id = self.concept_id
         links.append(
             {
                 "rel": "self",
@@ -553,7 +565,7 @@ class DataCollection(CustomDict):
         )
 
         # Landing page
-        landing = self.landing_page()
+        landing = self.landing_page
         if landing:
             links.append(
                 {
@@ -565,7 +577,7 @@ class DataCollection(CustomDict):
             )
 
         # Get data links
-        for url in self.get_data():
+        for url in self.data_links:
             links.append(
                 {
                     "rel": "via",
@@ -699,7 +711,7 @@ class GranuleFilter:
             True if granule passes all filter criteria, False otherwise
         """
         # Size filtering
-        size = granule.size()
+        size = granule.size
         if size is not None:
             if self.min_size is not None and size < self.min_size:
                 return False
@@ -909,7 +921,7 @@ class DataGranule(CustomDict):
         super().__init__(collection)
         self.cloud_hosted = cloud_hosted
         # TODO: maybe add area, start date and all that as an instance value
-        self["size"] = self.size()
+        self["size"] = self._size
         self.uuid = str(uuid.uuid4())
         self.render_dict: Any
         if fields is None:
@@ -939,7 +951,7 @@ class DataGranule(CustomDict):
             or ""
         )
         date_str = begin[:10] if begin else "n/a"
-        size = self.size()
+        size = self.size
         size_str = f"{size:.2f} MB" if size else "n/a"
         n_files = len(self.data_links())
 
@@ -1019,8 +1031,9 @@ class DataGranule(CustomDict):
             raise ValueError(msg)
         return earthaccess.__auth__.get_s3_credentials(endpoint=endpoint)
 
-    def size(self) -> float:
-        """Placeholder.
+    @property
+    def _size(self) -> float:
+        """Return the total granule size in MB.
 
         Returns:
             The total size for the granule in MB.
@@ -1047,6 +1060,15 @@ class DataGranule(CustomDict):
             except Exception:
                 total_size = 0
         return total_size
+
+    @property
+    def size(self) -> float:
+        """Return the total granule size in MB.
+
+        Returns:
+            The total size for the granule in MB.
+        """
+        return self._size
 
     def _derive_s3_link(self, links: List[str]) -> List[str]:
         s3_links = []
@@ -1091,6 +1113,7 @@ class DataGranule(CustomDict):
                     return https_links
             return https_links
 
+    @property
     def dataviz_links(self) -> List[str]:
         """Placeholder.
 
@@ -1100,6 +1123,7 @@ class DataGranule(CustomDict):
         links = self._filter_related_links("GET RELATED VISUALIZATION")
         return links
 
+    @property
     def data_type(self) -> str:
         """Return the granule's data file type(s).
 
@@ -1121,7 +1145,7 @@ class DataGranule(CustomDict):
                 types.append(ftype)
 
         thumb_types: List[str] = []
-        for link in self.dataviz_links():
+        for link in self.dataviz_links:
             ftype = _type_for_extension(_extension_from_url(link))
             if ftype and ftype not in thumb_types:
                 thumb_types.append(ftype)
@@ -1205,9 +1229,9 @@ class DataGranule(CustomDict):
             properties["end_datetime"] = None
 
         # Add size if available
-        if self.size() > 0:
+        if self.size > 0:
             properties["file:size"] = int(
-                self.size() * 1024 * 1024
+                self.size * 1024 * 1024
             )  # Convert MB to bytes
 
         # Build STAC Item
@@ -1527,7 +1551,7 @@ class DataGranule(CustomDict):
             assets[asset_key] = asset
 
         # Add browse/thumbnail assets
-        viz_links = self.dataviz_links()
+        viz_links = self.dataviz_links
         for link in viz_links:
             asset_key = self._extract_asset_key(link, "GET RELATED VISUALIZATION")
 
@@ -2016,7 +2040,7 @@ class SearchResults:
         Example:
             >>> results = earthaccess.search_datasets(keyword="temperature")
             >>> for collection in results.items():
-            ...     print(collection.concept_id())
+            ...     print(collection.concept_id)
 
         Yields:
             DataGranule or DataCollection: Individual result items
@@ -2294,10 +2318,10 @@ class SearchResults:
         max_date: Optional[str] = None
 
         for item in self._cached_results:
-            # Granules expose a size() method; collections do not.
+            # Granules expose a size property; collections do not.
             size = getattr(item, "size", None)
-            if callable(size):
-                total_size += float(size())  # type: ignore[arg-type]
+            if isinstance(size, (int, float)):
+                total_size += float(size)
 
             if getattr(item, "cloud_hosted", False):
                 cloud_count += 1
@@ -2640,7 +2664,7 @@ class CollectionResults(SearchResults):
     Examples:
         >>> results = earthaccess.search_datasets(keyword="temperature", count=10)
         >>> for collection in results:
-        ...     print(collection.concept_id())
+        ...     print(collection.concept_id)
     """
 
     __module__ = "earthaccess.search"

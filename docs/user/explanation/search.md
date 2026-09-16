@@ -85,10 +85,10 @@ len(results)
 1
 ```
 
-The concept-id can be accessed directly using the `concept_id` method.
+The concept-id can be accessed directly using the `concept_id` property.
 
 ```
-results[0].concept_id()
+results[0].concept_id
 ```
 ```
 'C3326974349-NSIDC_CPRD'
@@ -410,7 +410,7 @@ results = earthaccess.search_datasets(
 
 ```python
 for dataset in datasets:
-    print(dataset.services())
+    print(dataset.services)
 ```
 
 The other way to use the `search_services` function.  This takes the following keywords:

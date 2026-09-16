@@ -199,7 +199,7 @@ def _repr_granule_html(granule: "DataGranule") -> str:
     dataviz_img = "".join(
         [
             f'<a href="{link}"><img style="{style}" src="{link}" alt="Data Preview"/></a>'
-            for link in granule.dataviz_links()[:2]
+            for link in granule.dataviz_links[:2]
             if link.startswith("http")
         ]
     )
@@ -210,7 +210,7 @@ def _repr_granule_html(granule: "DataGranule") -> str:
             if link.startswith("http")
         ]
     )
-    granule_size = round(granule.size(), 2)
+    granule_size = round(granule.size, 2)
 
     # Extract temporal info
     temporal = granule.get("umm", {}).get("TemporalExtent", {})
@@ -258,16 +258,16 @@ def _repr_collection_html(collection: "DataCollection") -> str:
 
     # Extract metadata
     short_name = collection.get_umm("ShortName") or "Unknown"
-    version = collection.version() or ""
+    version = collection.version or ""
     title = collection.get_umm("EntryTitle") or short_name
-    abstract = collection.abstract() or "No description available"
+    abstract = collection.abstract or "No description available"
 
     # Truncate abstract if too long
     if len(abstract) > 300:
         abstract = abstract[:297] + "..."
 
     # Get DOI
-    doi = collection.doi()
+    doi = collection.doi
     doi_html = (
         f'<a href="https://doi.org/{doi}" target="_blank">{doi}</a>' if doi else "N/A"
     )
@@ -280,14 +280,14 @@ def _repr_collection_html(collection: "DataCollection") -> str:
     temporal_str = _format_collection_temporal(temporal_extents)
 
     # Links
-    landing_page = collection.landing_page()
+    landing_page = collection.landing_page
     landing_html = (
         f'<a href="{landing_page}" target="_blank" class="btn btn-primary btn-sm">Landing Page</a>'
         if landing_page
         else ""
     )
 
-    get_data_links = collection.get_data()[:2]  # First 2 data links
+    get_data_links = collection.data_links[:2]  # First 2 data links
     get_data_html = "".join(
         [
             f'<a href="{link}" target="_blank" class="btn btn-secondary btn-sm">Get Data</a>'
@@ -296,7 +296,7 @@ def _repr_collection_html(collection: "DataCollection") -> str:
         ]
     )
 
-    concept_id = collection.concept_id()
+    concept_id = collection.concept_id
     concept_html = _concept_link(concept_id)
 
     return f"""
@@ -646,10 +646,10 @@ def _granule_row_with_index(granule: "DataGranule", idx: int, widget_id: str) ->
     date_str = _format_temporal_extent(temporal, short=True)
 
     # Size
-    size = round(granule.size(), 2)
+    size = round(granule.size, 2)
 
     # File type
-    file_type = granule.data_type()
+    file_type = granule.data_type
 
     # Concept ID
     concept_id = granule.get("meta", {}).get("concept-id", "")
@@ -732,7 +732,7 @@ def _granule_row_with_index(granule: "DataGranule", idx: int, widget_id: str) ->
 
     # Thumbnail image (browse) for the detail row, if the granule has one
     thumb_html = ""
-    dataviz = granule.dataviz_links()
+    dataviz = granule.dataviz_links
     if dataviz:
         thumb_url = dataviz[0]
         thumb_html = f"""
@@ -774,7 +774,7 @@ def _collection_row_with_index(
     to show links, temporal coverage, and spatial extent.
     """
     short_name = collection.get_umm("ShortName") or "Unknown"
-    version = collection.version() or ""
+    version = collection.version or ""
     name_display = f"{short_name}"
     if version:
         name_display += f" v{version}"
@@ -784,10 +784,10 @@ def _collection_row_with_index(
         name_display = name_display[:27] + "..."
 
     # Concept ID
-    concept_id = collection.concept_id()
+    concept_id = collection.concept_id
 
     # DOI
-    doi = collection.doi()
+    doi = collection.doi
     if doi:
         doi_html = f'<a href="https://doi.org/{doi}" target="_blank" style="font-size: 0.8em;">{doi[:30]}{"..." if len(doi) > 30 else ""}</a>'
     else:
@@ -817,8 +817,8 @@ def _collection_row_with_index(
     granule_str = f"{granule_count:,}" if granule_count else "—"
 
     # Links count for the main row
-    landing = collection.landing_page()
-    get_data = collection.get_data()
+    landing = collection.landing_page
+    get_data = collection.data_links
     link_count = (1 if landing else 0) + len(get_data)
     links_badge = f'<span style="background: var(--ea-btn-primary-bg); color: white; padding: 2px 6px; border-radius: 10px; font-size: 0.75em;">{link_count}</span>'
 
@@ -940,10 +940,10 @@ def _granule_row(granule: "DataGranule") -> str:
     date_str = _format_temporal_extent(temporal, short=True)
 
     # Size
-    size = round(granule.size(), 2)
+    size = round(granule.size, 2)
 
     # File type
-    file_type = granule.data_type()
+    file_type = granule.data_type
 
     # First data link
     data_links = granule.data_links()
@@ -968,7 +968,7 @@ def _granule_row(granule: "DataGranule") -> str:
 def _collection_row(collection: "DataCollection") -> str:
     """Generate a table row for a collection."""
     short_name = collection.get_umm("ShortName") or "Unknown"
-    version = collection.version() or ""
+    version = collection.version or ""
     name_display = f"{short_name} v{version}" if version else short_name
 
     # Truncate if needed
@@ -988,7 +988,7 @@ def _collection_row(collection: "DataCollection") -> str:
     cloud_icon = "☁️" if is_cloud else "🖥️"
 
     # Landing page link
-    landing = collection.landing_page()
+    landing = collection.landing_page
     link_html = (
         f'<a href="{landing}" target="_blank" title="{landing}">🔗</a>'
         if landing
@@ -1022,7 +1022,7 @@ def _compute_summary(items: List[Any]) -> dict:
 
     for item in items:
         if _is_granule(item):
-            total_size += item.size()
+            total_size += item.size
             if item.cloud_hosted:
                 cloud_count += 1
             # Extract date

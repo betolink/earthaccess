@@ -604,7 +604,7 @@ def test_extension_to_type_map_has_common_formats():
 def test_granule_data_type(fixture_name, expected):
     """data_type() derives distinct file types from a granule's GET DATA links."""
     granule = _make_granule(fixture_name)
-    assert granule.data_type() == expected
+    assert granule.data_type == expected
 
 
 def test_granule_data_type_unknown_without_links():
@@ -620,7 +620,7 @@ def test_granule_data_type_unknown_without_links():
             "meta": {"concept-id": "G1-TEST"},
         }
     )
-    assert granule.data_type() == "Unknown"
+    assert granule.data_type == "Unknown"
 
 
 def test_granule_data_type_lists_unmapped_extension():
@@ -639,7 +639,7 @@ def test_granule_data_type_lists_unmapped_extension():
             "meta": {"concept-id": "G3-TEST"},
         }
     )
-    assert granule.data_type() == ".jgr"
+    assert granule.data_type == ".jgr"
 
 
 def test_granule_data_type_mixed_known_and_unknown():
@@ -662,7 +662,7 @@ def test_granule_data_type_mixed_known_and_unknown():
             "meta": {"concept-id": "G4-TEST"},
         }
     )
-    assert granule.data_type() == "COG, .jgr"
+    assert granule.data_type == "COG, .jgr"
 
 
 def test_granule_data_type_hybrid_get_data():
@@ -689,7 +689,7 @@ def test_granule_data_type_hybrid_get_data():
             "meta": {"concept-id": "G2-TEST"},
         }
     )
-    assert granule.data_type() == "COG, NetCDF, JPEG"
+    assert granule.data_type == "COG, NetCDF, JPEG"
 
 
 def test_repr_search_results_uses_file_type_column():
@@ -846,7 +846,7 @@ def test_collection_data_type_from_archive_info():
             "meta": {"concept-id": "C1-TEST", "provider-id": "TEST"},
         }
     )
-    assert collection.data_type() == "HDF-EOS5"
+    assert collection.data_type == "HDF-EOS5"
 
 
 def test_collection_data_type_empty_without_archive_info():
@@ -857,7 +857,7 @@ def test_collection_data_type_empty_without_archive_info():
             "meta": {"concept-id": "C1-TEST", "provider-id": "TEST"},
         }
     )
-    assert collection.data_type() == ""
+    assert collection.data_type == ""
 
 
 # =============================================================================
