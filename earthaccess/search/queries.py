@@ -26,6 +26,7 @@ from typing_extensions import (
 
 from cmr import CollectionQuery as CmrCollectionQuery, GranuleQuery as CmrGranuleQuery
 from earthaccess.auth import Auth
+from earthaccess.auth.system import PROD, route
 from earthaccess.search._utils import get_results
 from earthaccess.search.results import DataCollection, DataGranule
 from earthaccess.store.daac import find_provider, find_provider_by_shortname
@@ -125,7 +126,9 @@ class DataCollections(CmrCollectionQuery):
         )
 
         if auth:
-            self.mode(auth.system.cmr_base_url)
+            self.mode(route(auth.system.cmr_base_url))
+        else:
+            self.mode(route(PROD.cmr_base_url))
 
         self._debug = False
 
@@ -575,7 +578,9 @@ class DataGranules(CmrGranuleQuery):
         )
 
         if auth:
-            self.mode(auth.system.cmr_base_url)
+            self.mode(route(auth.system.cmr_base_url))
+        else:
+            self.mode(route(PROD.cmr_base_url))
 
         self._debug = False
 

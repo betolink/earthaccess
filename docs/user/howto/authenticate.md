@@ -93,3 +93,36 @@ import earthaccess
 
 earthaccess.login(system=earthaccess.UAT)
 ```
+
+## Route requests through a proxy
+
+Some environments cannot reach NASA's Earthdata services directly. For example,
+in a browser-based (JupyterLite/Pyodide) notebook, [CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS)
+restrictions prevent earthaccess from calling CMR and Earthdata Login.
+
+If you have a proxy that forwards requests and returns permissive CORS headers,
+point earthaccess at it with `earthaccess.set_proxy()`:
+
+```python
+import earthaccess
+
+earthaccess.set_proxy("https://earthdata-proxy.example.workers.dev")
+```
+
+You can also configure the proxy without writing any code by setting the
+`EARTHDATA_PROXY_URL` environment variable; an explicit call to
+`earthaccess.set_proxy()` takes precedence over it. Pass `None` to
+`earthaccess.set_proxy()` to clear an explicitly configured proxy.
+
+The proxy must accept the fully-qualified target URL as a path suffix, forward
+the request, and return the upstream response with permissive CORS headers. For
+example, a request for
+`https://earthdata-proxy.example.workers.dev/https://cmr.earthdata.nasa.gov/search/granules.umm_json`
+is forwarded to
+`https://cmr.earthdata.nasa.gov/search/granules.umm_json`.
+
+!!! note
+
+    Only Earthdata Login, CMR, and the Earthdata status service are routed
+    through the proxy. Downloading and streaming data from DAACs (over S3 or
+    HTTPS) is not.

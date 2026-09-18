@@ -9,6 +9,10 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Added
 
+- New `earthaccess.set_proxy()` (and `earthaccess.get_proxy()`) route Earthdata
+  Login, CMR, and status requests through a CORS proxy, so earthaccess can be
+  used in browser-based environments such as JupyterLite. The proxy can also be
+  set with the `EARTHDATA_PROXY_URL` environment variable.
 - `open_virtual()` now authorizes Icechunk virtual chunk containers
   (`authorize_virtual_chunk_access`) automatically, so stores whose virtual
   chunks point at NASA HTTP/S3 data can be read with the user's EDL

@@ -12,7 +12,7 @@ from earthaccess.auth.credentials import (
     HTTPHeaders,
     S3Credentials,
 )
-from earthaccess.auth.system import PROD, UAT, System
+from earthaccess.auth.system import PROD, UAT, System, get_proxy, set_proxy
 
 __all__ = [
     # auth.py
@@ -28,6 +28,8 @@ __all__ = [
     "PROD",
     "UAT",
     "System",
+    "set_proxy",
+    "get_proxy",
     # Deprecated - kept for backward compatibility
     "SessionWithHeaderRedirection",
 ]

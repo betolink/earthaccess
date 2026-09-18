@@ -37,6 +37,7 @@ from tenacity import (
 )
 from typing_extensions import deprecated
 
+from ..auth.system import route
 from ..search import DataCollections, DataGranule, GranuleResults
 from .daac import DAAC_TEST_URLS, find_provider
 
@@ -101,7 +102,7 @@ class Store:
             self._s3_credentials: Dict[
                 Tuple, Tuple[datetime.datetime, Dict[str, str]]
             ] = {}
-            oauth_profile = f"https://{auth.system.edl_hostname}/profile"
+            oauth_profile = route(f"https://{auth.system.edl_hostname}/profile")
             # sets the initial URS cookie
             self._requests_cookies: Dict[str, Any] = {}
             self.set_requests_session(oauth_profile, bearer_token=True)
@@ -388,7 +389,7 @@ class Store:
             # We can use the internal search module or just a direct request
             # Using DataCollections might be cleaner if available, but a direct request is also fine.
             # Let's use the auth session to query CMR.
-            base_url = self.auth.system.cmr_base_url
+            base_url = route(self.auth.system.cmr_base_url)
             url = f"{base_url}/search/collections.umm_json?concept_id={concept_id}"
 
             response = self.auth.get_session().get(url)

@@ -29,6 +29,7 @@ from earthaccess.search import (
 )
 
 from .auth import PROD, Auth, System
+from .auth.system import route
 from .search.query import (
     CollectionQuery as NewCollectionQuery,
     GranuleQuery as NewGranuleQuery,
@@ -72,7 +73,7 @@ def status(system: System = PROD, raise_on_outage: bool = False) -> dict[str, st
     )
 
     try:
-        with requests.get(system.status_api_url) as r:
+        with requests.get(route(system.status_api_url)) as r:
             r.raise_for_status()
             statuses_json = r.json()
 

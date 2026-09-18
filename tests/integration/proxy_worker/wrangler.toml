@@ -1,0 +1,9 @@
+name = "earthaccess-test-proxy"
+main = "worker.js"
+compatibility_date = "2024-11-01"
+
+# Restrict which upstream hosts this proxy will forward to. Leave empty/unset to
+# allow the built-in defaults (see worker.js). The integration test only routes
+# EDL, CMR, and status requests through the proxy.
+[vars]
+ALLOWED_HOSTS = "cmr.earthdata.nasa.gov,cmr.uat.earthdata.nasa.gov,urs.earthdata.nasa.gov,uat.urs.earthdata.nasa.gov,status.earthdata.nasa.gov,status.uat.earthdata.nasa.gov"

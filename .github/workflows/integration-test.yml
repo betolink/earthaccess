@@ -151,6 +151,10 @@ jobs:
         env:
           EARTHDATA_USERNAME: ${{ secrets.EDL_USERNAME }}
           EARTHDATA_PASSWORD: ${{ secrets.EDL_PASSWORD }}
+          EARTHDATA_TOKEN: ${{ secrets.EDL_TOKEN }}
+          EARTHDATA_UAT_USERNAME: ${{ secrets.EDL_UAT_USERNAME }}
+          EARTHDATA_UAT_PASSWORD: ${{ secrets.EDL_UAT_PASSWORD }}
+          EARTHDATA_UAT_TOKEN: ${{ secrets.EDL_UAT_TOKEN }}
         run: |
           # -rxXs: Show provided (r)eason in summary for (x)fail, (X)pass, and (s)kipped tests
           uv run pytest tests/integration \

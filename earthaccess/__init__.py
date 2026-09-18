@@ -66,7 +66,7 @@ from .api import (
     status,
 )
 from .auth import Auth
-from .auth.system import PROD, UAT
+from .auth.system import PROD, UAT, get_proxy, set_proxy
 from .search import (
     DataCollection,
     DataCollections,
@@ -94,6 +94,8 @@ __all__ = [
     # system.py
     "PROD",
     "UAT",
+    "set_proxy",
+    "get_proxy",
     # auth.py
     "Auth",
     # search.py

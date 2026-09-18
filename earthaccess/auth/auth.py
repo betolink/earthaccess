@@ -16,7 +16,7 @@ import requests.cookies
 from tinynetrc import Netrc
 from typing_extensions import deprecated
 
-from earthaccess.auth.system import PROD, System
+from earthaccess.auth.system import PROD, System, get_proxy, route
 from earthaccess.exceptions import LoginAttemptFailure, LoginStrategyUnavailable
 from earthaccess.store.daac import DAACS
 
@@ -59,13 +59,28 @@ class BasicAuthResponseHook:
         self.hostname = hostname
         self.auth = auth
 
+    def _is_edl_url(self, url: str) -> bool:
+        """Return True if `url` targets EDL, directly or through the proxy."""
+        if urlparse(url).hostname == self.hostname:
+            return True
+
+        proxy = get_proxy()
+        if not proxy or not url.startswith(proxy):
+            return False
+
+        # Through the proxy, the target URL is embedded as the path. Parse it
+        # and compare hostnames exactly so that look-alike hosts (e.g.
+        # "urs.earthdata.nasa.gov.evil.com") do not receive credentials.
+        target = urlparse(url[len(proxy) :])
+        return target.scheme == "https" and target.hostname == self.hostname
+
     def __call__(self, r: requests.Response, **kwargs: Any) -> requests.Response:
         from http.cookiejar import CookieJar
 
         # If the response's URL is not for the EDL system we're authenticating
         # against, then simply return the response unchanged.  Otherwise, we'll
         # prepare a new request below with the user's EDL credentials.
-        if urlparse(r.url).hostname != self.hostname:
+        if not self._is_edl_url(r.url):
             return r
 
         # Consume content and release the original connection to allow our new
@@ -238,15 +253,22 @@ class Auth(object):
     def _set_earthdata_system(self, system: System) -> None:
         self.system = system
 
-        # Maybe all these predefined URLs should be in a constants.py file
-        self.EDL_FIND_OR_CREATE_TOKEN_URL = (
+    @property
+    def EDL_FIND_OR_CREATE_TOKEN_URL(self) -> str:
+        """EDL endpoint used to exchange credentials for a token."""
+        return route(
             f"https://{self.system.edl_hostname}/api/users/find_or_create_token"
         )
 
-        self._eula_url = (
+    @property
+    def _eula_url(self) -> str:
+        return route(
             f"https://{self.system.edl_hostname}/users/earthaccess/unaccepted_eulas"
         )
-        self._apps_url = f"https://{self.system.edl_hostname}/application_search"
+
+    @property
+    def _apps_url(self) -> str:
+        return route(f"https://{self.system.edl_hostname}/application_search")
 
     @deprecated("No replacement, as tokens are now refreshed automatically.")
     def refresh_tokens(self) -> bool:
