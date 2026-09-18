@@ -1,6 +1,6 @@
 site_name: earthaccess
 site_description: Client library for NASA Earthdata APIs
-site_url: https://earthaccess.readthedocs.io/
+site_url: https://github.com/earthaccess-dev/earthaccess
 
 # Fail on broken links
 # Do not disable if the build fails! Fix the broken links :)
