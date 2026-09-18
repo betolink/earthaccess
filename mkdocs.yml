@@ -1,13 +1,14 @@
 site_name: earthaccess
 site_description: Client library for NASA Earthdata APIs
-site_url: https://github.com/nsidc/earthaccess
+site_url: https://earthaccess.readthedocs.io/
 
 # Fail on broken links
-strict: false
+# Do not disable if the build fails! Fix the broken links :)
+strict: true
 
 theme:
   name: "material"
-  logo: earth.png
+  logo: logo.png
   favicon: earth.png
   palette:
     - scheme: default
@@ -23,16 +24,25 @@ theme:
     # Allow navigation sections to link to index/overview pages.
     # See: https://squidfunk.github.io/mkdocs-material/setup/setting-up-navigation/#section-index-pages
     - navigation.indexes
+    # Enable navigation breadcrumbs
+    - navigation.path
+    # Display top-level nav elements in the top bar
+    - navigation.tabs
+    # Add "Edit this page" button
+    - content.action.edit
+    # Add "View source" buton
+    - content.action.view
 
-repo_name: nsidc/earthaccess
-repo_url: https://github.com/nsidc/earthaccess
-edit_uri: ""
+repo_name: "earthaccess-dev/earthaccess"
+repo_url: "https://github.com/earthaccess-dev/earthaccess"
+edit_uri: "edit/main/docs/"
 
 extra_css:
   - css/styles.css
 
 plugins:
   - search
+  - awesome-nav
   - mermaid2
   - mkdocstrings:
       default_handler: python
@@ -50,6 +60,7 @@ plugins:
   - redirects:
       redirect_maps:
         "CODE_OF_CONDUCT.md": "contributor/code-of-conduct.md"
+        "contributing/our-meet-ups.md": "calendar.md"
   - mkdocs-jupyter:
       execute: true
       execute_ignore:
@@ -77,94 +88,9 @@ plugins:
         - "tutorials/dmrpp-virtualizarr.ipynb"
         - "howto/edl.ipynb"
 
-nav:
-  - "What is earthaccess?": "index.md"
-  - "Quick start": "user/quick-start.md"
-  - "Work with us":
-      - "Contributor guide": "contributor/index.md"
-      - "Development Guide": "contributor/howto/development.md"
-      - "Releasing Guide": "contributor/howto/releasing.md"
-      - "Maintainers Guide": "contributor/howto/maintainers-guide.md"
-      - "Triaging Guide": "contributor/howto/triaging.md"
-      - "Pull Request Guide": "contributor/howto/pr-guide.md"
-      - "Code of Conduct": "contributor/code-of-conduct.md"
-      - "Contributing naming convention": "contributor/reference/naming-convention.md"
-      - "Integration tests": "contributor/explanation/integration-tests.md"
-      - Architecture & Design:
-          - "Migration Guide: v0.x → v1.0.0": "migration-guide.md"
-          - "Refactoring Overview": "refactoring.md"
-          - "Icechunk Virtual Chunk Containers": "refactoring/icechunk-vcc.md"
-          - "Virtualize: combine strategies": "refactoring/virtualize-combine-tree.md"
-          - "STAC Module Architecture": "refactoring/stac-module-architecture.md"
-          - "Implementation Phases (Historical)": "refactoring/stac-implementation-log.md"
-          - "Architecture Comparison": "refactoring/stac-comparison.md"
-          - "Next-Gen Vision": "refactoring/earthaccess-nextgen.md"
-  - "Resources": "resources.md"
-  - USER GUIDE:
-      - "user/index.md"
-      - "Authentication": "user/explanation/authenticate.md"
-      - "Status": "user/explanation/status.md"
-      - "Search": "user/explanation/search.md"
-      - "Access": "user/explanation/access.md"
-      - "Backwards Compatibility": "user/explanation/backwards-compatibility.md"
-  - HOW-TO:
-      - "Authenticate with Earthdata Login": "user/howto/authenticate.md"
-      - "Search for data using filters": "user/howto/search-granules.md"
-      - "Access data": "user/howto/access-data.md"
-      - "Reproduce, save, and verify searches": "user/howto/reproduce-search.md"
-      - "Direct S3 access - Open/stream files in the cloud": "user/howto/cloud.md"
-      - "Using authenticated sessions to access data": "user/howto/edl.ipynb"
-      - "Remote access and caching with earthaccess": "user/explanation/fsspec.ipynb"
-      - "Search for services": "user/howto/search-services.md"
-  - TUTORIALS:
-      - STAC:
-          - "STAC tutorials": "tutorials/stac/index.md"
-          - "CMR to STAC Semantics": "tutorials/cmr-to-stac.ipynb"
-          - "STAC Interoperability": "tutorials/odc-stac-cmr.ipynb"
-      - Virtual Datasets (VDS):
-          - "Virtual datasets (VDS) tutorials": "tutorials/vds/index.md"
-          - "Virtual data with Icechunk": "tutorials/icechunk_virtual.ipynb"
-          - "VDS Strategies": "tutorials/virtualize_combine_tree.ipynb"
-          - "Virtual datasets with TEMPO": "user/tutorials/virtual_dataset_tutorial_with_TEMPO_Level3.ipynb"
-          - "DMRPP + VirtualiZarr": "user/tutorials/dmrpp-virtualizarr.ipynb"
-      - Advanced Search:
-          - "Advanced Search tutorials": "tutorials/advanced-search/index.md"
-          - "Filtering granules by file (band) patterns": "tutorials/advanced-search/filter-bands.ipynb"
-          - "Search for data using filters": "user/howto/search-granules.md"
-          - "Accessing datasets under an ACL": "user/tutorials/restricted-datasets.ipynb"
-      - Results Class:
-          - "Results Class tutorials": "tutorials/results/index.md"
-          - "Results Class Overview": "tutorials/results/results-class.ipynb"
-      - Access to selected datasets:
-          - "Access to selected datasets": "tutorials/access-datasets/index.md"
-          - "Streaming data from EMIT": "user/tutorials/emit-earthaccess.ipynb"
-          - "Analyzing sea level rise in the cloud": "user/tutorials/SSL.ipynb"
-          - "Accessing remote files": "user/tutorials/file-access.ipynb"
-  - API REFERENCE:
-      - "Search and Access": "api/index.md"
-      - Collections:
-          - "Collection Queries": "api/collections/collections-query.md"
-          - "Collection Results": "api/collections/collections.md"
-          - "Collection Services": "api/collections/collections-services.md"
-      - Granules:
-          - "Granule Queries": "api/granules/granules-query.md"
-          - "Granule Results": "api/granules/granules.md"
-      - STAC:
-          - "Overview": "api/stac/overview.md"
-          - "Conversion Functions": "api/stac/converters.md"
-          - "Query Builders": "api/stac/queries.md"
-          - "Result Methods": "api/stac/methods.md"
-      - Store:
-          - "Store": "api/store/store.md"
-      - Auth:
-          - "Auth": "api/auth/auth.md"
-      - Glossary:
-          - "NASA Glossary": "user/reference/glossary/nasa-glossary.md"
-          - "Cloud Computing Terminology": "user/reference/glossary/cloud-glossary.md"
-  - "About Us": "about-us.md"
-
 markdown_extensions:
   - admonition
+  - attr_list
   - callouts
   - pymdownx.details
   - meta

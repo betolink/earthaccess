@@ -18,8 +18,6 @@ API in detail, see the [Results Class](../results/index.md) tutorials or the
   search, summarize, and stream granules from NASA's EMIT mission.
 - [Analyzing sea level rise in the cloud](../../user/tutorials/SSL.ipynb) —
   a full workflow that searches, opens, and analyzes data end-to-end.
-- [Accessing remote files with earthaccess](../../user/tutorials/file-access.ipynb) —
-  open remote files with fsspec-backed sessions.
 
 ## Try it next
 
