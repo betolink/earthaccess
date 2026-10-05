@@ -1,0 +1,1540 @@
+
+<!DOCTYPE html>
+
+<html class="no-js" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width,initial-scale=1" name="viewport"/>
+<meta content="Client library for NASA Earthdata APIs" name="description"/>
+<link href="https://betolink.github.io/earthaccess/contributor/howto/triaging/" rel="canonical"/>
+<link href="../maintainers-guide/" rel="prev"/>
+<link href="../../explanation/integration-tests/" rel="next"/>
+<link href="../../../earth.png" rel="icon"/>
+<meta content="mkdocs-1.6.1, mkdocs-material-9.6.18" name="generator"/>
+<title>Triage issues - earthaccess</title>
+<link href="../../../assets/stylesheets/main.7e37652d.min.css" rel="stylesheet"/>
+<link href="../../../assets/stylesheets/palette.06af60db.min.css" rel="stylesheet"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&amp;display=fallback" rel="stylesheet"/>
+<style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+<link href="../../../assets/_mkdocstrings.css" rel="stylesheet"/>
+<link href="../../../css/styles.css" rel="stylesheet"/>
+<script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+</head>
+<body data-md-color-accent="indigo" data-md-color-primary="teal" data-md-color-scheme="default" dir="ltr">
+<input autocomplete="off" class="md-toggle" data-md-toggle="drawer" id="__drawer" type="checkbox"/>
+<input autocomplete="off" class="md-toggle" data-md-toggle="search" id="__search" type="checkbox"/>
+<label class="md-overlay" for="__drawer"></label>
+<div data-md-component="skip">
+<a class="md-skip" href="#issue-triaging-and-prioritization-guide">
+          Skip to content
+        </a>
+</div>
+<div data-md-component="announce">
+</div>
+<header class="md-header" data-md-component="header">
+<nav aria-label="Header" class="md-header__inner md-grid">
+<a aria-label="earthaccess" class="md-header__button md-logo" data-md-component="logo" href="../../.." title="earthaccess">
+<img alt="logo" src="../../../logo.png"/>
+</a>
+<label class="md-header__button md-icon" for="__drawer">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"></path></svg>
+</label>
+<div class="md-header__title" data-md-component="header-title">
+<div class="md-header__ellipsis">
+<div class="md-header__topic">
+<span class="md-ellipsis">
+            earthaccess
+          </span>
+</div>
+<div class="md-header__topic" data-md-component="header-topic">
+<span class="md-ellipsis">
+            
+              Triage issues
+            
+          </span>
+</div>
+</div>
+</div>
+<form class="md-header__option" data-md-component="palette">
+<input aria-label="Switch to dark mode" class="md-option" data-md-color-accent="indigo" data-md-color-media="" data-md-color-primary="teal" data-md-color-scheme="default" id="__palette_0" name="__palette" type="radio"/>
+<label class="md-header__button md-icon" for="__palette_1" hidden="" title="Switch to dark mode">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M17 6H7c-3.31 0-6 2.69-6 6s2.69 6 6 6h10c3.31 0 6-2.69 6-6s-2.69-6-6-6m0 10H7c-2.21 0-4-1.79-4-4s1.79-4 4-4h10c2.21 0 4 1.79 4 4s-1.79 4-4 4M7 9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3"></path></svg>
+</label>
+<input aria-label="Switch to light mode" class="md-option" data-md-color-accent="indigo" data-md-color-media="" data-md-color-primary="indigo" data-md-color-scheme="slate" id="__palette_1" name="__palette" type="radio"/>
+<label class="md-header__button md-icon" for="__palette_0" hidden="" title="Switch to light mode">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3"></path></svg>
+</label>
+</form>
+<script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+<label class="md-header__button md-icon" for="__search">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"></path></svg>
+</label>
+<div class="md-search" data-md-component="search" role="dialog">
+<label class="md-search__overlay" for="__search"></label>
+<div class="md-search__inner" role="search">
+<form class="md-search__form" name="search">
+<input aria-label="Search" autocapitalize="off" autocomplete="off" autocorrect="off" class="md-search__input" data-md-component="search-query" name="query" placeholder="Search" required="" spellcheck="false" type="text"/>
+<label class="md-search__icon md-icon" for="__search">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"></path></svg>
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"></path></svg>
+</label>
+<nav aria-label="Search" class="md-search__options">
+<button aria-label="Clear" class="md-search__icon md-icon" tabindex="-1" title="Clear" type="reset">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"></path></svg>
+</button>
+</nav>
+</form>
+<div class="md-search__output">
+<div class="md-search__scrollwrap" data-md-scrollfix="" tabindex="0">
+<div class="md-search-result" data-md-component="search-result">
+<div class="md-search-result__meta">
+            Initializing search
+          </div>
+<ol class="md-search-result__list" role="presentation"></ol>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="md-header__source">
+<a class="md-source" data-md-component="source" href="https://github.com/earthaccess-dev/earthaccess" title="Go to repository">
+<div class="md-source__icon md-icon">
+<svg viewbox="0 0 448 512" xmlns="http://www.w3.org/2000/svg"><!--! Font Awesome Free 7.0.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4" fill="currentColor"></path></svg>
+</div>
+<div class="md-source__repository">
+    earthaccess-dev/earthaccess
+  </div>
+</a>
+</div>
+</nav>
+</header>
+<div class="md-container" data-md-component="container">
+<nav aria-label="Tabs" class="md-tabs" data-md-component="tabs">
+<div class="md-grid">
+<ul class="md-tabs__list">
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../../..">
+          
+  
+  
+    
+  
+  Overview
+
+        </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../../../api/">
+          
+  
+  
+    
+  
+  API reference
+
+        </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../../../user/">
+          
+  
+  
+    
+  
+  User guide
+
+        </a>
+</li>
+<li class="md-tabs__item md-tabs__item--active">
+<a class="md-tabs__link" href="../../">
+          
+  
+  
+    
+  
+  Contributor guide
+
+        </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../../../refactoring/">
+          
+  
+  
+    
+  
+  Architecture &amp; Design
+
+        </a>
+</li>
+</ul>
+</div>
+</nav>
+<main class="md-main" data-md-component="main">
+<div class="md-main__inner md-grid">
+<div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation">
+<div class="md-sidebar__scrollwrap">
+<div class="md-sidebar__inner">
+<nav aria-label="Navigation" class="md-nav md-nav--primary md-nav--lifted" data-md-level="0">
+<label class="md-nav__title" for="__drawer">
+<a aria-label="earthaccess" class="md-nav__button md-logo" data-md-component="logo" href="../../.." title="earthaccess">
+<img alt="logo" src="../../../logo.png"/>
+</a>
+    earthaccess
+  </label>
+<div class="md-nav__source">
+<a class="md-source" data-md-component="source" href="https://github.com/earthaccess-dev/earthaccess" title="Go to repository">
+<div class="md-source__icon md-icon">
+<svg viewbox="0 0 448 512" xmlns="http://www.w3.org/2000/svg"><!--! Font Awesome Free 7.0.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4" fill="currentColor"></path></svg>
+</div>
+<div class="md-source__repository">
+    earthaccess-dev/earthaccess
+  </div>
+</a>
+</div>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_1" type="checkbox"/>
+<div class="md-nav__link md-nav__container">
+<a class="md-nav__link" href="../../..">
+<span class="md-ellipsis">
+    Overview
+    
+  </span>
+</a>
+<label class="md-nav__link" for="__nav_1" id="__nav_1_label" tabindex="0">
+<span class="md-nav__icon md-icon"></span>
+</label>
+</div>
+<nav aria-expanded="false" aria-labelledby="__nav_1_label" class="md-nav" data-md-level="1">
+<label class="md-nav__title" for="__nav_1">
+<span class="md-nav__icon md-icon"></span>
+            Overview
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../calendar/">
+<span class="md-ellipsis">
+    Community calendar
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../resources/">
+<span class="md-ellipsis">
+    External resources
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../about-us/">
+<span class="md-ellipsis">
+    About us
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../supported-by/">
+<span class="md-ellipsis">
+    Supported by
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_1_6" type="checkbox"/>
+<label class="md-nav__link" for="__nav_1_6" id="__nav_1_6_label" tabindex="0">
+<span class="md-ellipsis">
+    Governance
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_1_6_label" class="md-nav" data-md-level="2">
+<label class="md-nav__title" for="__nav_1_6">
+<span class="md-nav__icon md-icon"></span>
+            Governance
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_1_6_1" type="checkbox"/>
+<label class="md-nav__link" for="__nav_1_6_1" id="__nav_1_6_1_label" tabindex="0">
+<span class="md-ellipsis">
+    Decisions
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_1_6_1_label" class="md-nav" data-md-level="3">
+<label class="md-nav__title" for="__nav_1_6_1">
+<span class="md-nav__icon md-icon"></span>
+            Decisions
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../governance/decisions/231-aws-us-west-2-checking-method/">
+<span class="md-ellipsis">
+    #231 AWS us-west-2 checking method
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../governance/decisions/929-move-repository/">
+<span class="md-ellipsis">
+    #929 Move or fork to independent organization
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_2" type="checkbox"/>
+<div class="md-nav__link md-nav__container">
+<a class="md-nav__link" href="../../../api/">
+<span class="md-ellipsis">
+    API reference
+    
+  </span>
+</a>
+<label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+<span class="md-nav__icon md-icon"></span>
+</label>
+</div>
+<nav aria-expanded="false" aria-labelledby="__nav_2_label" class="md-nav" data-md-level="1">
+<label class="md-nav__title" for="__nav_2">
+<span class="md-nav__icon md-icon"></span>
+            API reference
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_2_2" type="checkbox"/>
+<label class="md-nav__link" for="__nav_2_2" id="__nav_2_2_label" tabindex="0">
+<span class="md-ellipsis">
+    Modules
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_2_2_label" class="md-nav" data-md-level="2">
+<label class="md-nav__title" for="__nav_2_2">
+<span class="md-nav__icon md-icon"></span>
+            Modules
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_2_2_1" type="checkbox"/>
+<label class="md-nav__link" for="__nav_2_2_1" id="__nav_2_2_1_label" tabindex="0">
+<span class="md-ellipsis">
+    Collections
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_2_2_1_label" class="md-nav" data-md-level="3">
+<label class="md-nav__title" for="__nav_2_2_1">
+<span class="md-nav__icon md-icon"></span>
+            Collections
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../api/collections/collections-query/">
+<span class="md-ellipsis">
+    Collection queries
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../api/collections/collections/">
+<span class="md-ellipsis">
+    Collection results
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../api/collections/collections-services/">
+<span class="md-ellipsis">
+    Collection services
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_2_2_2" type="checkbox"/>
+<label class="md-nav__link" for="__nav_2_2_2" id="__nav_2_2_2_label" tabindex="0">
+<span class="md-ellipsis">
+    Granules
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_2_2_2_label" class="md-nav" data-md-level="3">
+<label class="md-nav__title" for="__nav_2_2_2">
+<span class="md-nav__icon md-icon"></span>
+            Granules
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../api/granules/granules-query/">
+<span class="md-ellipsis">
+    Granule queries
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../api/granules/granules/">
+<span class="md-ellipsis">
+    Granule results
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_2_2_3" type="checkbox"/>
+<label class="md-nav__link" for="__nav_2_2_3" id="__nav_2_2_3_label" tabindex="0">
+<span class="md-ellipsis">
+    STAC
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_2_2_3_label" class="md-nav" data-md-level="3">
+<label class="md-nav__title" for="__nav_2_2_3">
+<span class="md-nav__icon md-icon"></span>
+            STAC
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../api/stac/overview/">
+<span class="md-ellipsis">
+    Overview
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../api/stac/converters/">
+<span class="md-ellipsis">
+    Conversion Functions
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../api/stac/queries/">
+<span class="md-ellipsis">
+    Query Builders
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../api/stac/methods/">
+<span class="md-ellipsis">
+    Result Methods
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_2_2_4" type="checkbox"/>
+<label class="md-nav__link" for="__nav_2_2_4" id="__nav_2_2_4_label" tabindex="0">
+<span class="md-ellipsis">
+    Store
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_2_2_4_label" class="md-nav" data-md-level="3">
+<label class="md-nav__title" for="__nav_2_2_4">
+<span class="md-nav__icon md-icon"></span>
+            Store
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../api/store/store/">
+<span class="md-ellipsis">
+    Store
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_2_2_5" type="checkbox"/>
+<label class="md-nav__link" for="__nav_2_2_5" id="__nav_2_2_5_label" tabindex="0">
+<span class="md-ellipsis">
+    Auth
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_2_2_5_label" class="md-nav" data-md-level="3">
+<label class="md-nav__title" for="__nav_2_2_5">
+<span class="md-nav__icon md-icon"></span>
+            Auth
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../api/auth/auth/">
+<span class="md-ellipsis">
+    Auth
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_3" type="checkbox"/>
+<div class="md-nav__link md-nav__container">
+<a class="md-nav__link" href="../../../user/">
+<span class="md-ellipsis">
+    User guide
+    
+  </span>
+</a>
+<label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+<span class="md-nav__icon md-icon"></span>
+</label>
+</div>
+<nav aria-expanded="false" aria-labelledby="__nav_3_label" class="md-nav" data-md-level="1">
+<label class="md-nav__title" for="__nav_3">
+<span class="md-nav__icon md-icon"></span>
+            User guide
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../user/quick-start/">
+<span class="md-ellipsis">
+    Quick start
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_3_3" type="checkbox"/>
+<label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
+<span class="md-ellipsis">
+    How-to
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_3_3_label" class="md-nav" data-md-level="2">
+<label class="md-nav__title" for="__nav_3_3">
+<span class="md-nav__icon md-icon"></span>
+            How-to
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../user/howto/authenticate/">
+<span class="md-ellipsis">
+    Authenticate with Earthdata Login
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../user/howto/search-granules/">
+<span class="md-ellipsis">
+    Search for data using filters
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../user/howto/access-data/">
+<span class="md-ellipsis">
+    Access data
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../user/howto/reproduce-search/">
+<span class="md-ellipsis">
+    Reproduce, save, and verify searches
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../user/howto/edl/">
+<span class="md-ellipsis">
+    earthaccess and NASA EDL
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../user/howto/cloud/">
+<span class="md-ellipsis">
+    Direct S3 access - Open/stream files in the cloud
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../user/howto/search-services/">
+<span class="md-ellipsis">
+    Search for services
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_3_4" type="checkbox"/>
+<label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="0">
+<span class="md-ellipsis">
+    Tutorials
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_3_4_label" class="md-nav" data-md-level="2">
+<label class="md-nav__title" for="__nav_3_4">
+<span class="md-nav__icon md-icon"></span>
+            Tutorials
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_3_4_1" type="checkbox"/>
+<div class="md-nav__link md-nav__container">
+<a class="md-nav__link" href="../../../tutorials/stac/">
+<span class="md-ellipsis">
+    STAC
+    
+  </span>
+</a>
+<label class="md-nav__link" for="__nav_3_4_1" id="__nav_3_4_1_label" tabindex="0">
+<span class="md-nav__icon md-icon"></span>
+</label>
+</div>
+<nav aria-expanded="false" aria-labelledby="__nav_3_4_1_label" class="md-nav" data-md-level="3">
+<label class="md-nav__title" for="__nav_3_4_1">
+<span class="md-nav__icon md-icon"></span>
+            STAC
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../tutorials/cmr-to-stac/">
+<span class="md-ellipsis">
+    CMR to STAC Semantics
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../tutorials/odc-stac-cmr/">
+<span class="md-ellipsis">
+    STAC Interoperability
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_3_4_2" type="checkbox"/>
+<div class="md-nav__link md-nav__container">
+<a class="md-nav__link" href="../../../tutorials/vds/">
+<span class="md-ellipsis">
+    Virtual Datasets (VDS)
+    
+  </span>
+</a>
+<label class="md-nav__link" for="__nav_3_4_2" id="__nav_3_4_2_label" tabindex="0">
+<span class="md-nav__icon md-icon"></span>
+</label>
+</div>
+<nav aria-expanded="false" aria-labelledby="__nav_3_4_2_label" class="md-nav" data-md-level="3">
+<label class="md-nav__title" for="__nav_3_4_2">
+<span class="md-nav__icon md-icon"></span>
+            Virtual Datasets (VDS)
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../tutorials/icechunk_virtual/">
+<span class="md-ellipsis">
+    Virtual Datasets with Icechunk and
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../tutorials/virtualize_combine_tree/">
+<span class="md-ellipsis">
+    VDS Strategies
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../user/tutorials/virtual_dataset_tutorial_with_TEMPO_Level3/">
+<span class="md-ellipsis">
+    Using virtual dataset capability to work with TEMPO Level 3 data
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../user/tutorials/dmrpp-virtualizarr/">
+<span class="md-ellipsis">
+    Cloud optimized access to NASA data with earthaccess and virtualizarr
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_3_4_3" type="checkbox"/>
+<div class="md-nav__link md-nav__container">
+<a class="md-nav__link" href="../../../tutorials/advanced-search/">
+<span class="md-ellipsis">
+    Advanced Search
+    
+  </span>
+</a>
+<label class="md-nav__link" for="__nav_3_4_3" id="__nav_3_4_3_label" tabindex="0">
+<span class="md-nav__icon md-icon"></span>
+</label>
+</div>
+<nav aria-expanded="false" aria-labelledby="__nav_3_4_3_label" class="md-nav" data-md-level="3">
+<label class="md-nav__title" for="__nav_3_4_3">
+<span class="md-nav__icon md-icon"></span>
+            Advanced Search
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../tutorials/advanced-search/filter-bands/">
+<span class="md-ellipsis">
+    Filtering granules by file (band) patterns
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../user/tutorials/restricted-datasets/">
+<span class="md-ellipsis">
+    Accessing Datasets under an Access Control List (ACL)
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_3_4_4" type="checkbox"/>
+<div class="md-nav__link md-nav__container">
+<a class="md-nav__link" href="../../../tutorials/results/">
+<span class="md-ellipsis">
+    Results Class
+    
+  </span>
+</a>
+<label class="md-nav__link" for="__nav_3_4_4" id="__nav_3_4_4_label" tabindex="0">
+<span class="md-nav__icon md-icon"></span>
+</label>
+</div>
+<nav aria-expanded="false" aria-labelledby="__nav_3_4_4_label" class="md-nav" data-md-level="3">
+<label class="md-nav__title" for="__nav_3_4_4">
+<span class="md-nav__icon md-icon"></span>
+            Results Class
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../tutorials/results/results-class/">
+<span class="md-ellipsis">
+    Results Class Overview
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_3_4_5" type="checkbox"/>
+<div class="md-nav__link md-nav__container">
+<a class="md-nav__link" href="../../../tutorials/access-datasets/">
+<span class="md-ellipsis">
+    Access to selected datasets
+    
+  </span>
+</a>
+<label class="md-nav__link" for="__nav_3_4_5" id="__nav_3_4_5_label" tabindex="0">
+<span class="md-nav__icon md-icon"></span>
+</label>
+</div>
+<nav aria-expanded="false" aria-labelledby="__nav_3_4_5_label" class="md-nav" data-md-level="3">
+<label class="md-nav__title" for="__nav_3_4_5">
+<span class="md-nav__icon md-icon"></span>
+            Access to selected datasets
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../user/tutorials/emit-earthaccess/">
+<span class="md-ellipsis">
+    Streaming data from NASA's Earth Surface Minteral Dust Source Investigation (EMIT)
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../user/tutorials/SSL/">
+<span class="md-ellipsis">
+    🌍 Analyzing Sea Level Rise Using Earth Data in the Cloud
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_3_5" type="checkbox"/>
+<label class="md-nav__link" for="__nav_3_5" id="__nav_3_5_label" tabindex="0">
+<span class="md-ellipsis">
+    Explanation
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_3_5_label" class="md-nav" data-md-level="2">
+<label class="md-nav__title" for="__nav_3_5">
+<span class="md-nav__icon md-icon"></span>
+            Explanation
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../user/explanation/authenticate/">
+<span class="md-ellipsis">
+    Authentication
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../user/explanation/status/">
+<span class="md-ellipsis">
+    Status
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../user/explanation/search/">
+<span class="md-ellipsis">
+    Search
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../user/explanation/access/">
+<span class="md-ellipsis">
+    Access
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../user/explanation/architecture/">
+<span class="md-ellipsis">
+    Architecture
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../user/explanation/backwards-compatibility/">
+<span class="md-ellipsis">
+    Backwards compatibility
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../user/explanation/fsspec/">
+<span class="md-ellipsis">
+    Remote files and fsspec caching
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_3_6" type="checkbox"/>
+<label class="md-nav__link" for="__nav_3_6" id="__nav_3_6_label" tabindex="0">
+<span class="md-ellipsis">
+    Reference
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_3_6_label" class="md-nav" data-md-level="2">
+<label class="md-nav__title" for="__nav_3_6">
+<span class="md-nav__icon md-icon"></span>
+            Reference
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_3_6_1" type="checkbox"/>
+<label class="md-nav__link" for="__nav_3_6_1" id="__nav_3_6_1_label" tabindex="0">
+<span class="md-ellipsis">
+    Glossary
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_3_6_1_label" class="md-nav" data-md-level="3">
+<label class="md-nav__title" for="__nav_3_6_1">
+<span class="md-nav__icon md-icon"></span>
+            Glossary
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../user/reference/glossary/nasa-glossary/">
+<span class="md-ellipsis">
+    NASA glossary
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../user/reference/glossary/cloud-glossary/">
+<span class="md-ellipsis">
+    Cloud computing terminology
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+<input checked="" class="md-nav__toggle md-toggle" id="__nav_4" type="checkbox"/>
+<div class="md-nav__link md-nav__container">
+<a class="md-nav__link" href="../../">
+<span class="md-ellipsis">
+    Contributor guide
+    
+  </span>
+</a>
+<label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+<span class="md-nav__icon md-icon"></span>
+</label>
+</div>
+<nav aria-expanded="true" aria-labelledby="__nav_4_label" class="md-nav" data-md-level="1">
+<label class="md-nav__title" for="__nav_4">
+<span class="md-nav__icon md-icon"></span>
+            Contributor guide
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../code-of-conduct/">
+<span class="md-ellipsis">
+    Code of conduct
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../ai-policy/">
+<span class="md-ellipsis">
+    AI policy
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item md-nav__item--active md-nav__item--nested">
+<input checked="" class="md-nav__toggle md-toggle" id="__nav_4_4" type="checkbox"/>
+<label class="md-nav__link" for="__nav_4_4" id="__nav_4_4_label" tabindex="0">
+<span class="md-ellipsis">
+    How-to
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="true" aria-labelledby="__nav_4_4_label" class="md-nav" data-md-level="2">
+<label class="md-nav__title" for="__nav_4_4">
+<span class="md-nav__icon md-icon"></span>
+            How-to
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../development/">
+<span class="md-ellipsis">
+    Setup dev environment
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../pr-guide/">
+<span class="md-ellipsis">
+    Create a Pull Request (PR)
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../releasing/">
+<span class="md-ellipsis">
+    Release a version
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../maintainers-guide/">
+<span class="md-ellipsis">
+    Be a maintainer
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item md-nav__item--active">
+<input class="md-nav__toggle md-toggle" id="__toc" type="checkbox"/>
+<label class="md-nav__link md-nav__link--active" for="__toc">
+<span class="md-ellipsis">
+    Triage issues
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<a class="md-nav__link md-nav__link--active" href="./">
+<span class="md-ellipsis">
+    Triage issues
+    
+  </span>
+</a>
+<nav aria-label="Table of contents" class="md-nav md-nav--secondary">
+<label class="md-nav__title" for="__toc">
+<span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+<ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#issue-lifecycle">
+<span class="md-ellipsis">
+      Issue lifecycle
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#issue-creation">
+<span class="md-ellipsis">
+      Issue creation
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#issue-triaging">
+<span class="md-ellipsis">
+      Issue triaging
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#issue-prioritization">
+<span class="md-ellipsis">
+      Issue prioritization
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#working-issues">
+<span class="md-ellipsis">
+      Working issues
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#issue-triaging-workflow">
+<span class="md-ellipsis">
+      Issue triaging workflow
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#migrating-between-discussions-vs-issues">
+<span class="md-ellipsis">
+      Migrating between Discussions vs Issues
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_4_5" type="checkbox"/>
+<label class="md-nav__link" for="__nav_4_5" id="__nav_4_5_label" tabindex="0">
+<span class="md-ellipsis">
+    Explanation
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_4_5_label" class="md-nav" data-md-level="2">
+<label class="md-nav__title" for="__nav_4_5">
+<span class="md-nav__icon md-icon"></span>
+            Explanation
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../explanation/integration-tests/">
+<span class="md-ellipsis">
+    Integration tests
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_4_6" type="checkbox"/>
+<label class="md-nav__link" for="__nav_4_6" id="__nav_4_6_label" tabindex="0">
+<span class="md-ellipsis">
+    Reference
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_4_6_label" class="md-nav" data-md-level="2">
+<label class="md-nav__title" for="__nav_4_6">
+<span class="md-nav__icon md-icon"></span>
+            Reference
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../reference/naming-convention/">
+<span class="md-ellipsis">
+    Naming conventions
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_5" type="checkbox"/>
+<label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+<span class="md-ellipsis">
+    Architecture &amp; Design
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_5_label" class="md-nav" data-md-level="1">
+<label class="md-nav__title" for="__nav_5">
+<span class="md-nav__icon md-icon"></span>
+            Architecture &amp; Design
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../refactoring/">
+<span class="md-ellipsis">
+    Overview
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../migration-guide/">
+<span class="md-ellipsis">
+    Migration Guide: v0.x to v1.0.0
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../releases/1.0.0a/">
+<span class="md-ellipsis">
+    Release notes: v1.0.0a
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../refactoring/icechunk-vcc/">
+<span class="md-ellipsis">
+    Icechunk Virtual Chunk Containers
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../refactoring/virtualize-combine-tree/">
+<span class="md-ellipsis">
+    Virtualize: combine strategies
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../refactoring/vz_dmrpp_groups/">
+<span class="md-ellipsis">
+    DMRPP + VirtualiZarr groups
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../refactoring/stac-module-architecture/">
+<span class="md-ellipsis">
+    STAC Module Architecture
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../refactoring/stac-implementation-log/">
+<span class="md-ellipsis">
+    Implementation Phases (Historical)
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../refactoring/stac-comparison/">
+<span class="md-ellipsis">
+    Architecture Comparison
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../refactoring/earthaccess-nextgen/">
+<span class="md-ellipsis">
+    Next-Gen Vision
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../refactoring/nextgen-implementation/">
+<span class="md-ellipsis">
+    Next-Gen Implementation
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</div>
+</div>
+</div>
+<div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc">
+<div class="md-sidebar__scrollwrap">
+<div class="md-sidebar__inner">
+<nav aria-label="Table of contents" class="md-nav md-nav--secondary">
+<label class="md-nav__title" for="__toc">
+<span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+<ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#issue-lifecycle">
+<span class="md-ellipsis">
+      Issue lifecycle
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#issue-creation">
+<span class="md-ellipsis">
+      Issue creation
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#issue-triaging">
+<span class="md-ellipsis">
+      Issue triaging
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#issue-prioritization">
+<span class="md-ellipsis">
+      Issue prioritization
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#working-issues">
+<span class="md-ellipsis">
+      Working issues
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#issue-triaging-workflow">
+<span class="md-ellipsis">
+      Issue triaging workflow
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#migrating-between-discussions-vs-issues">
+<span class="md-ellipsis">
+      Migrating between Discussions vs Issues
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</div>
+</div>
+</div>
+<div class="md-content" data-md-component="content">
+<article class="md-content__inner md-typeset">
+<a class="md-content__button md-icon" href="https://github.com/earthaccess-dev/earthaccess/edit/main/docs/contributor/howto/triaging.md" rel="edit" title="Edit this page">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"></path></svg>
+</a>
+<a class="md-content__button md-icon" href="https://github.com/earthaccess-dev/earthaccess/raw/main/docs/contributor/howto/triaging.md" title="View source of this page">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M17 18c.56 0 1 .44 1 1s-.44 1-1 1-1-.44-1-1 .44-1 1-1m0-3c-2.73 0-5.06 1.66-6 4 .94 2.34 3.27 4 6 4s5.06-1.66 6-4c-.94-2.34-3.27-4-6-4m0 6.5a2.5 2.5 0 0 1-2.5-2.5 2.5 2.5 0 0 1 2.5-2.5 2.5 2.5 0 0 1 2.5 2.5 2.5 2.5 0 0 1-2.5 2.5M9.27 20H6V4h7v5h5v4.07c.7.08 1.36.25 2 .49V8l-6-6H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h4.5a8.2 8.2 0 0 1-1.23-2"></path></svg>
+</a>
+<h1 id="issue-triaging-and-prioritization-guide">Issue Triaging and Prioritization Guide</h1>
+<p>This document outlines our approach to triaging issues in GitHub, including guidelines for labeling and resolving issues, and best practices for maintaining a well-organized, prioritized, and up-to-date issue tracker.</p>
+<div class="admonition info">
+<p class="admonition-title">Info</p>
+<p>We hope that this guide will empower anyone to contribute to issue triaging, and address a common question for contributors: "I'm interested in working on the highest priority issues that will solve important problems facing the <code>earthaccess</code> community. Where do I begin?"
+See the <a href="#issue-prioritization">Issue prioritization</a> section below for details on how to identify and browse prioritized issues via the <a href="https://github.com/orgs/earthaccess-dev/projects/1"><code>earthaccess</code> GitHub Project</a>.</p>
+</div>
+<h2 id="issue-lifecycle">Issue lifecycle</h2>
+<ol>
+<li>A <a href="https://github.com/earthaccess-dev/earthaccess/issues/new/choose">new issue</a> is created, either using a pre-existing template, or as a blank issue.</li>
+<li>The issue is triaged to initially assess the reported issue as a backlog candidate.</li>
+<li>The issue is reviewed and prioritized by the <code>earthaccess</code> community manager using the <code>earthaccess</code> <a href="https://github.com/orgs/earthaccess-dev/projects/1">GitHub Project</a>.</li>
+<li>The issue is worked following the <a href="../pr-guide/">Pull Request (PR) Guide</a>.</li>
+</ol>
+<p>Details on each of these workflow steps are provided below.</p>
+<h2 id="issue-creation">Issue creation</h2>
+<p>Issues are created using one of several templates or as a blank issue. See the issue template choices <a href="https://github.com/earthaccess-dev/earthaccess/issues/new/choose">here</a>. When an issue is first created, provide initial acknowledgement and gratitude for the submission as a text or emoji response.</p>
+<p>By default, all new issues are created without a project status. Issues without a status are listed in the <a href="https://github.com/orgs/earthaccess-dev/projects/1/views/3">Needs Triage</a> project view.</p>
+<h2 id="issue-triaging">Issue triaging</h2>
+<p>Triaging is led by the <code>earthaccess</code> community manager, though any community member is welcome and encouraged to contribute. Triaging involves:</p>
+<ul>
+<li>Determining whether the issue should be worked or not. If yes, move to "Backlog" status, otherwise close as not planned.</li>
+<li>Adding or adjusting issue labels.</li>
+<li>Adding an issue prioritization.</li>
+<li>Responding and follow up as needed (i.e. tagging relevant earthaccess maintainers for further support).</li>
+</ul>
+<h3 id="moving-an-issue-to-backlog-status">Moving an issue to backlog status</h3>
+<p>When triaging a new issue, review the information and provide a response or follow up with question(s) if needed. Move the issue to the Backlog unless it ought to be closed as "not planned", as outlined below. If you are unsure, add the <strong>needs: triage</strong> label. On the righthand side of the issue page, the "Projects" section contains an <code>earthaccess</code> project box. Click "no status" to select the status options. Statuses include:</p>
+<ul>
+<li>Backlog</li>
+<li>In Progress</li>
+<li>In Review</li>
+<li>Done</li>
+</ul>
+<p>Select "Backlog". This will move the project out of the <a href="https://github.com/orgs/earthaccess-dev/projects/1/views/3">Needs Triage</a> project view into its relevant backlog view depending on issue type. See below for more details on these other project views.</p>
+<h3 id="when-to-close-as-not-planned">When to "Close as not planned"?</h3>
+<p>Close issues as "not planned" when:</p>
+<ul>
+<li>An issue is not aligned with the project's goals or priorities.</li>
+<li>An issue is not feasible to be addressed due to technical or resource constraints.</li>
+<li>An issue is a duplicate of an existing issue that has already been addressed.</li>
+</ul>
+<p>When closing an issue as not planned:</p>
+<ul>
+<li>Provide a clear explanation as to why the issue is not planned or feasible.</li>
+<li>Offer alternative solutions or workarounds, if possible.</li>
+<li>Link to relevant documentation or resources, if applicable.</li>
+</ul>
+<h3 id="labeling-issues">Labeling issues</h3>
+<p>When labeling an issue, choose the <a href="https://github.com/earthaccess-dev/earthaccess/labels">label(s)</a> that best describes the issue. Using labels consistently and accurately ensures that issues are trackable and searchable.</p>
+<p>Labels are mainly categorized by the prefix <code>type:</code>, <code>impact:</code>, or <code>needs:</code>.
+Impact labels describe what portion of the project they affect. Impact labels are also used to help group related issues based on a particular feature or topic. For example, <strong>impact: virtual-datasets</strong> is used to categorize Issues or Discussions related to virtualizarr integration and support. These labels may evolve over time as new features are worked.</p>
+<p>Refer to the <a href="https://github.com/earthaccess-dev/earthaccess/labels">Labels</a> page for details on label types and descriptions.</p>
+<h4 id="linking-labels-in-github-markdown">Linking labels in GitHub Markdown</h4>
+<p>When referencing a label in a GitHub issue or discussion, it is useful to link to the label page to provide additional context and help other members to quickly understand the issue's category.</p>
+<p>To link to a label in GitHub Markdown, copy-and-paste the URL to the label by right-clicking <a href="https://github.com/earthaccess-dev/earthaccess/labels">any label</a> and selecting "Copy Link". Then, paste that label in a GitHub issue, PR, discussion, or Markdown document. For example, to link to the "good first issue" label in the earthaccess-dev/earthaccess repository, you would use the URL:</p>
+<div class="highlight"><pre><span></span><code><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a>https://github.com/earthaccess-dev/earthaccess/labels/good%20first%20issue
+</code></pre></div>
+<p><a name="issue-prioritization"></a></p>
+<h2 id="issue-prioritization">Issue prioritization</h2>
+<p>Issues are groomed periodically to organize and prioritize the backlog. This issue management occurs within the <a href="https://github.com/orgs/earthaccess-dev/projects/1"><code>earthaccess</code> GitHub Project</a>. Several views exist to serve various use cases, including:</p>
+<ul>
+<li><a href="https://github.com/orgs/earthaccess-dev/projects/1/views/3">Needs triage</a>: All issues without a status, awaiting triaging.</li>
+<li><a href="https://github.com/orgs/earthaccess-dev/projects/1/views/1">Backlog</a>: All issues with a <code>Backlog</code> status: These issues were triaged and are ready to be addressed.</li>
+<li><a href="https://github.com/orgs/earthaccess-dev/projects/1/views/4">Bug Priority</a>: All open, triaged issues with a <code>Bug</code> label.</li>
+<li><a href="https://github.com/orgs/earthaccess-dev/projects/1/views/6">Docs</a>: All open issues with a <code>impact: documentation</code> label.</li>
+<li><a href="https://github.com/orgs/earthaccess-dev/projects/1/views/2">Decisions</a>: All issues with a <code>needs: decision</code> label. This is a "Board" type allowing us to see the status of all decisions.</li>
+<li><a href="https://github.com/orgs/earthaccess-dev/projects/1/views/5">Roadmap</a>: All issues linked and grouped by <a href="https://github.com/earthaccess-dev/earthaccess/milestones">Milestones</a>.</li>
+</ul>
+<p>If you're interested in contributing but aren't sure what needs attention, head to the <a href="https://github.com/orgs/earthaccess-dev/projects/1/views/4">Bug Priority</a> and <a href="https://github.com/orgs/earthaccess-dev/projects/1/views/6">Docs</a> project views to identify high-priority issues to address.</p>
+<p>For triagers, select a priority based on the user impact and urgency. The following guidelines apply broadly across issue types, with additional notes for bugs and documentation issues.</p>
+<h3 id="priority-1-critical">Priority: <code>1 - Critical</code></h3>
+<p>The issue has significant, immediate impact on users and/or major components of the <code>earthaccess</code> library.</p>
+<ul>
+<li>Core functionality is broken or inaccessible for a meaningful number of users</li>
+<li>Key workflows or use cases are blocked</li>
+<li>Users are likely to stop using the library or lose trust in it</li>
+</ul>
+<p><em>Bug example:</em> Users cannot search or access data for a significant number of collections or key <code>earthaccess</code> workflows.</p>
+<p><em>Documentation example:</em> Content is incorrect or missing in a way that would immediately block or mislead a user.</p>
+<h3 id="priority-2-important">Priority: <code>2 - Important</code></h3>
+<p>The issue has real impact but is not immediately blocking a majority of users.</p>
+<ul>
+<li>Affects primary user workflows but a workaround exists, or only a subset of users is affected</li>
+<li>Incorrect or confusing content that degrades the experience without fully blocking users</li>
+<li>Less common use cases or data collections are impacted</li>
+</ul>
+<p><em>Bug example:</em> Functionality is degraded but users can still accomplish their goals.</p>
+<p><em>Documentation example:</em> A Tutorial or secondary documentation is broken or unclear; contributing docs with significant usability issues.</p>
+<h3 id="priority-3-nice-to-have">Priority: <code>3 - Nice to have</code></h3>
+<p>The issue is a real improvement but not urgent.</p>
+<ul>
+<li>Affects a small percentage of users, data collections, or use cases</li>
+<li>Polish, enhancements, or "nice to haves" with no meaningful workflow impact</li>
+<li>Minor inconsistencies or style issues</li>
+</ul>
+<p><em>Bug example:</em> Affects a small number of users, data collections, or edge-case workflows; a workaround is readily available or the impact is cosmetic.</p>
+<p><em>Documentation example:</em> Minor inconsistencies, typos, or style issues; improvements to contributing or developer-facing docs with no impact on end-user workflows.</p>
+<h3 id="notes-for-triagers">Notes for Triagers</h3>
+<ul>
+<li><strong>When in doubt, start at Important</strong> and adjust based on community feedback or additional context.</li>
+<li>The <a href="https://earthaccess.readthedocs.io/en/stable/user/">User Guide</a> and <a href="https://earthaccess.readthedocs.io/en/stable/api/">API Reference</a> generally warrant higher priority than contributing or developer docs when impact is otherwise similar.</li>
+<li>Priority reflects <em>impact and urgency</em>, not effort — a quick fix can still be High priority.</li>
+</ul>
+<h2 id="working-issues">Working issues</h2>
+<ul>
+<li><a href="https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/assigning-issues-and-pull-requests-to-other-github-users">Assign</a> the issue to the implementer.</li>
+<li>Update status to <code>In Progress</code>.</li>
+<li>Link the issue to the related PR with a comment "Resolves #N" (<code>N</code> is the issue number). The issue will auto-close when the PR is merged.</li>
+<li>If the previous step is missed, <a href="https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/linking-a-pull-request-to-an-issue">link any related PRs</a> before manually closing an issue.</li>
+</ul>
+<h2 id="issue-triaging-workflow">Issue triaging workflow</h2>
+<pre class="mermaid"><code>
+flowchart TD
+  %%{init: {"flowchart": {"htmlLabels": false}} }%%
+  classDef default font-size:32pt;
+  start{"`Followed
+  issue
+  template?`"}
+  start ==NO==&gt; close1[Request needed information from reporter and update issue on behalf of reporter]
+  start == YES ==&gt; dupe{Is duplicate?}
+  dupe == YES ==&gt; close2[Close and point to duplicate]
+  dupe == NO ==&gt; repro{Has proper reproduction?}
+  repro == NO ==&gt; close3[Ask for details from reporter or close as not planned]
+  repro == YES ==&gt; real{Is actually a bug?}
+  real == NO ==&gt; intended{Is the intended behaviour?}
+  intended == YES ==&gt; explain[Explain and close; point to docs if needed]
+  intended == NO ==&gt; open[Keep open for discussion; Remove 'needs: triage' label]
+  real == YES ==&gt; real2["Confirm that 'Bug' label was automatically added as part of the Bug Issue template, otherwise add 'Bug' label."]
+
+
+  %% Link Color %%
+    linkStyle default stroke:black,stroke-width:2px,font-size:24pt;
+
+</code></pre>
+<h2 id="migrating-between-discussions-vs-issues">Migrating between Discussions vs Issues</h2>
+<p>Use your best judgement when migrating between issues and discussions. Sometimes it makes more sense to open a new issue or discussion instead of migrating, for example when there are many things being discussed, but we want to create an issue or task out of just one of those things.</p>
+<p>Migrate a discussion to an issue when:</p>
+<ul>
+<li>A specific task is identified.</li>
+<li>A bug or error is reported.</li>
+<li>A change or improvement is requested.</li>
+</ul>
+<p>Migrate an issue to a discussion when:</p>
+<ul>
+<li>The issue is a nebulous idea that needs to be workshopped before it can be implemented.</li>
+<li>The issue is a general question or topic.</li>
+<li>The issue is not specific or actionable.</li>
+</ul>
+</article>
+</div>
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+</div>
+</main>
+<footer class="md-footer">
+<div class="md-footer-meta md-typeset">
+<div class="md-footer-meta__inner md-grid">
+<div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" rel="noopener" target="_blank">
+      Material for MkDocs
+    </a>
+</div>
+</div>
+</div>
+</footer>
+</div>
+<div class="md-dialog" data-md-component="dialog">
+<div class="md-dialog__inner md-typeset"></div>
+</div>
+<script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.indexes", "navigation.path", "navigation.tabs", "content.action.edit", "content.action.view"], "search": "../../../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+<script src="../../../assets/javascripts/bundle.92b07e13.min.js"></script>
+<script type="module">import mermaid from "https://unpkg.com/mermaid@10.4.0/dist/mermaid.esm.min.mjs";
+window.mermaidConfig = {default: {
+    startOnLoad: false
+}};</script></body>
+</html>
