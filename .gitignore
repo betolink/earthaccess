@@ -24,6 +24,7 @@ tests/integration/data
 earthaccess/_version.py
 
 notebooks/data/
+docs/**/data/
 
 # Environments
 .env
