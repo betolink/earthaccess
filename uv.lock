@@ -1509,6 +1509,7 @@ name = "earthaccess"
 version = "1.0.0a2"
 source = { editable = "." }
 dependencies = [
+    { name = "earthaccess-plugin-spec" },
     { name = "fsspec" },
     { name = "importlib-resources" },
     { name = "multimethod" },
@@ -1663,6 +1664,7 @@ requires-dist = [
     { name = "earthaccess", extras = ["virtualizarr"], marker = "extra == 'docs'" },
     { name = "earthaccess", extras = ["virtualizarr"], marker = "extra == 'test'" },
     { name = "earthaccess", extras = ["widgets"], marker = "extra == 'all'" },
+    { name = "earthaccess-plugin-spec", git = "https://github.com/betolink/earthaccess-plugin-spec.git?branch=main" },
     { name = "fastparquet", marker = "extra == 'virtualizarr'", specifier = ">=2023.4.0" },
     { name = "fsspec", specifier = ">=2025.2" },
     { name = "geopandas", marker = "python_full_version < '3.14' and platform_python_implementation != 'PyPy' and extra == 'widgets'", specifier = ">=0.14" },
@@ -1738,6 +1740,11 @@ requires-dist = [
     { name = "zarr", marker = "extra == 'virtualizarr'", specifier = ">=3.1.1" },
 ]
 provides-extras = ["virtualizarr", "geo", "kerchunk", "widgets", "stac", "all", "dev", "test", "docs"]
+
+[[package]]
+name = "earthaccess-plugin-spec"
+version = "0.1.0"
+source = { git = "https://github.com/betolink/earthaccess-plugin-spec.git?branch=main#8104ac71ce44d3f6b5961a858b5f511d2f4e5413" }
 
 [[package]]
 name = "editorconfig"

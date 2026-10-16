@@ -30,6 +30,7 @@ from earthaccess.search import (
 
 from .auth import PROD, Auth, System
 from .auth.system import route
+from .plugins import Job, UnsupportedOutputError
 from .search.query import (
     CollectionQuery as NewCollectionQuery,
     GranuleQuery as NewGranuleQuery,
@@ -514,7 +515,7 @@ def login(
 
 
 def download(
-    granules: Union[DataGranule, List[DataGranule], str, List[str]],
+    granules: Union[DataGranule, List[DataGranule], str, List[str], Job],
     path: Optional[Union[Path, str, TargetLocation]] = None,
     provider: Optional[str] = None,
     threads: int = 8,
@@ -586,6 +587,15 @@ def download(
     """
     provider = _normalize_location(str(provider))
 
+    if isinstance(granules, Job):
+        # A plugin job: wait for it, then download the assets it produced.
+        if granules.output != "assets":
+            raise UnsupportedOutputError(
+                f"cannot download output={granules.output!r}; "
+                "only 'assets' jobs can be downloaded"
+            )
+        granules = [asset.href for asset in granules.results()]
+
     if isinstance(granules, DataGranule):
         granules = [granules]
     elif isinstance(granules, str):
@@ -620,7 +630,7 @@ def download(
 
 
 def open(
-    granules: Union[List[str], List[DataGranule]],
+    granules: Union[List[str], List[DataGranule], Job],
     provider: Optional[str] = None,
     *,
     credentials_endpoint: Optional[str] = None,
@@ -677,11 +687,19 @@ def open(
         )
         ```
     """
+    if isinstance(granules, Job):
+        # A plugin job: wait for it. Non-asset outputs (xarray / dataframe) are
+        # already usable objects; asset outputs become their hrefs.
+        if granules.output != "assets":
+            return granules.results()
+        granules = [asset.href for asset in granules.results()]
+
     store = earthaccess.__store__
     if store is None:
         raise RuntimeError(
             "Store is not initialized. Please call earthaccess.login() first."
         )
+
     return store.open(
         granules=granules,
         provider=_normalize_location(provider),

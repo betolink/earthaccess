@@ -2654,6 +2654,59 @@ class GranuleResults(SearchResults):
             f"offset={self.offset}, source={self.source})"
         )
 
+    # --- ResultSet interface used by earthaccess plugins ---------------------
+    # `search_data()` knows the collection short name from the query, so expose
+    # it here; the granule UMM alone does not always carry it.
+
+    @property
+    def _query_params(self) -> Dict[str, Any]:
+        return getattr(self.query, "params", {}) or {}
+
+    @property
+    def short_name(self) -> str:
+        """Collection short name from the search query, if any."""
+        return self._query_params.get("short_name", "") or ""
+
+    @property
+    def version(self) -> str:
+        """Collection version from the search query, if any."""
+        return self._query_params.get("version", "") or ""
+
+    @property
+    def collection_id(self) -> str:
+        """Concept id of the collection the granules belong to."""
+        params = self._query_params
+        concept_id = params.get("concept_id") or params.get("collection_concept_id")
+        if concept_id:
+            return str(concept_id)
+        for granule in self.all():
+            return granule["meta"].get("collection-concept-id", "")
+        return ""
+
+    @property
+    def ids(self) -> List[str]:
+        """Granule concept ids."""
+        return [granule["meta"]["concept-id"] for granule in self.all()]
+
+    @property
+    def native_ids(self) -> List[str]:
+        """Granule URs (names)."""
+        return [granule["umm"].get("GranuleUR", "") for granule in self.all()]
+
+    def umm(self) -> List[Dict[str, Any]]:
+        """Return the raw UMM-G records."""
+        return [granule["umm"] for granule in self.all()]
+
+    def services(self) -> List[Dict[str, Any]]:
+        """UMM-S services associated with the collection (empty for granules)."""
+        return []
+
+    def list_services(self, context: Any = None) -> Any:
+        """Return which installed plugins accept these results."""
+        from earthaccess_plugin_spec import list_services
+
+        return list_services(self, context)
+
 
 class CollectionResults(SearchResults):
     """Search results containing DataCollection objects.

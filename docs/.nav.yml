@@ -62,6 +62,8 @@ nav:
               - "Access to selected datasets": "tutorials/access-datasets/index.md"
               - "Streaming data from EMIT": "user/tutorials/emit-earthaccess.ipynb"
               - "Analyzing sea level rise in the cloud": "user/tutorials/SSL.ipynb"
+          - Plugins:
+              - "Harmony, PyDAP and SlideRule": "tutorials/plugins.ipynb"
       - Explanation:
           - "Authentication": "user/explanation/authenticate.md"
           - "Status": "user/explanation/status.md"

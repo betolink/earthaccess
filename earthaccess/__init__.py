@@ -47,6 +47,7 @@ import threading
 from importlib.metadata import version
 from typing import TYPE_CHECKING, Any, Optional
 
+from . import plugins, testing
 from .api import (
     auth_environ,
     collection_query,
@@ -67,6 +68,7 @@ from .api import (
 )
 from .auth import Auth
 from .auth.system import PROD, UAT, get_proxy, set_proxy
+from .plugins import list_plugins
 from .search import (
     DataCollection,
     DataCollections,
@@ -138,6 +140,10 @@ __all__ = [
     # persistence
     "save_search",
     "load_search",
+    # plugins
+    "plugins",
+    "list_plugins",
+    "testing",
 ]
 
 __version__ = version("earthaccess")
