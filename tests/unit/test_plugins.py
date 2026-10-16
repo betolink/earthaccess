@@ -328,23 +328,58 @@ def test_download_non_asset_job_raises(monkeypatch):
         earthaccess.download(job, None)
 
 
-def test_open_opendap_assets_is_rejected(fake_store):
+def test_open_opendap_assets_returns_urls(fake_store):
     job = Job(
         lambda: [Asset(href="dap4://e.org/a?dap4.ce=/lat", access="opendap")],
         plugin="pydap",
         output="assets",
     )
 
-    with pytest.raises(UnsupportedOutputError, match="OPeNDAP"):
-        earthaccess.open(job)
+    assert earthaccess.open(job) == ["dap4://e.org/a?dap4.ce=/lat"]
+    assert fake_store.opened is None  # the store is not used for OPeNDAP
 
 
-def test_download_opendap_assets_is_rejected(fake_store):
+def test_download_opendap_assets_uses_pydap(monkeypatch, tmp_path):
+    import sys
+    import types
+
+    calls: dict = {}
+
+    def to_netcdf(urls, session=None, output_path=None, **kwargs):
+        calls["urls"] = urls
+        calls["output_path"] = output_path
+        (tmp_path / "out.nc").write_text("x")
+
+    fake_client = types.ModuleType("pydap.client")
+    fake_client.to_netcdf = to_netcdf
+    fake_pydap = types.ModuleType("pydap")
+    fake_pydap.client = fake_client
+    monkeypatch.setitem(sys.modules, "pydap", fake_pydap)
+    monkeypatch.setitem(sys.modules, "pydap.client", fake_client)
+    monkeypatch.setattr(
+        earthaccess.api, "get_requests_https_session", lambda: "session"
+    )
+
     job = Job(
         lambda: [Asset(href="dap4://e.org/a?dap4.ce=/lat", access="opendap")],
         plugin="pydap",
         output="assets",
     )
+    paths = earthaccess.download(job, tmp_path)
 
-    with pytest.raises(UnsupportedOutputError, match="OPeNDAP"):
-        earthaccess.download(job, None)
+    assert calls["urls"] == ["https://e.org/a?dap4.ce=/lat"]
+    assert calls["output_path"] == str(tmp_path)
+    assert paths == [tmp_path / "out.nc"]
+
+
+def test_download_opendap_assets_rejects_cloud_target():
+    from earthaccess.store.target import TargetLocation
+
+    job = Job(
+        lambda: [Asset(href="dap4://e.org/a", access="opendap")],
+        plugin="pydap",
+        output="assets",
+    )
+
+    with pytest.raises(UnsupportedOutputError, match="local path"):
+        earthaccess.download(job, TargetLocation("s3://bucket/data"))

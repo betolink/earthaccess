@@ -1,7 +1,9 @@
+import datetime
 import json
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
+from uuid import uuid4
 
 import requests
 import s3fs
@@ -514,24 +516,53 @@ def login(
     return auth
 
 
-def _asset_hrefs(assets: Any) -> List[str]:
-    """Hrefs of file assets, rejecting OPeNDAP assets earthaccess must not open.
-
-    OPeNDAP results are meant to be opened with xarray (``engine="pydap"``) with
-    kwargs tuned to the dataset, so the plugin returns them as assets and the
-    user opens them directly.
-    """
-    hrefs: List[str] = []
+def _split_assets(assets: Any) -> tuple[List[Any], List[Any]]:
+    """Partition assets into file assets and OPeNDAP assets."""
+    files: List[Any] = []
+    opendap: List[Any] = []
     for asset in assets:
         if getattr(asset, "access", None) == "opendap":
+            opendap.append(asset)
+        else:
+            files.append(asset)
+    return files, opendap
+
+
+def _download_opendap(
+    assets: Any, path: Optional[Union[Path, str, TargetLocation]]
+) -> List[Path]:
+    """Serialize OPeNDAP assets to local NetCDF files with pydap (one per URL)."""
+    if path is None:
+        today = datetime.datetime.now().strftime("%Y-%m-%d")
+        destination = Path.cwd() / "data" / f"{today}-{uuid4().hex[:6]}"
+    elif isinstance(path, TargetLocation):
+        if not path.is_local():
             raise UnsupportedOutputError(
-                "OPeNDAP results are not opened or downloaded by earthaccess; "
-                "open them with xarray, e.g. "
-                "xr.open_mfdataset([a.href for a in job.results()], "
-                "engine='pydap', session=ea.get_requests_https_session())"
+                "OPeNDAP results can only be downloaded to a local path "
+                f"(got {path.path!r}); pydap serializes files locally"
             )
-        hrefs.append(asset.href)
-    return hrefs
+        destination = Path(path.path)
+    else:
+        destination = Path(path)
+    destination.mkdir(parents=True, exist_ok=True)
+
+    import pydap.client
+
+    before = set(destination.iterdir())
+    pydap.client.to_netcdf(
+        [_opendap_https_url(asset.href) for asset in assets],
+        session=get_requests_https_session(),
+        output_path=str(destination),
+    )
+    return sorted(set(destination.iterdir()) - before)
+
+
+def _opendap_https_url(href: str) -> str:
+    """``to_netcdf`` talks HTTP, so map the DAP scheme back to https (keep the query)."""
+    for scheme in ("dap4://", "dap2://"):
+        if href.startswith(scheme):
+            return "https://" + href[len(scheme) :]
+    return href
 
 
 def download(
@@ -569,7 +600,8 @@ def download(
         parallel: Executor type for parallel downloads. Options: "threads" (default), "serial", "dask", "lithops".
 
     Returns:
-        List of downloaded files
+        List of downloaded files. For a plugin job whose assets are OPeNDAP URLs,
+        the constrained data is serialized to local NetCDF files (needs netCDF4).
 
     Raises:
         Exception: A file download failed.
@@ -614,7 +646,10 @@ def download(
                 f"cannot download output={granules.output!r}; "
                 "only 'assets' jobs can be downloaded"
             )
-        granules = _asset_hrefs(granules.results())
+        files, opendap = _split_assets(granules.results())
+        if opendap:
+            return _download_opendap(opendap, path)
+        granules = [asset.href for asset in files]
 
     if isinstance(granules, DataGranule):
         granules = [granules]
@@ -658,7 +693,7 @@ def open(
     max_workers: Optional[int] = None,
     open_kwargs: Optional[Dict[str, Any]] = None,
     parallel: Union[str, bool, None] = None,
-) -> List[AbstractFileSystem]:
+) -> Union[List[AbstractFileSystem], List[str]]:
     """Returns a list of file-like objects that can be used to access files
     hosted on S3 or HTTPS by third party libraries like xarray.
 
@@ -675,7 +710,9 @@ def open(
         parallel: Executor type for parallel file opening. Options: "threads" (default), "serial", "dask", "lithops".
 
     Returns:
-        A list of "file pointers" to remote (i.e. s3 or https) files.
+        A list of "file pointers" to remote (i.e. s3 or https) files. For a
+        plugin job whose assets are OPeNDAP URLs, a list of those URLs to open
+        with xarray (``engine="pydap"``).
 
     Examples:
         Open granules and load with xarray:
@@ -709,10 +746,14 @@ def open(
     """
     if isinstance(granules, Job):
         # A plugin job: wait for it. Non-asset outputs (xarray / dataframe) are
-        # already usable objects; asset outputs become their hrefs.
+        # already usable objects; asset outputs become hrefs. OPeNDAP assets are
+        # returned as URLs to open with xarray (engine="pydap").
         if granules.output != "assets":
             return granules.results()
-        granules = _asset_hrefs(granules.results())
+        files, opendap = _split_assets(granules.results())
+        if opendap:
+            return [asset.href for asset in opendap]
+        granules = [asset.href for asset in files]
 
     store = earthaccess.__store__
     if store is None:
