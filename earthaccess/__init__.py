@@ -68,7 +68,7 @@ from .api import (
 )
 from .auth import Auth
 from .auth.system import PROD, UAT, get_proxy, set_proxy
-from .plugins import list_plugins
+from .plugins import list_plugins, list_services
 from .search import (
     DataCollection,
     DataCollections,
@@ -143,6 +143,7 @@ __all__ = [
     # plugins
     "plugins",
     "list_plugins",
+    "list_services",
     "testing",
 ]
 

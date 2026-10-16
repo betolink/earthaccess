@@ -63,7 +63,9 @@ nav:
               - "Streaming data from EMIT": "user/tutorials/emit-earthaccess.ipynb"
               - "Analyzing sea level rise in the cloud": "user/tutorials/SSL.ipynb"
           - Plugins:
-              - "Harmony, PyDAP and SlideRule": "tutorials/plugins.ipynb"
+              - "Harmony: subset and transform": "tutorials/harmony.ipynb"
+              - "PyDAP: OPeNDAP access": "tutorials/pydap.ipynb"
+              - "SlideRule: ICESat-2 and GEDI": "tutorials/sliderule.ipynb"
       - Explanation:
           - "Authentication": "user/explanation/authenticate.md"
           - "Status": "user/explanation/status.md"

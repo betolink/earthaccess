@@ -261,7 +261,9 @@ def test_namespace_dir_and_repr(isolated_registry):
 def test_top_level_surface():
     assert "plugins" in earthaccess.__all__
     assert "list_plugins" in earthaccess.__all__
+    assert "list_services" in earthaccess.__all__
     assert callable(earthaccess.list_plugins)
+    assert callable(earthaccess.list_services)
     assert callable(earthaccess.testing.run_conformance)
 
 
