@@ -326,3 +326,25 @@ def test_download_non_asset_job_raises(monkeypatch):
 
     with pytest.raises(UnsupportedOutputError, match="xarray"):
         earthaccess.download(job, None)
+
+
+def test_open_opendap_assets_is_rejected(fake_store):
+    job = Job(
+        lambda: [Asset(href="dap4://e.org/a?dap4.ce=/lat", access="opendap")],
+        plugin="pydap",
+        output="assets",
+    )
+
+    with pytest.raises(UnsupportedOutputError, match="OPeNDAP"):
+        earthaccess.open(job)
+
+
+def test_download_opendap_assets_is_rejected(fake_store):
+    job = Job(
+        lambda: [Asset(href="dap4://e.org/a?dap4.ce=/lat", access="opendap")],
+        plugin="pydap",
+        output="assets",
+    )
+
+    with pytest.raises(UnsupportedOutputError, match="OPeNDAP"):
+        earthaccess.download(job, None)

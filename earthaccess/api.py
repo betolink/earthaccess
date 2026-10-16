@@ -514,6 +514,26 @@ def login(
     return auth
 
 
+def _asset_hrefs(assets: Any) -> List[str]:
+    """Hrefs of file assets, rejecting OPeNDAP assets earthaccess must not open.
+
+    OPeNDAP results are meant to be opened with xarray (``engine="pydap"``) with
+    kwargs tuned to the dataset, so the plugin returns them as assets and the
+    user opens them directly.
+    """
+    hrefs: List[str] = []
+    for asset in assets:
+        if getattr(asset, "access", None) == "opendap":
+            raise UnsupportedOutputError(
+                "OPeNDAP results are not opened or downloaded by earthaccess; "
+                "open them with xarray, e.g. "
+                "xr.open_mfdataset([a.href for a in job.results()], "
+                "engine='pydap', session=ea.get_requests_https_session())"
+            )
+        hrefs.append(asset.href)
+    return hrefs
+
+
 def download(
     granules: Union[DataGranule, List[DataGranule], str, List[str], Job],
     path: Optional[Union[Path, str, TargetLocation]] = None,
@@ -594,7 +614,7 @@ def download(
                 f"cannot download output={granules.output!r}; "
                 "only 'assets' jobs can be downloaded"
             )
-        granules = [asset.href for asset in granules.results()]
+        granules = _asset_hrefs(granules.results())
 
     if isinstance(granules, DataGranule):
         granules = [granules]
@@ -692,7 +712,7 @@ def open(
         # already usable objects; asset outputs become their hrefs.
         if granules.output != "assets":
             return granules.results()
-        granules = [asset.href for asset in granules.results()]
+        granules = _asset_hrefs(granules.results())
 
     store = earthaccess.__store__
     if store is None:
