@@ -47,12 +47,14 @@ dependencies = [
   "typing_extensions >=4.10.0",
   "pystac >=1.8",
   "tqdm >=4.66",
-  "earthaccess-plugin-spec >=0.1.0",
+  "earthaccess-plugin-spec @ git+https://github.com/betolink/earthaccess-plugin-spec.git@main",
 ]
 
-# The plugin contract lives on GitHub until it is published to PyPI.
-[tool.uv.sources]
-earthaccess-plugin-spec = { git = "https://github.com/betolink/earthaccess-plugin-spec.git", branch = "main" }
+# The plugin contract lives on GitHub until it is published to PyPI. A direct
+# URL in [project.dependencies] is honored by both pip and uv (pip ignores
+# [tool.uv.sources]); hatchling requires opting in.
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [project.urls]
 Repository = "https://github.com/earthaccess-dev/earthaccess"
@@ -108,6 +110,8 @@ all = [
   "earthaccess[virtualizarr]",
   "earthaccess[widgets]",
 ]
+
+[dependency-groups]
 dev = [
   "bump-my-version >=0.10.0",
   "nox",

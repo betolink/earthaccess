@@ -6,9 +6,10 @@ with earthaccess through the `earthaccess.plugins` entry-point group and appears
 under `ea.plugins` once installed.
 
 ```bash
-pip install earthaccess-plugin-harmony   # subset/transform with Harmony
-pip install earthaccess-plugin-pydap     # lazy OPeNDAP access
-pip install earthaccess-plugin-sliderule # ICESat-2 / GEDI processing
+# The plugins are not on PyPI yet; install them from GitHub.
+pip install "earthaccess-plugin-harmony @ git+https://github.com/betolink/earthaccess-plugin-harmony"   # subset/transform with Harmony
+pip install "earthaccess-plugin-pydap @ git+https://github.com/betolink/earthaccess-plugin-pydap"       # lazy OPeNDAP access
+pip install "earthaccess-plugin-sliderule @ git+https://github.com/betolink/earthaccess-plugin-sliderule" # ICESat-2 / GEDI processing
 ```
 
 ## The model

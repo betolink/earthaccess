@@ -27,7 +27,7 @@ jobs:
           enable-cache: true
 
       - name: Install docs dependencies
-        run: uv sync --frozen --extra docs
+        run: uv sync --frozen --group docs
 
       - name: Build docs (no notebook execution)
         run: uv run mkdocs build -f mkdocs.gh-pages.yml

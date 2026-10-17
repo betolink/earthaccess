@@ -78,6 +78,10 @@ plugins:
         - "tutorials/cmr-to-stac.ipynb"
         - "tutorials/results/results-class.ipynb"
         - "tutorials/advanced-search/filter-bands.ipynb"
+        # Plugin tutorials need a plugin installed plus live EDL/service access.
+        - "tutorials/plugins/harmony.ipynb"
+        - "tutorials/plugins/pydap.ipynb"
+        - "tutorials/plugins/sliderule.ipynb"
         - "user/howto/edl.ipynb"
         - "user/explanation/fsspec.ipynb"
       ignore:
