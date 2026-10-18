@@ -175,9 +175,9 @@ docs = [
   "earthaccess[virtualizarr]",
   "cftime>=1.6.4",
   "cartopy>=0.24.1",
-  # Interactive photon-return plots in the SlideRule tutorial.
+  # Interactive photon-return plot in the SlideRule tutorial.
   "panel >=1.4",
-  "geoviews >=1.12",
+  "holoviews >=1.19",
   "datashader >=0.16",
 ]
 

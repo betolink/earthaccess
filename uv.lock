@@ -1648,8 +1648,8 @@ docs = [
     { name = "dask" },
     { name = "datashader" },
     { name = "earthaccess", extra = ["virtualizarr"] },
-    { name = "geoviews" },
     { name = "h5netcdf" },
+    { name = "holoviews" },
     { name = "ipywidgets" },
     { name = "jupyterlab" },
     { name = "lxml-html-clean" },
@@ -1751,8 +1751,8 @@ docs = [
     { name = "dask", specifier = ">=2024.8.0" },
     { name = "datashader", specifier = ">=0.16" },
     { name = "earthaccess", extras = ["virtualizarr"] },
-    { name = "geoviews", specifier = ">=1.12" },
     { name = "h5netcdf", specifier = ">=0.11" },
+    { name = "holoviews", specifier = ">=1.19" },
     { name = "ipywidgets", specifier = ">=7.7.0" },
     { name = "jupyterlab", specifier = ">=3" },
     { name = "lxml-html-clean", specifier = ">=0.1.1" },
@@ -2105,27 +2105,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/d3/6b/079d42d468f6537b0e8ba04ad411d53fe6b03070801e5b85328b01d28772/geopandas-1.2.0.tar.gz", hash = "sha256:72425b0dec1b77122b1e00f72c2b3b91f320cf0331ae236d37e26865e8808628", size = 337713, upload-time = "2026-09-28T15:53:57.721Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c7/26/10e1061c79b388621b7bae46fcd4942a8c62f960018adf4c38719e9e91ac/geopandas-1.2.0-py3-none-any.whl", hash = "sha256:948fd57df4f713697d5cce149333c0e4714965320c9f5ffa411666c577962eba", size = 368068, upload-time = "2026-09-28T15:53:55.62Z" },
-]
-
-[[package]]
-name = "geoviews"
-version = "1.15.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "bokeh" },
-    { name = "cartopy" },
-    { name = "holoviews" },
-    { name = "numpy" },
-    { name = "packaging" },
-    { name = "panel" },
-    { name = "param" },
-    { name = "pyproj" },
-    { name = "shapely" },
-    { name = "xyzservices" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/76/dc/e74f5997e41933aa30aea5786c407a10e1cf169bfdceeb4173111c02d5de/geoviews-1.15.1.tar.gz", hash = "sha256:c72097ef4f24895c46f95834e5c19ac185ea1c34fd610f0f956421ba515d4aad", size = 507037, upload-time = "2026-01-13T17:34:38.197Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/63/90/d0323acc02966204035bb5bcaf7385d5a1f2b5359410eb6a09f2ce380f94/geoviews-1.15.1-py3-none-any.whl", hash = "sha256:f369eb94907476e9233abe77bdd6b92340872a20845df7da0341f9a4a13309c8", size = 574718, upload-time = "2026-01-13T17:34:36.562Z" },
 ]
 
 [[package]]
