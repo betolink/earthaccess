@@ -1,5 +1,15 @@
 # _earthaccess_
 
+> **Plugin preview.** The plugin system (`ea.plugins`, `ea.open(job)`,
+> `ea.download(job)`) is only available on the
+> [`plugin-spec`](https://github.com/betolink/earthaccess/tree/plugin-spec)
+> branch of earthaccess and will be released in **v2.0.0**. It is not part of the
+> current PyPI release.
+>
+> Usage and testing instructions:
+> [plugin tutorials](docs/tutorials/plugins/index.md) ·
+> [installing the current drafts](https://github.com/betolink/earthaccess-plugin-spec/blob/main/docs/installing-drafts.md).
+
 <p align="center">
 <img alt="earthaccess, a python library to search, download or stream NASA Earth science data with just a few lines of code" src="https://user-images.githubusercontent.com/717735/205517116-7a5d0f41-7acc-441e-94ba-2e541bfb7fc8.png" width="70%" align="center" />
 </p>
