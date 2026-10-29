@@ -51,8 +51,8 @@ ea.plugins.available()          # names of known/installed plugins
 Ask before submitting — cheap and, for most plugins, offline:
 
 ```python
-ea.plugins.harmony.supports(results)          # Capabilities(ok=True/False/None, ...)
-ea.plugins.harmony.capabilities("ATL06")      # alias, by collection short name
+ea.plugins.harmony.capabilities(results)      # Capabilities(ok=True/False/None, ...)
+ea.plugins.harmony.capabilities("ATL06")      # by collection short name
 
 results.list_services()         # every installed plugin at once (no name needed)
 ea.list_services(results)       # the same, top-level
