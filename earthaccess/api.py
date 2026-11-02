@@ -1,6 +1,7 @@
 import datetime
 import json
 import logging
+from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import uuid4
@@ -1188,9 +1189,13 @@ def get_edl_token() -> str:
     if not isinstance(auth, Auth):
         raise RuntimeError("Authentication object is not properly initialized")
     token = auth.token
-    if not isinstance(token, str):
-        raise RuntimeError("Token is not available or not in expected format")
-    return token
+    if isinstance(token, Mapping):
+        access_token = token.get("access_token")
+        if isinstance(access_token, str):
+            return access_token
+    elif isinstance(token, str):
+        return token
+    raise RuntimeError("Token is not available or not in expected format")
 
 
 def auth_environ() -> Dict[str, str]:
