@@ -159,6 +159,15 @@ delta, and writes `B`. `requires_results` is effectively false when only `source
 is given (sliderule precedent). Create vs append is decided by target-store
 existence; no user flag.
 
+**Composing with other plugins (implemented):** `assets=` takes a list of file
+assets or URLs — for example a Harmony subset — and virtualizes them directly.
+The parser defaults to `HDFParser` (derived files have no DMR++ sidecars), and
+the registry comes from the URLs: `s3://` uses environment AWS credentials
+(requester buckets, not NASA S3 credentials), NASA HTTPS hosts get the EDL
+bearer, other hosts stay anonymous. OPeNDAP assets (pydap) are rejected: a DAP
+response is not a byte-range-readable file. `source=` remains the store-to-store
+merge; `assets=` and `source=` cannot be combined.
+
 ### 3.4 Format model
 
 | | `format="icechunk"` (default) | `format="kerchunk"` |
