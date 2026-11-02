@@ -339,6 +339,13 @@ conformance run against `VDSPlugin` with a fake backend in CI.
   convention already matches).
 - `pyproject.toml`: re-pin spec `@v0.3.0`, refresh `uv.lock`, add optional extra
   `vds = ["earthaccess-plugin-vds @ git+…"]`.
+
+**Decision (2026-11-02): `open_virtual()` stays.** The plugin supersedes only the
+**write** half (`virtualize()` + `write_virtual()`). `open_virtual()` remains the
+specialized virtual reader (`access=`, `force_external=`,
+`authorize_virtual_chunk_access=`, `storage_options=`, `load=False` manifest
+form, `DataCollection` URIs), and `ea.open(asset)` is the generic shorthand for
+the common case. No deprecation shim is planned for `open_virtual()`.
 - Notebooks (§9) + `docs/tutorials/plugins/index.md` row; remove
   `docs/tutorials/icechunk_virtual.ipynb` (superseded), update
   `docs/tutorials/vds/index.md` and `docs/.nav.yml` accordingly.
@@ -414,9 +421,9 @@ run manual or nightly (network-marked). Fork — existing suite must stay green.
 
 ## 12. Out of scope (follow-ups, gated on acceptance)
 
-- Deprecation shims for `ea.virtualize`/`ea.write_virtual`/`ea.open_virtual`
-  (`DeprecationWarning` → plugin/`ea.open`; removal next minor) + engine deletion
-  from core + notebook cutover.
+- Deprecation shims for `ea.virtualize`/`ea.write_virtual`
+  (`DeprecationWarning` → the plugin; removal next minor) + engine deletion from
+  core + notebook cutover. `open_virtual()` is kept (specialized reader).
 - `from_assets()` composition (harmony/pydap outputs → virtualize into a store).
 - Real-S3 store integration runs (local + LocalCluster only this phase).
 - `s3://` kerchunk refs writes beyond the fsspec path; `DataCollection` virtual
