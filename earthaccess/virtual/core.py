@@ -646,6 +646,50 @@ def _authorize_vccs(
     return config_to_pass, mapping
 
 
+def _icechunk_storage(
+    uri: str,
+    storage_options: dict[str, Any] | None = None,
+    access: str = "indirect",
+) -> Any:
+    """Resolve *uri* to the icechunk ``Storage`` for its repository."""
+
+    import icechunk
+
+    from urllib.parse import urlparse
+
+    parsed = urlparse(uri)
+
+    if access == "direct" or parsed.scheme == "s3":
+        opts = dict(storage_options) if storage_options else {}
+        return icechunk.s3_storage(
+            bucket=parsed.netloc,
+            prefix=parsed.path.lstrip("/"),
+            **opts,
+        )
+    if parsed.scheme in ("http", "https"):
+        if storage_options:
+            return icechunk.http_storage(uri, storage_options)
+        if _is_nasa_url(uri) and (token := _edl_bearer_token()):
+            return icechunk.http_storage(
+                uri,
+                headers={"Authorization": f"Bearer {token}"},
+            )
+        return icechunk.redirect_storage(uri)
+    if parsed.scheme == "file":
+        return icechunk.local_filesystem_storage(parsed.path)
+    return icechunk.local_filesystem_storage(uri)
+
+
+def _as_url(uri: str) -> str:
+    """Return a URL VirtualiZarr accepts (local paths become ``file://``)."""
+
+    from urllib.parse import urlparse
+
+    if urlparse(uri).scheme:
+        return uri
+    return Path(uri).expanduser().resolve().as_uri()
+
+
 def _open_icechunk(
     uri: str,
     storage_options: dict[str, Any] | None = None,
@@ -665,32 +709,7 @@ def _open_icechunk(
             msg,
         ) from exc
 
-    from urllib.parse import urlparse
-
-    parsed = urlparse(uri)
-
-    if access == "direct" or parsed.scheme == "s3":
-        opts = dict(storage_options) if storage_options else {}
-        storage = icechunk.s3_storage(
-            bucket=parsed.netloc,
-            prefix=parsed.path.lstrip("/"),
-            **opts,
-        )
-    elif parsed.scheme in ("http", "https"):
-        if storage_options:
-            storage = icechunk.http_storage(uri, storage_options)
-        elif _is_nasa_url(uri) and (token := _edl_bearer_token()):
-            storage = icechunk.http_storage(
-                uri,
-                headers={"Authorization": f"Bearer {token}"},
-            )
-        else:
-            storage = icechunk.redirect_storage(uri)
-    elif parsed.scheme == "file":
-        storage = icechunk.local_filesystem_storage(parsed.path)
-    else:
-        storage = icechunk.local_filesystem_storage(uri)
-
+    storage = _icechunk_storage(uri, storage_options, access)
     config, vcc_map = _authorize_vccs(
         storage,
         collection=None,
@@ -705,6 +724,61 @@ def _open_icechunk(
     session = repo.readonly_session("main")
     store = session.store
     return xr.open_zarr(store, **kwargs)
+
+
+def _open_icechunk_virtual(
+    uri: str,
+    storage_options: dict[str, Any] | None = None,
+    access: str = "indirect",
+    authorize_virtual_chunk_access: dict[str, Any] | None = None,
+    **kwargs: Any,
+) -> xr.Dataset:
+    """Open an icechunk store as a manifest-form Dataset (``load=False``).
+
+    Variables stay ``ManifestArray``-backed so the result can be combined and
+    written again without reading chunk bytes. Coordinate values are attached
+    concretely because xarray needs them to concatenate.
+    """
+
+    try:
+        import icechunk
+        import virtualizarr as vz
+        import xarray as xr
+        from virtualizarr.parsers import IcechunkParser
+    except ImportError as exc:
+        msg = (
+            "earthaccess.open_virtual(load=False) with an Icechunk store "
+            "requires `pip install earthaccess[virtualizarr]`"
+        )
+        raise ImportError(
+            msg,
+        ) from exc
+
+    storage = _icechunk_storage(uri, storage_options, access)
+    config, vcc_map = _authorize_vccs(
+        storage,
+        collection=None,
+        explicit=authorize_virtual_chunk_access,
+    )
+    repo = icechunk.Repository.open(
+        storage=storage,
+        config=config,
+        authorize_virtual_chunk_access=vcc_map or None,
+    )
+    concrete = xr.open_zarr(repo.readonly_session("main").store, consolidated=False)
+
+    url = _as_url(uri)
+    group = kwargs.pop("group", None)
+    parser = IcechunkParser(group=group, skip_variables=list(concrete.coords))
+    vds = vz.open_virtual_dataset(
+        url,
+        parser=parser,
+        registry=_build_registry_for_url(url),
+        **kwargs,
+    )
+    for name in concrete.coords:
+        vds.coords[name] = concrete[name]
+    return vds
 
 
 def _open_kerchunk(
@@ -1095,6 +1169,10 @@ def _build_registry_for_url(url: str) -> Any:
     stores: dict[str, Any] = {"file://": LocalStore.from_url("file:///")}
 
     parsed = urlparse(url)
+    if parsed.scheme == "s3":
+        from obstore.store import S3Store
+
+        stores[f"s3://{parsed.netloc}"] = S3Store(bucket=parsed.netloc)
     if parsed.scheme == "https":
         try:
             token = earthaccess.__auth__.token["access_token"]
@@ -1317,7 +1395,8 @@ def open_virtual(  # noqa: PLR0913
                 authorize_virtual_chunk_access=authorize_virtual_chunk_access,
                 **kwargs,
             )
-        return _open_icechunk(
+        opener = _open_icechunk_virtual if not load else _open_icechunk
+        return opener(
             url,
             storage_options=storage_options,
             access=access,

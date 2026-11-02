@@ -147,3 +147,33 @@ def test_virtual_collection_url_is_none_without_the_link() -> None:
     collection = _collection([{"Type": "GET DATA", "URL": "https://example.com/data"}])
 
     assert collection.virtual_collection_url() is None
+
+
+# ---------------------------------------------------------------------------
+# open_virtual(load=False) for icechunk
+# ---------------------------------------------------------------------------
+
+
+def test_open_virtual_dispatches_load_false_to_the_manifest_reader(
+    monkeypatch: Any,
+) -> None:
+    from earthaccess.virtual import core
+
+    calls: list[tuple[str, str]] = []
+
+    def manifest(url: str, **kwargs: Any) -> Any:
+        del kwargs
+        calls.append(("manifest", url))
+        return "VDS"
+
+    def concrete(url: str, **kwargs: Any) -> Any:
+        del kwargs
+        calls.append(("concrete", url))
+        return "DS"
+
+    monkeypatch.setattr(core, "_open_icechunk_virtual", manifest)
+    monkeypatch.setattr(core, "_open_icechunk", concrete)
+
+    assert core.open_virtual("store.icechunk", load=False) == "VDS"
+    assert core.open_virtual("store.icechunk", load=True) == "DS"
+    assert calls == [("manifest", "store.icechunk"), ("concrete", "store.icechunk")]

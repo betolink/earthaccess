@@ -112,3 +112,8 @@ Temporary Items
 
 # SlideRule tutorial GeoParquet cache
 boulder_photons.parquet
+
+# Store artifacts written by the tutorials' notebooks
+docs/tutorials/plugins/*.icechunk/
+docs/tutorials/plugins/*_refs*.parquet/
+docs/tutorials/*.icechunk/
