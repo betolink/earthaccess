@@ -5,9 +5,11 @@ fourth plugin, **`vds`**, that virtualizes granules, creates/appends virtual sto
 (icechunk default, kerchunk-parquet alternative), runs on a user-supplied Dask cluster,
 and reports progress through the `Job` contract.
 
-Status: design agreed in conversation (2026-11-02). Implementation starting —
-branches `virtual-plugin` (fork) and `vds-contract` (spec) created; this file is
-the canonical plan.
+Status: design agreed in conversation (2026-11-02). Implementation in
+progress — branches `virtual-plugin` (fork) and `vds-contract` (spec) exist;
+Phase 1 (contract) and the engine slice of Phase 2 are done. Live progress and
+handoff notes: `~/github/betolink/earthaccess-plugin-vds/TODO.md`. This file
+remains the canonical design.
 
 ---
 
