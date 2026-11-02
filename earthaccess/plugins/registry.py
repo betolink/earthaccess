@@ -35,6 +35,10 @@ _KNOWN: dict[str, tuple[str, str]] = {
         "earthaccess-sliderule",
         "On-demand ICESat-2 and GEDI processing with SlideRule",
     ),
+    "vds": (
+        "earthaccess-plugin-vds",
+        "Virtual datasets: virtualize granules into icechunk / kerchunk stores",
+    ),
 }
 _RESERVED = {"get", "available"}
 

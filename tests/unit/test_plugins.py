@@ -94,7 +94,7 @@ def test_names_merge_installed_and_known(entry_point_source):
     names = registry.names()
 
     assert names == sorted(names)
-    assert {"fake", "harmony", "pydap", "sliderule"} <= set(names)
+    assert {"fake", "harmony", "pydap", "sliderule", "vds"} <= set(names)
 
 
 def test_list_plugins_reports_installed_and_missing(entry_point_source):

@@ -22,6 +22,7 @@ from earthaccess.exceptions import LoginStrategyUnavailable, ServiceOutage
 from earthaccess.search import (
     CollectionQuery,
     CollectionResults,
+    DataCollection,
     DataCollections,
     DataGranule,
     DataGranules,
@@ -32,7 +33,7 @@ from earthaccess.search import (
 
 from .auth import PROD, Auth, System
 from .auth.system import route
-from .plugins import Job, UnsupportedOutputError
+from .plugins import Asset, Job, UnsupportedOutputError
 from .search.query import (
     CollectionQuery as NewCollectionQuery,
     GranuleQuery as NewGranuleQuery,
@@ -528,6 +529,37 @@ def _split_assets(assets: Any) -> tuple[List[Any], List[Any]]:
     return files, opendap
 
 
+_VIRTUAL_FORMATS = frozenset({"icechunk", "kerchunk"})
+
+
+def _is_virtual_asset(value: Any) -> bool:
+    """Whether *value* is an Asset naming a virtual store (not a file)."""
+
+    if isinstance(value, (str, Path, bytes, list, tuple, dict)):
+        return False
+    return getattr(value, "format", None) in _VIRTUAL_FORMATS
+
+
+def _looks_like_icechunk_store(value: Union[str, Path]) -> bool:
+    """Cheap icechunk-URI sniff: scheme, suffix, or the first-snapshot marker."""
+
+    text = str(value)
+    if text.startswith("icechunk://") or text.rstrip("/").endswith(".icechunk"):
+        return True
+    path = Path(text)
+    return (path / "snapshots" / "1CECHNKREP0F1RSTCMT0").is_file()
+
+
+def _open_virtual_asset(asset: Any, *, load: bool) -> Any:
+    return _open_virtual(asset.href, load=load)
+
+
+def _open_virtual(uri: Any, *, load: bool) -> Any:
+    from .virtual import open_virtual
+
+    return open_virtual(uri, load=load)
+
+
 def _download_opendap(
     assets: Any, path: Optional[Union[Path, str, TargetLocation]]
 ) -> List[Path]:
@@ -685,7 +717,16 @@ def download(
 
 
 def open(
-    granules: Union[List[str], List[DataGranule], Job],
+    granules: Union[
+        str,
+        Path,
+        List[str],
+        List[DataGranule],
+        "Asset",
+        List["Asset"],
+        "DataCollection",
+        Job,
+    ],
     provider: Optional[str] = None,
     *,
     credentials_endpoint: Optional[str] = None,
@@ -693,7 +734,8 @@ def open(
     max_workers: Optional[int] = None,
     open_kwargs: Optional[Dict[str, Any]] = None,
     parallel: Union[str, bool, None] = None,
-) -> Union[List[AbstractFileSystem], List[str]]:
+    load: bool = True,
+) -> Union[List[AbstractFileSystem], List[str], "Any"]:
     """Returns a list of file-like objects that can be used to access files
     hosted on S3 or HTTPS by third party libraries like xarray.
 
@@ -708,11 +750,17 @@ def open(
         open_kwargs: Additional keyword arguments to pass to `fsspec.open`, such as `cache_type` and `block_size`.
             Defaults to using `blockcache` with a block size determined by the file size (4 to 16MB).
         parallel: Executor type for parallel file opening. Options: "threads" (default), "serial", "dask", "lithops".
+        load: When the input is a virtual store (an ``Asset`` with format
+            ``icechunk``/``kerchunk``, a local icechunk store path, or a
+            ``DataCollection`` advertising one), ``True`` (default) returns a
+            concrete lazily-loaded dataset; ``False`` returns the manifest-form
+            virtual dataset. Ignored for regular file/granule inputs.
 
     Returns:
         A list of "file pointers" to remote (i.e. s3 or https) files. For a
         plugin job whose assets are OPeNDAP URLs, a list of those URLs to open
-        with xarray (``engine="pydap"``).
+        with xarray (``engine="pydap"``). For a virtual store, the opened
+        xarray dataset (or a list of them for a list / plugin job of stores).
 
     Examples:
         Open granules and load with xarray:
@@ -747,13 +795,35 @@ def open(
     if isinstance(granules, Job):
         # A plugin job: wait for it. Non-asset outputs (xarray / dataframe) are
         # already usable objects; asset outputs become hrefs. OPeNDAP assets are
-        # returned as URLs to open with xarray (engine="pydap").
+        # returned as URLs to open with xarray (engine="pydap"), and virtual
+        # stores (vds) are opened as datasets.
         if granules.output != "assets":
             return granules.results()
         files, opendap = _split_assets(granules.results())
+        virtual = [asset for asset in files if _is_virtual_asset(asset)]
+        if virtual:
+            if opendap or len(virtual) != len(files):
+                raise UnsupportedOutputError(
+                    "cannot mix virtual stores with file assets in one job"
+                )
+            return [_open_virtual_asset(asset, load=load) for asset in virtual]
         if opendap:
             return [asset.href for asset in opendap]
         granules = [asset.href for asset in files]
+
+    # A virtual store is opened as a dataset, not as a file pointer.
+    if _is_virtual_asset(granules):
+        return _open_virtual_asset(granules, load=load)
+    if (
+        isinstance(granules, list)
+        and granules
+        and all(_is_virtual_asset(asset) for asset in granules)
+    ):
+        return [_open_virtual_asset(asset, load=load) for asset in granules]
+    if isinstance(granules, (str, Path)) and _looks_like_icechunk_store(granules):
+        return _open_virtual(granules, load=load)
+    if isinstance(granules, DataCollection):
+        return _open_virtual(granules, load=load)
 
     store = earthaccess.__store__
     if store is None:

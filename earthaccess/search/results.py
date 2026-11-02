@@ -380,6 +380,23 @@ class DataCollection(CustomDict):
         """
         return self["umm"].get("DirectDistributionInformation", {})
 
+    def virtual_collection_url(self) -> Optional[str]:
+        """Return the collection's virtual-store URL, if CMR advertises one.
+
+        Virtual collections are marked by a ``VIRTUAL COLLECTION`` subtype on a
+        RelatedUrl (usually type ``GET DATA``) whose ``URL`` points at the
+        virtual store (for example an icechunk repository).
+
+        Returns:
+            The store URL, or ``None`` when the collection does not advertise
+            a virtual collection.
+        """
+        for link in self["umm"].get("RelatedUrls", []):
+            kind = f"{link.get('Type', '')} {link.get('Subtype', '')}".upper()
+            if "VIRTUAL COLLECTION" in kind:
+                return link.get("URL") or None
+        return None
+
     def get_s3_credentials(self) -> Dict[str, str]:
         """Return temporary S3 credentials for this collection.
 
