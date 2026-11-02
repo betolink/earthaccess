@@ -80,6 +80,9 @@ ds = ea.open(asset.href)
 
 # just a virtual dataset (nothing persisted)
 vds = ea.plugins.vds.request(results, concat_dim="time").results()
+
+# store-to-store merge: open one store, append it to another (both formats work)
+job = ea.plugins.vds.request(store="cube_v2", source="cube_v1", append_dim="time")
 ```
 
 Required-ish kwargs only: `concat_dim` (multi-granule) and `group` (non-root groups).
@@ -95,6 +98,7 @@ class Options:
     store: S3Store | LocalStore | str | Path | None = None
     prefix: str | None = None                    # repo prefix when store= is an S3Store
     format: Literal["icechunk", "kerchunk"] = "icechunk"
+    source: str | Path | Asset | None = None     # existing store to merge INTO `store`
     append_dim: str | None = None                # defaults to concat_dim when store exists
     replace: bool = False                        # kerchunk: rewrite in place, stable href
     commit: bool = True                          # icechunk only
@@ -125,14 +129,33 @@ custom refs use `load=False` + `vds.virtualize.to_kerchunk()`). `parallel` and
 resolution — local threads, or the user's active distributed `Client` when they have
 one (cluster setup, including secrets, is the user's separate concern).
 
-### 3.3 Output kinds & Asset
+### 3.3 Output kinds, `load`, and merging
 
-- `store is None` → `output="virtual"` (ManifestArray Dataset / DataTree); `"xarray"`
-  if `load=True`.
-- `store` given → virtualize + write in one job, `output="assets"`:
-  `[Asset(href=<store uri>, access="file"|"s3", auth="none", format="icechunk"|"kerchunk")]`.
-- Create vs append decided by store existence (icechunk: `Repository.exists`;
-  kerchunk: refs dir exists). No user flag.
+**A virtualization operation's output is an Asset.** The plugin declares
+`output = "assets"` (its primary mode); the non-persisting modes override per job
+exactly the way pydap does (`self.job(fn, output=…)`):
+
+| Mode | `output` | `results()` |
+|---|---|---|
+| `store=` given (create / append / merge) | `"assets"` | `[Asset(href=store, access="file"\|"s3", auth="none", format="icechunk"\|"kerchunk")]` |
+| `store=None`, `load=False` | `"virtual"` | ManifestArray Dataset / DataTree (for in-memory combine, preprocess chains) |
+| `store=None`, `load=True` | `"xarray"` | concrete lazily-loaded Dataset (temp **parquet** refs round-trip) |
+
+**`load` is only valid without `store`.** Persisting and reading are separate
+concerns: with `store=` the job returns the Asset, and materializing is `ea.open`'s
+job — `ds = ea.open(asset.href, load=True)`. Passing `load=True` together with
+`store=` raises a `ValueError` saying exactly that. The internal round-trip is
+parquet-only (no JSON anywhere).
+
+**Appending never loads.** The existing store is reopened in manifest form —
+`IcechunkParser` (branch/tag/snapshot pinning supported) or `KerchunkParquetParser`
+— so append is manifests-in, manifests-out.
+
+**Store-to-store merge:** `request(store=B, source=A, append_dim=…)` opens `A`
+with the parser sniffed from its URI/Asset format, combines it with any granule
+delta, and writes `B`. `requires_results` is effectively false when only `source`
+is given (sliderule precedent). Create vs append is decided by target-store
+existence; no user flag.
 
 ### 3.4 Format model
 
@@ -256,7 +279,8 @@ src/earthaccess_vds/
 `_parser.py` → `parser.py`; `_credentials.py::build_obstore_registry` →
 `credentials.py`; `core.py::write_virtual`/`_write_virtual_to_icechunk`/
 `_derive_vccs_from_vds` → `writer.py`; `core.py::_open_virtual_via_virtualizarr`
-(parquet branch only) → `engine.open_refs_store`. **Not ported:** `open_virtual*`
+(parquet branch only; **plus `IcechunkParser` for icechunk stores** — both feed
+manifest-form reopening for append and `source=` merges) → `engine.open_refs_store`. **Not ported:** `open_virtual*`
 (reading stays in core behind `ea.open()` this phase), legacy `dmrpp.py`/`kerchunk.py`.
 
 **Progress:** `ProgressExecutor` (a `concurrent.futures`-compatible Executor
