@@ -12,7 +12,6 @@ class LoginStrategyUnavailable(Exception):
     a `LoginAttemptFailure` should be thrown instead.
     """
 
-    pass
 
 
 class LoginAttemptFailure(Exception):
@@ -27,7 +26,6 @@ class LoginAttemptFailure(Exception):
     thrown instead.
     """
 
-    pass
 
 
 class DownloadFailure(Exception):
@@ -37,7 +35,6 @@ class DownloadFailure(Exception):
     the file could not be retrieved or the download process was interrupted.
     """
 
-    pass
 
 
 class ServiceOutage(Exception):
@@ -47,12 +44,22 @@ class ServiceOutage(Exception):
     outages that prevent normal operations.
     """
 
-    pass
+
+
+class CredentialDistributionError(Exception):
+    """Credentials could not be delivered to the requested workers.
+
+    Raised when no private channel is available (for example a plain Dask
+    cluster without Coiled's ``send_private_envs``) and the caller did not
+    explicitly opt in to sending the values through the scheduler.
+    """
+
 
 
 __all__ = [
-    "LoginStrategyUnavailable",
-    "LoginAttemptFailure",
+    "CredentialDistributionError",
     "DownloadFailure",
+    "LoginAttemptFailure",
+    "LoginStrategyUnavailable",
     "ServiceOutage",
 ]

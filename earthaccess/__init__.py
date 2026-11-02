@@ -66,7 +66,7 @@ from .api import (
     search_services,
     status,
 )
-from .auth import Auth
+from .auth import Auth, distribute_credentials
 from .auth.system import PROD, UAT, get_proxy, set_proxy
 from .plugins import list_plugins, list_services
 from .search import (
@@ -100,6 +100,7 @@ __all__ = [
     "get_proxy",
     # auth.py
     "Auth",
+    "distribute_credentials",
     # search.py
     "DataCollection",
     "DataCollections",

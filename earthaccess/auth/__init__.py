@@ -12,6 +12,7 @@ from earthaccess.auth.credentials import (
     HTTPHeaders,
     S3Credentials,
 )
+from earthaccess.auth.distribute import distribute_credentials
 from earthaccess.auth.system import PROD, UAT, System, get_proxy, set_proxy
 
 __all__ = [
@@ -24,6 +25,8 @@ __all__ = [
     "HTTPHeaders",
     "AuthContext",
     "CredentialManager",
+    # distribute.py
+    "distribute_credentials",
     # system.py
     "PROD",
     "UAT",

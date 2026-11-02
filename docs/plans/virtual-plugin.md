@@ -202,6 +202,15 @@ Cluster setup is a separate concern: the user creates their `Client` (Coiled,
 default scheduler resolution routes the work there. No `scheduler_url` option
 exists — passing it raises `TypeError` from Options validation.
 
+**Remote-cluster credential distribution** is a core helper, not a plugin
+option: `ea.distribute_credentials(env, client=…|cluster=…|scheduler=…)`. It
+prefers Coiled's private `cluster.send_private_envs()` channel, refuses a plain
+Dask cluster unless `private=False` is passed explicitly (which sends the values
+through `client.run`), and returns only the keys it set — never values. The
+default `EARTHDATA_TOKEN` comes from the current login. The plugin itself still
+never serializes credentials; this prepares worker environments so the cluster
+executor can rebuild its registry there.
+
 ### 3.6 VCC handling and the writable session (verified against icechunk 2.3.1)
 
 The writer always runs in **write mode** with no exists/open/create branching:
