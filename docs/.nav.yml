@@ -46,7 +46,7 @@ nav:
               - "STAC Interoperability": "tutorials/odc-stac-cmr.ipynb"
           - Virtual Datasets (VDS):
               - "Virtual datasets (VDS) tutorials": "tutorials/vds/index.md"
-              - "Virtual data with Icechunk": "tutorials/icechunk_virtual.ipynb"
+              - "Virtual stores (icechunk / kerchunk) with the vds plugin": "tutorials/plugins/vds.ipynb"
               - "VDS Strategies": "tutorials/virtualize_combine_tree.ipynb"
               - "Virtual datasets with TEMPO": "user/tutorials/virtual_dataset_tutorial_with_TEMPO_Level3.ipynb"
               - "DMRPP + VirtualiZarr": "user/tutorials/dmrpp-virtualizarr.ipynb"
@@ -66,6 +66,7 @@ nav:
               - "Harmony: subset and transform": "tutorials/plugins/harmony.ipynb"
               - "PyDAP: OPeNDAP access": "tutorials/plugins/pydap.ipynb"
               - "SlideRule: ICESat-2 and GEDI": "tutorials/plugins/sliderule.ipynb"
+              - "VDS: virtual stores with the vds plugin": "tutorials/plugins/vds.ipynb"
       - Explanation:
           - "Authentication": "user/explanation/authenticate.md"
           - "Status": "user/explanation/status.md"

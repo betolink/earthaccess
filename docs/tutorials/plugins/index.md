@@ -10,6 +10,7 @@ under `ea.plugins` once installed.
 pip install "earthaccess-plugin-harmony @ git+https://github.com/betolink/earthaccess-plugin-harmony"   # subset/transform with Harmony
 pip install "earthaccess-plugin-pydap @ git+https://github.com/betolink/earthaccess-plugin-pydap"       # lazy OPeNDAP access
 pip install "earthaccess-plugin-sliderule @ git+https://github.com/betolink/earthaccess-plugin-sliderule" # ICESat-2 / GEDI processing
+pip install "earthaccess-plugin-vds @ git+https://github.com/betolink/earthaccess-plugin-vds"             # virtual icechunk / kerchunk stores
 ```
 
 ## The model
@@ -35,6 +36,7 @@ job.results()     # blocks, returns the plugin's output
 | [`harmony`](harmony.ipynb) | subset / reproject / reformat in the cloud | `list[Asset]` (files) |
 | [`pydap`](pydap.ipynb) | OPeNDAP access as a request | OPeNDAP URLs (or native pydap datasets) |
 | [`sliderule`](sliderule.ipynb) | on-demand ICESat-2 / GEDI processing | `GeoDataFrame` |
+| [`vds`](vds.ipynb) | virtual stores: create/append icechunk or kerchunk-parquet | `list[Asset]` (store hrefs) |
 
 ## Discovering plugins
 

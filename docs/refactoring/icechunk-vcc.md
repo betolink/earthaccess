@@ -113,8 +113,8 @@ A `>=2.1` icechunk floor is required for HTTP VCC header support.
 
 ## Example
 
-See the `icechunk_virtual` tutorial notebook
-([docs/tutorials/icechunk_virtual.ipynb](../tutorials/icechunk_virtual.ipynb))
+See the vds tutorial notebook
+([docs/tutorials/plugins/vds.ipynb](../tutorials/plugins/vds.ipynb))
 for a full MUR SST create → open → append → re-open workflow.
 
 ```python

@@ -24,10 +24,10 @@ In this section you will learn to:
 
 ## Tutorials
 
-- [Virtual datasets with Icechunk](../icechunk_virtual.ipynb) — create a local
-  Icechunk store from virtualized granules, append new data along `time`, and
-  reopen it. Demonstrates `virtualize()`, `write_virtual()`, and `open_virtual()`
-  with automatic VCC authorization.
+- [Virtual stores with the vds plugin](../plugins/vds.ipynb) — create a local
+  Icechunk or kerchunk-parquet store from granules with one request, watch the
+  job's progress, append new data along `time`, and reopen the store with
+  `ea.open()`.
 - [VDS Strategies](../virtualize_combine_tree.ipynb) —
   align granules by coordinates (`combine="by_coords"`), virtualize a single
   file, and return an `xr.DataTree` (`tree=True`).
