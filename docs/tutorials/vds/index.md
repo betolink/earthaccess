@@ -24,6 +24,9 @@ In this section you will learn to:
 
 ## Tutorials
 
+- [VDS in depth](../plugins/vds-in-depth.ipynb) — compose with Harmony output,
+  merge stores with `source=`, inspect the manifest form, and run on a Dask
+  cluster with credential delivery.
 - [Virtual stores with the vds plugin](../plugins/vds.ipynb) — create a local
   Icechunk or kerchunk-parquet store from granules with one request, watch the
   job's progress, append new data along `time`, and reopen the store with

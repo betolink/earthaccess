@@ -38,6 +38,8 @@ job.results()     # blocks, returns the plugin's output
 | [`sliderule`](sliderule.ipynb) | on-demand ICESat-2 / GEDI processing | `GeoDataFrame` |
 | [`vds`](vds.ipynb) | virtual stores: create/append icechunk or kerchunk-parquet | `list[Asset]` (store hrefs) |
 
+See also [VDS in depth](vds-in-depth.ipynb): composing with Harmony output, pydap's OPeNDAP limit, `source=` merges, the manifest form, kerchunk versioning, and running on a Dask cluster.
+
 ## Discovering plugins
 
 ```python
